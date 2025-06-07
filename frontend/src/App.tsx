@@ -35,17 +35,24 @@ export default function App() {
   const prev = () => setCurrent((c) => Math.max(c - 1, 0));
 
   return (
-    <div className="container mx-auto max-w-2xl p-4">
-      <h1 className="text-2xl font-bold mb-4 text-center">DiagnoAssist</h1>
-      <StepNavigation steps={steps} current={current} />
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-2xl bg-white rounded-lg shadow p-6">
+        <h1 className="text-3xl font-bold mb-6 text-center text-blue-700">DiagnoAssist</h1>
+        <StepNavigation steps={steps} current={current} />
       {current === 0 && (
         <div className="space-y-4">
           <div>
             <label className="block mb-1 font-medium">Chief Complaint</label>
             <input
               className="border rounded w-full p-2"
+              placeholder="Describe the issue"
+              autoCorrect="on"
+              autoCapitalize="sentences"
+              spellCheck
               value={patientInfo.chiefComplaint}
-              onChange={(e) => setPatientInfo({ ...patientInfo, chiefComplaint: e.target.value })}
+              onChange={(e) =>
+                setPatientInfo({ ...patientInfo, chiefComplaint: e.target.value })
+              }
             />
           </div>
           <div>
@@ -53,8 +60,14 @@ export default function App() {
             <textarea
               className="border rounded w-full p-2"
               rows={4}
+              placeholder="Additional details"
+              autoCorrect="on"
+              autoCapitalize="sentences"
+              spellCheck
               value={patientInfo.details}
-              onChange={(e) => setPatientInfo({ ...patientInfo, details: e.target.value })}
+              onChange={(e) =>
+                setPatientInfo({ ...patientInfo, details: e.target.value })
+              }
             />
           </div>
         </div>
@@ -67,8 +80,14 @@ export default function App() {
             <textarea
               className="border rounded w-full p-2"
               rows={4}
+              placeholder="Past illnesses, surgeries, etc."
+              autoCorrect="on"
+              autoCapitalize="sentences"
+              spellCheck
               value={history.history}
-              onChange={(e) => setHistory({ ...history, history: e.target.value })}
+              onChange={(e) =>
+                setHistory({ ...history, history: e.target.value })
+              }
             />
           </div>
           <div>
@@ -76,8 +95,14 @@ export default function App() {
             <textarea
               className="border rounded w-full p-2"
               rows={3}
+              placeholder="Your notes"
+              autoCorrect="on"
+              autoCapitalize="sentences"
+              spellCheck
               value={history.observations}
-              onChange={(e) => setHistory({ ...history, observations: e.target.value })}
+              onChange={(e) =>
+                setHistory({ ...history, observations: e.target.value })
+              }
             />
           </div>
         </div>
@@ -90,22 +115,38 @@ export default function App() {
               <label className="block mb-1 font-medium">Blood Pressure</label>
               <input
                 className="border rounded w-full p-2"
+                placeholder="120/80"
+                autoCorrect="on"
+                autoCapitalize="off"
+                spellCheck
                 value={exam.bloodPressure}
-                onChange={(e) => setExam({ ...exam, bloodPressure: e.target.value })}
+                onChange={(e) =>
+                  setExam({ ...exam, bloodPressure: e.target.value })
+                }
               />
             </div>
             <div>
               <label className="block mb-1 font-medium">Heart Rate</label>
               <input
                 className="border rounded w-full p-2"
+                placeholder="beats/min"
+                autoCorrect="on"
+                autoCapitalize="off"
+                spellCheck
                 value={exam.heartRate}
-                onChange={(e) => setExam({ ...exam, heartRate: e.target.value })}
+                onChange={(e) =>
+                  setExam({ ...exam, heartRate: e.target.value })
+                }
               />
             </div>
             <div>
               <label className="block mb-1 font-medium">Height</label>
               <input
                 className="border rounded w-full p-2"
+                placeholder="cm"
+                autoCorrect="on"
+                autoCapitalize="off"
+                spellCheck
                 value={exam.height}
                 onChange={(e) => setExam({ ...exam, height: e.target.value })}
               />
@@ -114,6 +155,10 @@ export default function App() {
               <label className="block mb-1 font-medium">Weight</label>
               <input
                 className="border rounded w-full p-2"
+                placeholder="kg"
+                autoCorrect="on"
+                autoCapitalize="off"
+                spellCheck
                 value={exam.weight}
                 onChange={(e) => setExam({ ...exam, weight: e.target.value })}
               />
@@ -124,6 +169,10 @@ export default function App() {
             <textarea
               className="border rounded w-full p-2"
               rows={3}
+              placeholder="Any other findings"
+              autoCorrect="on"
+              autoCapitalize="sentences"
+              spellCheck
               value={exam.other}
               onChange={(e) => setExam({ ...exam, other: e.target.value })}
             />
@@ -146,6 +195,10 @@ export default function App() {
             <textarea
               className="border rounded w-full p-2"
               rows={3}
+              placeholder="Let us know if anything looks off"
+              autoCorrect="on"
+              autoCapitalize="sentences"
+              spellCheck
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
             />
@@ -174,6 +227,9 @@ export default function App() {
                 <input
                   className="border rounded w-full p-2 mt-1"
                   placeholder="Result"
+                  autoCorrect="on"
+                  autoCapitalize="off"
+                  spellCheck
                   value={t.result}
                   onChange={(e) => {
                     const newTests = [...tests];
@@ -193,6 +249,10 @@ export default function App() {
           <textarea
             className="border rounded w-full p-2"
             rows={4}
+            placeholder="Enter your working diagnosis"
+            autoCorrect="on"
+            autoCapitalize="sentences"
+            spellCheck
             value={finalDx}
             onChange={(e) => setFinalDx(e.target.value)}
           />
@@ -230,6 +290,7 @@ export default function App() {
           </button>
         )}
       </div>
+    </div>
     </div>
   );
 }
