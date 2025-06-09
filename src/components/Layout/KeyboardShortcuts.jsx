@@ -32,27 +32,27 @@ const KeyboardShortcuts = () => {
             break
           case '1':
             e.preventDefault()
-            navigate('/patient-info')
+            navigate('/app/patient-info')
             break
           case '2':
             e.preventDefault()
-            navigate('/physical-exam')
+            navigate('/app/physical-exam')
             break
           case '3':
             e.preventDefault()
-            navigate('/diagnostic-analysis')
+            navigate('/app/diagnostic-analysis')
             break
           case '4':
             e.preventDefault()
-            navigate('/recommended-tests')
+            navigate('/app/recommended-tests')
             break
           case '5':
             e.preventDefault()
-            navigate('/test-results')
+            navigate('/app/test-results')
             break
           case '6':
             e.preventDefault()
-            navigate('/final-diagnosis')
+            navigate('/app/final-diagnosis')
             break
           case '/':
             e.preventDefault()
@@ -89,7 +89,7 @@ const KeyboardShortcuts = () => {
     }
 
     const handleNextStep = () => {
-      const paths = ['/patient-info', '/physical-exam', '/diagnostic-analysis', '/recommended-tests', '/test-results', '/final-diagnosis']
+      const paths = ['/app/patient-info', '/app/physical-exam', '/app/diagnostic-analysis', '/app/recommended-tests', '/app/test-results', '/app/final-diagnosis']
       const currentIndex = paths.indexOf(location.pathname)
       if (currentIndex >= 0 && currentIndex < paths.length - 1) {
         navigate(paths[currentIndex + 1])
@@ -98,7 +98,7 @@ const KeyboardShortcuts = () => {
     }
 
     const handlePrevStep = () => {
-      const paths = ['/patient-info', '/physical-exam', '/diagnostic-analysis', '/recommended-tests', '/test-results', '/final-diagnosis']
+      const paths = ['/app/patient-info', '/app/physical-exam', '/app/diagnostic-analysis', '/app/recommended-tests', '/app/test-results', '/app/final-diagnosis']
       const currentIndex = paths.indexOf(location.pathname)
       if (currentIndex > 0) {
         navigate(paths[currentIndex - 1])

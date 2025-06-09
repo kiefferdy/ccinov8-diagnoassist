@@ -16,12 +16,12 @@ import {
 import clsx from 'clsx'
 
 const steps = [
-  { id: 1, name: 'Patient Info', path: '/patient-info', icon: User },
-  { id: 2, name: 'Physical Exam', path: '/physical-exam', icon: Activity },
-  { id: 3, name: 'AI Analysis', path: '/diagnostic-analysis', icon: Brain },
-  { id: 4, name: 'Recommended Tests', path: '/recommended-tests', icon: TestTube },
-  { id: 5, name: 'Test Results', path: '/test-results', icon: ClipboardList },
-  { id: 6, name: 'Final Diagnosis', path: '/final-diagnosis', icon: FileText },
+  { id: 1, name: 'Patient Info', path: '/app/patient-info', icon: User },
+  { id: 2, name: 'Physical Exam', path: '/app/physical-exam', icon: Activity },
+  { id: 3, name: 'AI Analysis', path: '/app/diagnostic-analysis', icon: Brain },
+  { id: 4, name: 'Recommended Tests', path: '/app/recommended-tests', icon: TestTube },
+  { id: 5, name: 'Test Results', path: '/app/test-results', icon: ClipboardList },
+  { id: 6, name: 'Final Diagnosis', path: '/app/final-diagnosis', icon: FileText },
 ]
 
 export default function Layout({ children }) {
