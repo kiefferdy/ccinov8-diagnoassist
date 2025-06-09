@@ -10,11 +10,11 @@ import Tests from './components/Tests/Tests';
 import FinalDiagnosis from './components/Treatment/FinalDiagnosis';
 
 function AppContent() {
-  const { currentStep, patientData } = usePatient();
+  const { currentStep } = usePatient();
   
   const renderStep = () => {
-    // Show home if no patient data started
-    if (currentStep === 'home' || (!patientData.name && currentStep === 'patient-info')) {
+    // Show home if currentStep is explicitly 'home'
+    if (currentStep === 'home') {
       return <Home />;
     }
     
@@ -37,7 +37,7 @@ function AppContent() {
   };
   
   // Show layout with sidebar only when patient workflow is active
-  const showLayout = currentStep !== 'home' && (patientData.name || currentStep !== 'patient-info');
+  const showLayout = currentStep !== 'home';
   
   if (showLayout) {
     return (
