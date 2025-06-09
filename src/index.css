@@ -34,15 +34,15 @@
   }
   
   .step-active {
-    @apply bg-primary-600 text-white;
+    @apply bg-primary-600 text-white border-2 border-white;
   }
   
   .step-completed {
-    @apply bg-green-600 text-white;
+    @apply bg-green-600 text-white border-2 border-white;
   }
   
   .step-pending {
-    @apply bg-gray-200 text-gray-600;
+    @apply bg-gray-200 text-gray-600 border-2 border-white;
   }
   
   .animate-pulse-subtle {

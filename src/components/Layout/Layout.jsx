@@ -94,54 +94,64 @@ export default function Layout({ children }) {
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <nav aria-label="Progress">
-            <ol className="flex items-center justify-between">
-              {steps.map((step, stepIdx) => {
-                const isCompleted = step.id < currentStepNumber
-                const isCurrent = step.id === currentStepNumber
-                const Icon = step.icon
+            <div className="relative">
+              {/* Background line */}
+              <div 
+                className="absolute top-4 left-0 right-0 h-0.5 bg-gray-200"
+                style={{ transform: 'translateY(-50%)' }}
+              />
+              
+              {/* Progress line */}
+              {currentStepNumber > 1 && (
+                <div 
+                  className="absolute top-4 left-0 h-0.5 bg-primary-600 transition-all duration-300"
+                  style={{ 
+                    width: `${((currentStepNumber - 1) / (steps.length - 1)) * 100}%`,
+                    transform: 'translateY(-50%)'
+                  }}
+                />
+              )}
+              
+              {/* Steps */}
+              <ol className="relative flex items-center justify-between">
+                {steps.map((step, stepIdx) => {
+                  const isCompleted = step.id < currentStepNumber
+                  const isCurrent = step.id === currentStepNumber
+                  const Icon = step.icon
 
-                return (
-                  <li key={step.name} className="relative flex-1">
-                    {stepIdx !== steps.length - 1 && (
-                      <div
+                  return (
+                    <li key={step.name} className="flex-1 flex justify-center">
+                      <button
+                        onClick={() => handleStepClick(step)}
                         className={clsx(
-                          'absolute top-4 left-4 w-full h-0.5 -ml-px',
-                          isCompleted ? 'bg-primary-600' : 'bg-gray-200'
-                        )}
-                        style={{ width: 'calc(100% - 2rem)' }}
-                      />
-                    )}
-                    
-                    <button
-                      onClick={() => handleStepClick(step)}
-                      className={clsx(
-                        'relative flex flex-col items-center group focus:outline-none',
-                        'hover:opacity-80 transition-opacity duration-200'
-                      )}
-                    >
-                      <span
-                        className={clsx(
-                          'step-indicator relative z-10',
-                          isCurrent && 'step-active',
-                          isCompleted && 'step-completed',
-                          !isCurrent && !isCompleted && 'step-pending'
+                          'flex flex-col items-center group focus:outline-none',
+                          'hover:opacity-80 transition-opacity duration-200'
                         )}
                       >
-                        <Icon className="w-4 h-4" />
-                      </span>
-                      <span
-                        className={clsx(
-                          'mt-2 text-xs font-medium text-center max-w-20',
-                          isCurrent ? 'text-primary-600' : 'text-gray-500'
-                        )}
-                      >
-                        {step.name}
-                      </span>
-                    </button>
-                  </li>
-                )
-              })}
-            </ol>
+                        <span
+                          className={clsx(
+                            'step-indicator relative z-10',
+                            isCurrent && 'step-active',
+                            isCompleted && 'step-completed',
+                            !isCurrent && !isCompleted && 'step-pending'
+                          )}
+                        >
+                          <Icon className="w-4 h-4" />
+                        </span>
+                        <span
+                          className={clsx(
+                            'mt-2 text-xs font-medium text-center whitespace-nowrap',
+                            isCurrent ? 'text-primary-600' : 'text-gray-500'
+                          )}
+                        >
+                          {step.name}
+                        </span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ol>
+            </div>
           </nav>
         </div>
       </div>
