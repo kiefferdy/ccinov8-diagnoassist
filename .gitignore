@@ -1,54 +1,24 @@
-# Frontend - React
-node_modules/
-build/
-dist/
+# Logs
+logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.cache/
+pnpm-debug.log*
+lerna-debug.log*
 
-# Backend - FastAPI/Python
-__pycache__/
-*.py[cod]
-*.sqlite3
-*.log
-*.env
-.env
-venv/
-.venv/
-env/
-ENV/
-pip-wheel-metadata/
-coverage.xml
-.coverage
-htmlcov/
-.pytest_cache/
+node_modules
+dist
+dist-ssr
+*.local
 
-# IDEs and Editors
-.vscode/
-.idea/
-*.swp
-*.swo
-*.DS_Store
-
-# System Files
-Thumbs.db
-desktop.ini
-
-# Docker
-docker-compose.override.yml
-
-# Build files
-dist/
-build/
-
-# Logs
-logs/
-*.log
-
-# Misc
-*.egg-info/
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
