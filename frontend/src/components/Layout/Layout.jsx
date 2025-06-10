@@ -8,7 +8,9 @@ import {
   FileText,
   Activity,
   Home,
-  LogOut
+  LogOut,
+  FlaskConical,
+  ClipboardCheck
 } from 'lucide-react';
 
 const Layout = ({ children }) => {
@@ -19,7 +21,8 @@ const Layout = ({ children }) => {
     { id: 'clinical-assessment', label: 'Clinical Assessment', icon: ClipboardList },
     { id: 'physical-exam', label: 'Physical Exam', icon: Stethoscope },
     { id: 'diagnostic-analysis', label: 'Diagnostic Analysis', icon: Activity },
-    { id: 'tests', label: 'Tests & Results', icon: TestTube },
+    { id: 'recommended-tests', label: 'Recommended Tests', icon: FlaskConical },
+    { id: 'test-results', label: 'Test Results', icon: ClipboardCheck },
     { id: 'final-diagnosis', label: 'Final Diagnosis', icon: FileText }
   ];
   
@@ -38,11 +41,14 @@ const Layout = ({ children }) => {
         case 'clinical-assessment':
           return patientData.chiefComplaintDetails.length > 0;
         case 'physical-exam':
-          return patientData.physicalExam.bloodPressure && patientData.physicalExam.heartRate;
+          return patientData.physicalExam.bloodPressure || patientData.physicalExam.heartRate || 
+                 patientData.physicalExam.temperature || patientData.physicalExam.respiratoryRate;
         case 'diagnostic-analysis':
           return patientData.differentialDiagnoses.length > 0;
-        case 'tests':
-          return patientData.testResults.length > 0;
+        case 'recommended-tests':
+          return patientData.selectedTests && patientData.selectedTests.length > 0;
+        case 'test-results':
+          return patientData.testResults && Object.values(patientData.testResults).some(r => r.status === 'completed');
         default:
           return false;
       }

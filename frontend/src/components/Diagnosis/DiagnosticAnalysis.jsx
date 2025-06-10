@@ -130,7 +130,7 @@ const DiagnosticAnalysis = () => {
     if (doctorNotes) {
       updatePatientData('diagnosticNotes', doctorNotes);
     }
-    setCurrentStep('tests');
+    setCurrentStep('recommended-tests');
   };
   
   const handleBack = () => {

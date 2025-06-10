@@ -6,7 +6,8 @@ import PatientInformation from './components/Patient/PatientInformation';
 import ClinicalAssessment from './components/Patient/ClinicalAssessment';
 import PhysicalExam from './components/Diagnosis/PhysicalExam';
 import DiagnosticAnalysis from './components/Diagnosis/DiagnosticAnalysis';
-import Tests from './components/Tests/Tests';
+import RecommendedTests from './components/Tests/RecommendedTests';
+import TestResults from './components/Tests/TestResults';
 import FinalDiagnosis from './components/Treatment/FinalDiagnosis';
 
 function AppContent() {
@@ -27,8 +28,12 @@ function AppContent() {
         return <PhysicalExam />;
       case 'diagnostic-analysis':
         return <DiagnosticAnalysis />;
-      case 'tests':
-        return <Tests />;
+      case 'recommended-tests':
+        return <RecommendedTests />;
+      case 'test-results':
+        return <TestResults />;
+      case 'tests': // Legacy support
+        return <RecommendedTests />;
       case 'final-diagnosis':
         return <FinalDiagnosis />;
       default:

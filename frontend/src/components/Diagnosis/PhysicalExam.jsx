@@ -11,12 +11,18 @@ import {
   Weight,
   ChevronRight,
   ChevronLeft,
-  AlertCircle
+  AlertCircle,
+  FileText,
+  ChevronDown,
+  Info
 } from 'lucide-react';
+import FileUpload from '../common/FileUpload';
 
 const PhysicalExam = () => {
   const { patientData, updatePhysicalExam, setCurrentStep } = usePatient();
   const [bmiCalculated, setBmiCalculated] = useState(false);
+  const [showAdditionalFindings, setShowAdditionalFindings] = useState(false);
+  const [examDocuments, setExamDocuments] = useState(patientData.physicalExam.examDocuments || []);
   
   const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm({
     defaultValues: {
@@ -42,10 +48,11 @@ const PhysicalExam = () => {
   }, [watchHeight, watchWeight, setValue]);
   
   const onSubmit = async (data) => {
-    // Update all physical exam data
+    // Update all physical exam data including documents
     Object.keys(data).forEach(key => {
       updatePhysicalExam(key, data[key]);
     });
+    updatePhysicalExam('examDocuments', examDocuments);
     
     // In a real app, this would call an API to analyze the data
     // For now, we'll generate mock differential diagnoses
@@ -95,11 +102,25 @@ const PhysicalExam = () => {
     return { category: 'Obese', color: 'text-red-600' };
   };
   
+  const handleDocumentsChange = (files) => {
+    setExamDocuments(files);
+  };
+  
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-gray-900 mb-2">Physical Examination</h2>
         <p className="text-gray-600">Record the patient's vital signs and physical exam findings</p>
+      </div>
+      
+      {/* Optional Fields Notice */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+        <div className="flex items-start">
+          <Info className="w-5 h-5 text-blue-600 mr-2 flex-shrink-0 mt-0.5" />
+          <p className="text-blue-800 text-sm">
+            All fields in this section are optional. Fill in only the measurements and observations that are available or relevant to the patient's condition.
+          </p>
+        </div>
       </div>
       
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -108,6 +129,7 @@ const PhysicalExam = () => {
           <div className="flex items-center mb-6">
             <Activity className="w-5 h-5 text-blue-600 mr-2" />
             <h3 className="text-lg font-semibold text-gray-900">Vital Signs</h3>
+            <span className="ml-2 text-sm text-gray-500">(Optional)</span>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -116,19 +138,18 @@ const PhysicalExam = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <div className="flex items-center">
                   <Heart className="w-4 h-4 mr-1 text-red-500" />
-                  Blood Pressure (mmHg) *
+                  Blood Pressure (mmHg)
                 </div>
               </label>
               <input
                 type="text"
                 {...register('bloodPressure', { 
-                  required: 'Blood pressure is required',
                   pattern: {
                     value: /^\d{2,3}\/\d{2,3}$/,
                     message: 'Format: 120/80'
                   }
                 })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="120/80"
               />
               {errors.bloodPressure && (
@@ -141,17 +162,16 @@ const PhysicalExam = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <div className="flex items-center">
                   <Activity className="w-4 h-4 mr-1 text-red-500" />
-                  Heart Rate (bpm) *
+                  Heart Rate (bpm)
                 </div>
               </label>
               <input
                 type="number"
                 {...register('heartRate', { 
-                  required: 'Heart rate is required',
                   min: { value: 30, message: 'Heart rate seems too low' },
                   max: { value: 250, message: 'Heart rate seems too high' }
                 })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="72"
               />
               {errors.heartRate && (
@@ -174,7 +194,7 @@ const PhysicalExam = () => {
                   min: { value: 35, message: 'Temperature seems too low' },
                   max: { value: 42, message: 'Temperature seems too high' }
                 })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="36.5"
               />
               {errors.temperature && (
@@ -196,7 +216,7 @@ const PhysicalExam = () => {
                   min: { value: 8, message: 'Respiratory rate seems too low' },
                   max: { value: 40, message: 'Respiratory rate seems too high' }
                 })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="16"
               />
               {errors.respiratoryRate && (
@@ -218,7 +238,7 @@ const PhysicalExam = () => {
                   min: { value: 70, message: 'O2 saturation seems too low' },
                   max: { value: 100, message: 'O2 saturation cannot exceed 100%' }
                 })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="98"
               />
               {errors.oxygenSaturation && (
@@ -233,6 +253,7 @@ const PhysicalExam = () => {
           <div className="flex items-center mb-6">
             <Ruler className="w-5 h-5 text-blue-600 mr-2" />
             <h3 className="text-lg font-semibold text-gray-900">Physical Measurements</h3>
+            <span className="ml-2 text-sm text-gray-500">(Optional)</span>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -250,7 +271,7 @@ const PhysicalExam = () => {
                   min: { value: 50, message: 'Height seems too low' },
                   max: { value: 250, message: 'Height seems too high' }
                 })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="170"
               />
               {errors.height && (
@@ -273,7 +294,7 @@ const PhysicalExam = () => {
                   min: { value: 10, message: 'Weight seems too low' },
                   max: { value: 300, message: 'Weight seems too high' }
                 })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="70"
               />
               {errors.weight && (
@@ -306,17 +327,57 @@ const PhysicalExam = () => {
         
         {/* Additional Findings Card */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center mb-6">
-            <AlertCircle className="w-5 h-5 text-blue-600 mr-2" />
-            <h3 className="text-lg font-semibold text-gray-900">Additional Physical Exam Findings</h3>
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowAdditionalFindings(!showAdditionalFindings)}
+            className="w-full flex items-center justify-between mb-4"
+          >
+            <div className="flex items-center">
+              <AlertCircle className="w-5 h-5 text-blue-600 mr-2" />
+              <h3 className="text-lg font-semibold text-gray-900">Additional Physical Exam Findings</h3>
+              <span className="ml-2 text-sm text-gray-500">(Optional)</span>
+            </div>
+            <ChevronDown className={`w-5 h-5 text-gray-400 transform transition-transform ${showAdditionalFindings ? 'rotate-180' : ''}`} />
+          </button>
           
-          <textarea
-            {...register('additionalFindings')}
-            rows={4}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="Note any additional physical exam findings, abnormalities, or observations..."
-          />
+          {showAdditionalFindings && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Clinical Observations
+                </label>
+                <textarea
+                  {...register('additionalFindings')}
+                  rows={4}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  placeholder="Note any additional physical exam findings, abnormalities, or observations..."
+                />
+              </div>
+              
+              <div>
+                <FileUpload
+                  label="Attach Exam Documentation"
+                  description="Upload photos of physical findings, exam notes, or diagnostic images"
+                  acceptedFormats="image/*,.pdf,.doc,.docx"
+                  maxFiles={8}
+                  maxSizeMB={15}
+                  onFilesChange={handleDocumentsChange}
+                  existingFiles={examDocuments}
+                />
+              </div>
+              
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Common Physical Exam Documentation:</h4>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>• Photos of skin lesions, rashes, or visible symptoms</li>
+                  <li>• ECG strips or rhythm strips</li>
+                  <li>• Dermatoscopy images</li>
+                  <li>• Otoscopy or ophthalmoscopy findings</li>
+                  <li>• Hand-drawn diagrams of physical findings</li>
+                </ul>
+              </div>
+            </div>
+          )}
         </div>
         
         {/* Navigation Buttons */}
@@ -332,7 +393,7 @@ const PhysicalExam = () => {
           
           <button
             type="submit"
-            className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+            className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-all flex items-center shadow-sm hover:shadow-md"
           >
             Generate Diagnostic Analysis
             <ChevronRight className="ml-2 w-5 h-5" />

@@ -41,11 +41,12 @@ const FinalDiagnosis = () => {
   const refineAnalysis = () => {
     // In a real app, this would call an API with test results
     // For now, we'll adjust probabilities based on mock logic
-    const testResults = patientData.testResults || [];
+    const testResults = patientData.testResults || {};
     let refined = [...patientData.differentialDiagnoses];
     
     // Mock refinement logic
-    if (testResults.some(r => r.testName.includes('Chest X-ray'))) {
+    const testResultsArray = Object.values(testResults);
+    if (testResultsArray.some(r => r.testName && r.testName.includes('Chest X-ray'))) {
       refined = refined.map(d => {
         if (d.name.includes('Pneumonia')) {
           return { ...d, probability: 0.85, confidence: 'High' };
@@ -65,6 +66,8 @@ const FinalDiagnosis = () => {
   };
   
   const generateAssessmentNote = (topDiagnosis) => {
+    const testResultsArray = Object.values(patientData.testResults || {});
+    
     const note = `ASSESSMENT:
 ${patientData.age}-year-old ${patientData.gender} presenting with ${patientData.chiefComplaint}.
 
@@ -78,7 +81,7 @@ Physical examination revealed:
 ${patientData.physicalExam.additionalFindings ? `Additional findings: ${patientData.physicalExam.additionalFindings}` : ''}
 
 Laboratory/Imaging Results:
-${patientData.testResults.map(r => `- ${r.testName}: ${r.value} ${r.unit} (${r.interpretation || 'pending'})`).join('\n')}
+${testResultsArray.map(r => `- ${r.testName}: ${r.value} ${r.unit || ''} (${r.interpretation || 'pending'})`).join('\n')}
 
 Based on clinical presentation and diagnostic results, the most likely diagnosis is ${topDiagnosis.name} (ICD-10: ${topDiagnosis.icd10}).
 
@@ -239,7 +242,7 @@ See treatment recommendations below.`;
   };
   
   const handleBack = () => {
-    setCurrentStep('tests');
+    setCurrentStep('test-results');
   };
   
   return (

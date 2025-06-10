@@ -22,11 +22,16 @@ export const PatientProvider = ({ children }) => {
     // Chief Complaint
     chiefComplaint: '',
     chiefComplaintDetails: [],
+    additionalClinicalNotes: '',
     
     // Medical History
     medicalHistory: [],
     medications: [],
     allergies: [],
+    
+    // Documents
+    relatedDocuments: [],
+    assessmentDocuments: [],
     
     // Physical Exam
     physicalExam: {
@@ -38,18 +43,20 @@ export const PatientProvider = ({ children }) => {
       height: '',
       weight: '',
       bmi: '',
-      additionalFindings: ''
+      additionalFindings: '',
+      examDocuments: []
     },
     
     // Diagnoses
     differentialDiagnoses: [],
     selectedDiagnosis: null,
     finalDiagnosis: '',
+    diagnosticNotes: '',
     
     // Tests
     recommendedTests: [],
-    orderedTests: [],
-    testResults: [],
+    selectedTests: [],
+    testResults: {},
     
     // Treatment
     treatmentPlan: '',
@@ -85,9 +92,12 @@ export const PatientProvider = ({ children }) => {
       dateOfBirth: '',
       chiefComplaint: '',
       chiefComplaintDetails: [],
+      additionalClinicalNotes: '',
       medicalHistory: [],
       medications: [],
       allergies: [],
+      relatedDocuments: [],
+      assessmentDocuments: [],
       physicalExam: {
         bloodPressure: '',
         heartRate: '',
@@ -97,14 +107,16 @@ export const PatientProvider = ({ children }) => {
         height: '',
         weight: '',
         bmi: '',
-        additionalFindings: ''
+        additionalFindings: '',
+        examDocuments: []
       },
       differentialDiagnoses: [],
       selectedDiagnosis: null,
       finalDiagnosis: '',
+      diagnosticNotes: '',
       recommendedTests: [],
-      orderedTests: [],
-      testResults: [],
+      selectedTests: [],
+      testResults: {},
       treatmentPlan: '',
       prescriptions: []
     });

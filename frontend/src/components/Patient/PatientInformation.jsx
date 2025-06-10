@@ -1,7 +1,16 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { usePatient } from '../../contexts/PatientContext';
-import { User, Calendar, Heart, AlertCircle, ChevronRight } from 'lucide-react';
+import { 
+  User, 
+  Calendar, 
+  Heart, 
+  AlertCircle, 
+  ChevronRight, 
+  FileText,
+  Image
+} from 'lucide-react';
+import FileUpload from '../common/FileUpload';
 
 const PatientInformation = () => {
   const { patientData, updatePatientData, setCurrentStep } = usePatient();
@@ -19,6 +28,7 @@ const PatientInformation = () => {
   const [newCondition, setNewCondition] = useState('');
   const [newMedication, setNewMedication] = useState('');
   const [newAllergy, setNewAllergy] = useState('');
+  const [relatedDocuments, setRelatedDocuments] = useState(patientData.relatedDocuments || []);
   
   const watchAge = watch('age');
   
@@ -26,6 +36,8 @@ const PatientInformation = () => {
     Object.keys(data).forEach(key => {
       updatePatientData(key, data[key]);
     });
+    // Save related documents
+    updatePatientData('relatedDocuments', relatedDocuments);
     setCurrentStep('clinical-assessment');
   };
   
@@ -56,6 +68,10 @@ const PatientInformation = () => {
     updatePatientData(field, newArray);
   };
   
+  const handleDocumentsChange = (files) => {
+    setRelatedDocuments(files);
+  };
+  
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
@@ -79,7 +95,7 @@ const PatientInformation = () => {
               <input
                 type="text"
                 {...register('name', { required: 'Patient name is required' })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="John Doe"
               />
               {errors.name && (
@@ -98,7 +114,7 @@ const PatientInformation = () => {
                   min: { value: 0, message: 'Age must be positive' },
                   max: { value: 150, message: 'Please enter a valid age' }
                 })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="35"
               />
               {errors.age && (
@@ -112,7 +128,7 @@ const PatientInformation = () => {
               </label>
               <select
                 {...register('gender', { required: 'Gender is required' })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               >
                 <option value="">Select gender</option>
                 <option value="male">Male</option>
@@ -133,7 +149,7 @@ const PatientInformation = () => {
                 <input
                   type="date"
                   {...register('dateOfBirth')}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 />
               </div>
             </div>
@@ -154,13 +170,36 @@ const PatientInformation = () => {
             <textarea
               {...register('chiefComplaint', { required: 'Chief complaint is required' })}
               rows={4}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
               placeholder="Describe the patient's main concern or symptoms..."
             />
             {errors.chiefComplaint && (
               <p className="mt-1 text-sm text-red-600">{errors.chiefComplaint.message}</p>
             )}
           </div>
+        </div>
+
+        {/* Related Documents Card */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center mb-6">
+            <FileText className="w-5 h-5 text-blue-600 mr-2" />
+            <h3 className="text-lg font-semibold text-gray-900">Related Documents</h3>
+            <span className="ml-2 text-sm text-gray-500">(Optional)</span>
+          </div>
+          
+          <p className="text-sm text-gray-600 mb-4">
+            Upload any relevant documents such as previous test results, symptom photos, medical records, or referral notes.
+          </p>
+          
+          <FileUpload
+            label="Upload Medical Documents"
+            description="Drag and drop images, PDFs, or documents"
+            acceptedFormats="image/*,.pdf,.doc,.docx,.txt"
+            maxFiles={10}
+            maxSizeMB={20}
+            onFilesChange={handleDocumentsChange}
+            existingFiles={relatedDocuments}
+          />
         </div>
         
         {/* Medical History Card (Optional) */}
@@ -191,7 +230,7 @@ const PatientInformation = () => {
                     value={newCondition}
                     onChange={(e) => setNewCondition(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addCondition())}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     placeholder="Type condition and press Enter"
                   />
                   <button
@@ -232,7 +271,7 @@ const PatientInformation = () => {
                     value={newMedication}
                     onChange={(e) => setNewMedication(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addMedication())}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     placeholder="Type medication and press Enter"
                   />
                   <button
@@ -273,7 +312,7 @@ const PatientInformation = () => {
                     value={newAllergy}
                     onChange={(e) => setNewAllergy(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addAllergy())}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     placeholder="Type allergy and press Enter"
                   />
                   <button
@@ -310,7 +349,7 @@ const PatientInformation = () => {
         <div className="flex justify-end">
           <button
             type="submit"
-            className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+            className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-all flex items-center shadow-sm hover:shadow-md"
           >
             Continue to Clinical Assessment
             <ChevronRight className="ml-2 w-5 h-5" />
