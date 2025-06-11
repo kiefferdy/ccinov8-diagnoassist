@@ -1,12 +1,16 @@
 import React from 'react';
 import { usePatient } from '../../contexts/PatientContext';
-import { Activity, Users, Clock, ChartBar, ArrowRight } from 'lucide-react';
+import { Activity, Users, Clock, ChartBar, ArrowRight, FolderOpen } from 'lucide-react';
 
 const Home = () => {
   const { setCurrentStep } = usePatient();
   
   const handleNewPatient = () => {
     setCurrentStep('patient-info');
+  };
+  
+  const handlePatientList = () => {
+    setCurrentStep('patient-list');
   };
   
   const stats = [
@@ -69,13 +73,22 @@ const Home = () => {
       
       {/* CTA Button */}
       <div className="text-center mb-12">
-        <button
-          onClick={handleNewPatient}
-          className="inline-flex items-center px-8 py-4 bg-blue-600 text-white text-lg font-medium rounded-xl hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all"
-        >
-          Start New Patient Assessment
-          <ArrowRight className="ml-3 w-6 h-6" />
-        </button>
+        <div className="flex items-center justify-center space-x-4">
+          <button
+            onClick={handleNewPatient}
+            className="inline-flex items-center px-8 py-4 bg-blue-600 text-white text-lg font-medium rounded-xl hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all"
+          >
+            Start New Patient Assessment
+            <ArrowRight className="ml-3 w-6 h-6" />
+          </button>
+          <button
+            onClick={handlePatientList}
+            className="inline-flex items-center px-8 py-4 bg-gray-600 text-white text-lg font-medium rounded-xl hover:bg-gray-700 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all"
+          >
+            <FolderOpen className="mr-3 w-6 h-6" />
+            View All Patients
+          </button>
+        </div>
       </div>
       
       {/* Features Grid */}

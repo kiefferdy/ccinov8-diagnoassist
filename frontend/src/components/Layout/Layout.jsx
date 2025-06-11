@@ -1,5 +1,6 @@
 import React from 'react';
 import { usePatient } from '../../contexts/PatientContext';
+import AutoSaveIndicator from '../common/AutoSaveIndicator';
 import { 
   User, 
   ClipboardList, 
@@ -149,6 +150,9 @@ const Layout = ({ children }) => {
           {children}
         </div>
       </main>
+      
+      {/* Auto-save indicator */}
+      <AutoSaveIndicator />
     </div>
   );
 };

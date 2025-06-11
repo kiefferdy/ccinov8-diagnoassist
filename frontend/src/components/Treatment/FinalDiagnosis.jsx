@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { usePatient } from '../../contexts/PatientContext';
+import { useAppData } from '../../contexts/AppDataContext';
 import { 
   FileText, 
   ChevronLeft,
@@ -17,7 +18,8 @@ import {
 } from 'lucide-react';
 
 const FinalDiagnosis = () => {
-  const { patientData, updatePatientData, setCurrentStep } = usePatient();
+  const { patientData, updatePatientData, setCurrentStep, sessionId, resetPatient } = usePatient();
+  const { addRecord, deleteSession } = useAppData();
   const [refinedDiagnoses, setRefinedDiagnoses] = useState([]);
   const [selectedDiagnosis, setSelectedDiagnosis] = useState(null);
   const [customDiagnosis, setCustomDiagnosis] = useState('');
@@ -237,8 +239,38 @@ See treatment recommendations below.`;
     updatePatientData('finalDiagnosis', selectedDiagnosis?.name || customDiagnosis);
     updatePatientData('assessmentNote', assessmentNote);
     
-    // In a real app, this would save to the backend
+    // Create patient record
+    const record = {
+      patientId: patientData.id,
+      sessionId: sessionId,
+      chiefComplaint: patientData.chiefComplaint,
+      finalDiagnosis: selectedDiagnosis?.name || customDiagnosis,
+      icd10: selectedDiagnosis?.icd10 || 'Custom',
+      physicalExam: patientData.physicalExam,
+      prescriptions: prescriptions,
+      treatmentPlan: treatmentPlan,
+      testsPerformed: patientData.selectedTests || [],
+      testResults: patientData.testResults || {},
+      medicalHistory: patientData.medicalHistory,
+      medications: patientData.medications,
+      allergies: patientData.allergies,
+      assessmentNote: assessmentNote,
+      diagnosticNotes: patientData.diagnosticNotes || ''
+    };
+    
+    // Save the record
+    addRecord(record);
+    
+    // Delete the session if it exists (it's complete now)
+    if (sessionId) {
+      deleteSession(sessionId);
+    }
+    
     alert('Patient record has been finalized and saved successfully!');
+    
+    // Reset and go back to home
+    resetPatient();
+    setCurrentStep('home');
   };
   
   const handleBack = () => {

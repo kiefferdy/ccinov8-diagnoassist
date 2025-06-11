@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { appDataRef } from './AppDataContext';
 
 const PatientContext = createContext(null);
 
@@ -65,6 +66,33 @@ export const PatientProvider = ({ children }) => {
   
   const [currentStep, setCurrentStep] = useState('home');
   const [sessionId, setSessionId] = useState(null);
+  const [lastSaved, setLastSaved] = useState(null);
+  
+  // Auto-save functionality
+  useEffect(() => {
+    // Only auto-save if we have a patient ID and we're in an active session
+    if (patientData.id && currentStep !== 'home' && currentStep !== 'patient-list') {
+      const saveTimer = setTimeout(() => {
+        // Get AppData context via ref
+        if (appDataRef.current) {
+          if (sessionId) {
+            // Update existing session
+            appDataRef.current.updateSession(sessionId, patientData, currentStep);
+          } else {
+            // Create new session
+            const newSession = appDataRef.current.createSession(patientData.id, {
+              ...patientData,
+              currentStep
+            });
+            setSessionId(newSession.id);
+          }
+          setLastSaved(new Date().toISOString());
+        }
+      }, 2000); // Auto-save after 2 seconds of inactivity
+      
+      return () => clearTimeout(saveTimer);
+    }
+  }, [patientData, currentStep, sessionId]);
   
   const updatePatientData = (field, value) => {
     setPatientData(prev => ({
@@ -133,6 +161,7 @@ export const PatientProvider = ({ children }) => {
     setCurrentStep,
     sessionId,
     setSessionId,
+    lastSaved,
     resetPatient
   };
   
