@@ -42,7 +42,7 @@ const RecommendedTests = () => {
     const testsMap = new Map();
     
     patientData.differentialDiagnoses.forEach(diagnosis => {
-      diagnosis.recommendedTests?.forEach(test => {
+      diagnosis.recommendedActions?.forEach(test => {
         if (!testsMap.has(test)) {
           testsMap.set(test, {
             name: test,
@@ -72,7 +72,7 @@ const RecommendedTests = () => {
     
     setRecommendedTests(testsArray);
     updatePatientData('recommendedTests', testsArray);
-  }, []);
+  }, [patientData.differentialDiagnoses]);
   
   const categorizeTest = (testName) => {
     const categories = {
@@ -95,8 +95,8 @@ const RecommendedTests = () => {
   
   const calculatePriority = (testInfo) => {
     const maxProb = Math.max(...testInfo.diagnosisProbabilities);
-    if (maxProb >= 0.7) return 'high';
-    if (maxProb >= 0.4) return 'medium';
+    if (maxProb >= 70) return 'high';
+    if (maxProb >= 40) return 'medium';
     return 'low';
   };
   
@@ -234,34 +234,60 @@ const RecommendedTests = () => {
   const priorities = ['all', 'high', 'medium', 'low'];
   
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-7xl mx-auto">
+      {/* Header */}
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Recommended Laboratory Tests</h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-3xl font-bold text-gray-900">Recommended Laboratory Tests</h2>
+          <div className="flex items-center space-x-2">
+            <TestTube className="w-6 h-6 text-blue-600" />
+            <span className="text-sm text-gray-600">AI-Prioritized Testing</span>
+          </div>
+        </div>
         <p className="text-gray-600">Select the tests that would be most helpful for diagnosis</p>
+      </div>
+      
+      {/* AI Disclaimer */}
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+        <div className="flex items-start">
+          <AlertCircle className="w-5 h-5 text-amber-600 mr-3 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-900 mb-1">Test Recommendations Notice</p>
+            <p className="text-sm text-amber-800">
+              AI-suggested tests are based on differential diagnoses. Clinical judgment should guide final test selection 
+              based on patient presentation, local guidelines, and resource availability.
+            </p>
+          </div>
+        </div>
       </div>
       
       {/* Selected Tests Summary */}
       {selectedTests.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-          <p className="text-sm font-medium text-blue-900">
-            Selected Tests: {selectedTests.length}
-          </p>
-          <div className="flex flex-wrap gap-2 mt-2">
-            {selectedTests.map(test => (
-              <span key={test.id} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                {test.name}
-              </span>
-            ))}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-blue-900">
+                Selected Tests: {selectedTests.length}
+              </p>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {selectedTests.map(test => (
+                  <span key={test.id} className="text-xs bg-white text-blue-700 px-3 py-1 rounded-full border border-blue-200">
+                    {test.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <Brain className="w-8 h-8 text-blue-600 opacity-20" />
           </div>
         </div>
       )}
       
       {/* Filters and Controls */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Search */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Search Tests</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
@@ -276,14 +302,13 @@ const RecommendedTests = () => {
           
           {/* Category Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <Filter className="inline w-4 h-4 mr-1" />
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Category
             </label>
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
             >
               {categories.map(cat => (
                 <option key={cat} value={cat}>
@@ -295,14 +320,13 @@ const RecommendedTests = () => {
           
           {/* Priority Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <AlertCircle className="inline w-4 h-4 mr-1" />
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Priority
             </label>
             <select
               value={filterPriority}
               onChange={(e) => setFilterPriority(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
             >
               {priorities.map(priority => (
                 <option key={priority} value={priority}>
@@ -314,14 +338,13 @@ const RecommendedTests = () => {
           
           {/* Sort By */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <ArrowUpDown className="inline w-4 h-4 mr-1" />
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Sort By
             </label>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
             >
               <option value="priority">Priority</option>
               <option value="name">Name</option>
@@ -333,89 +356,109 @@ const RecommendedTests = () => {
         <div className="mt-4 flex justify-end">
           <button
             onClick={() => setShowCustomTestModal(true)}
-            className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors flex items-center"
+            className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors flex items-center group"
           >
-            <Plus className="w-4 h-4 mr-1" />
+            <Plus className="w-4 h-4 mr-2 group-hover:rotate-90 transition-transform" />
             Add Custom Test
           </button>
         </div>
       </div>
       
       {/* Test Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
         {filteredAndSortedTests().map(test => {
           const isSelected = isTestSelected(test.id);
           
           return (
             <div
               key={test.id}
-              className={`bg-white rounded-xl shadow-sm border-2 p-5 transition-all ${
-                isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+              className={`bg-white rounded-xl shadow-sm border-2 transition-all hover:shadow-md ${
+                isSelected ? 'border-blue-500 bg-blue-50/50' : 'border-gray-200 hover:border-gray-300'
               }`}
             >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <div className="flex items-center mb-2">
-                    <TestTube className="w-5 h-5 text-blue-600 mr-2" />
-                    <h4 className="font-semibold text-gray-900">{test.name}</h4>
+              <div className="p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <div className="flex items-center mb-2">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
+                        test.category === 'Blood' ? 'bg-red-100' :
+                        test.category === 'Imaging' ? 'bg-blue-100' :
+                        test.category === 'Microbiology' ? 'bg-green-100' :
+                        test.category === 'Chemistry' ? 'bg-yellow-100' :
+                        test.category === 'Cardiac' ? 'bg-pink-100' :
+                        test.category === 'Endocrine' ? 'bg-purple-100' :
+                        'bg-gray-100'
+                      }`}>
+                        <TestTube className={`w-5 h-5 ${
+                          test.category === 'Blood' ? 'text-red-600' :
+                          test.category === 'Imaging' ? 'text-blue-600' :
+                          test.category === 'Microbiology' ? 'text-green-600' :
+                          test.category === 'Chemistry' ? 'text-yellow-600' :
+                          test.category === 'Cardiac' ? 'text-pink-600' :
+                          test.category === 'Endocrine' ? 'text-purple-600' :
+                          'text-gray-600'
+                        }`} />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900">{test.name}</h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`text-xs font-medium ${
+                            test.priority === 'high' ? 'text-red-600' :
+                            test.priority === 'medium' ? 'text-orange-600' :
+                            'text-yellow-600'
+                          }`}>
+                            {test.priority === 'high' ? '● High Priority' :
+                             test.priority === 'medium' ? '● Medium Priority' :
+                             '● Low Priority'}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            • {test.turnaroundTime}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                     {test.isCustom && (
-                      <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">Custom</span>
+                      <span className="inline-block mb-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                        Custom Test
+                      </span>
                     )}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 mb-3">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                      test.category === 'Blood' ? 'bg-red-100 text-red-700' :
-                      test.category === 'Imaging' ? 'bg-blue-100 text-blue-700' :
-                      test.category === 'Microbiology' ? 'bg-green-100 text-green-700' :
-                      test.category === 'Chemistry' ? 'bg-yellow-100 text-yellow-700' :
-                      test.category === 'Cardiac' ? 'bg-pink-100 text-pink-700' :
-                      test.category === 'Endocrine' ? 'bg-purple-100 text-purple-700' :
-                      'bg-gray-100 text-gray-700'
-                    }`}>
-                      {test.category}
-                    </span>
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                      test.priority === 'high' ? 'bg-red-100 text-red-700' :
-                      test.priority === 'medium' ? 'bg-orange-100 text-orange-700' :
-                      'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {test.priority} priority
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      ~{test.turnaroundTime}
-                    </span>
                   </div>
                   
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="font-medium text-gray-700">Purpose:</span>
-                      <p className="text-gray-600">{test.purpose}</p>
-                    </div>
-                    
-                    <div>
-                      <span className="font-medium text-gray-700">Expected Findings:</span>
-                      <p className="text-gray-600">{test.expectedFindings}</p>
-                    </div>
-                    
-                    {!test.isCustom && test.relevantDiagnoses && (
-                      <div>
-                        <span className="font-medium text-gray-700">Relevant for:</span>
-                        <p className="text-gray-600">{test.relevantDiagnoses.join(', ')}</p>
-                      </div>
-                    )}
-                  </div>
+                  <button
+                    onClick={() => isSelected ? handleDeselectTest(test.id) : handleSelectTest(test)}
+                    className={`ml-3 p-2 rounded-lg transition-all ${
+                      isSelected 
+                        ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {isSelected ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                  </button>
                 </div>
                 
-                <button
-                  onClick={() => isSelected ? handleDeselectTest(test.id) : handleSelectTest(test)}
-                  className={`ml-3 p-2 rounded-lg transition-colors ${
-                    isSelected 
-                      ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {isSelected ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-                </button>
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <p className="text-gray-600 leading-relaxed">{test.purpose}</p>
+                  </div>
+                  
+                  {test.expectedFindings && (
+                    <div className="pt-3 border-t border-gray-100">
+                      <div className="flex items-start">
+                        <Info className="w-4 h-4 text-blue-500 mr-2 flex-shrink-0 mt-0.5" />
+                        <p className="text-xs text-gray-600">{test.expectedFindings}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {!test.isCustom && test.relevantDiagnoses && test.relevantDiagnoses.length > 0 && (
+                    <div className="pt-3 border-t border-gray-100">
+                      <p className="text-xs text-gray-500">
+                        Relevant for: {test.relevantDiagnoses.slice(0, 2).join(', ')}
+                        {test.relevantDiagnoses.length > 2 && ` +${test.relevantDiagnoses.length - 2} more`}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -546,12 +589,12 @@ const RecommendedTests = () => {
       
       {/* Info Message */}
       {selectedTests.length === 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
           <div className="flex items-start">
-            <Info className="w-5 h-5 text-yellow-600 mr-2 flex-shrink-0 mt-0.5" />
+            <Info className="w-5 h-5 text-blue-600 mr-3 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-yellow-800 font-medium">Please select at least one test to proceed</p>
-              <p className="text-yellow-700 text-sm mt-1">
+              <p className="text-sm font-medium text-blue-900">Please select at least one test to proceed</p>
+              <p className="text-sm text-blue-800 mt-1">
                 The selected tests will help confirm or rule out the differential diagnoses. Choose tests based on their clinical relevance and the patient's condition.
               </p>
             </div>
@@ -560,22 +603,22 @@ const RecommendedTests = () => {
       )}
       
       {/* Navigation Buttons */}
-      <div className="flex justify-between">
+      <div className="flex justify-between pt-6 border-t">
         <button
           onClick={handleBack}
           className="px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center"
         >
           <ChevronLeft className="mr-2 w-5 h-5" />
-          Back
+          Back to Diagnostic Analysis
         </button>
         
         <button
           onClick={handleContinue}
           disabled={selectedTests.length === 0}
-          className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-all flex items-center disabled:bg-gray-300 shadow-sm hover:shadow-md"
+          className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-all flex items-center disabled:bg-gray-300 shadow-sm hover:shadow-md group"
         >
           Continue to Test Results
-          <ChevronRight className="ml-2 w-5 h-5" />
+          <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
         </button>
       </div>
     </div>
