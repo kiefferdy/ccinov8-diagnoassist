@@ -1,5 +1,6 @@
 import React from 'react';
 import { usePatient } from '../../contexts/PatientContext';
+import { appDataRef } from '../../contexts/AppDataContext';
 import AutoSaveIndicator from '../common/AutoSaveIndicator';
 import { 
   User, 
@@ -11,11 +12,12 @@ import {
   Home,
   LogOut,
   FlaskConical,
-  ClipboardCheck
+  ClipboardCheck,
+  X
 } from 'lucide-react';
 
 const Layout = ({ children }) => {
-  const { currentStep, setCurrentStep, patientData, resetPatient } = usePatient();
+  const { currentStep, setCurrentStep, patientData, resetPatient, sessionId } = usePatient();
   
   const steps = [
     { id: 'patient-info', label: 'Patient Information', icon: User },
@@ -63,9 +65,29 @@ const Layout = ({ children }) => {
     }
   };
   
+  const handleHome = () => {
+    setCurrentStep('home');
+  };
+  
+  const handleCancelAssessment = () => {
+    if (window.confirm('Are you sure you want to cancel this assessment? All unsaved changes will be lost.')) {
+      // Delete the session if it exists
+      if (sessionId && appDataRef.current) {
+        appDataRef.current.deleteSession(sessionId);
+      }
+      resetPatient();
+      setCurrentStep('home');
+    }
+  };
+  
   const handleNewPatient = () => {
     if (window.confirm('Are you sure you want to start a new patient? All current data will be lost.')) {
+      // Delete the session if it exists
+      if (sessionId && appDataRef.current) {
+        appDataRef.current.deleteSession(sessionId);
+      }
       resetPatient();
+      setCurrentStep('patient-selection');
     }
   };
   
@@ -128,11 +150,25 @@ const Layout = ({ children }) => {
           
           <div className="mt-8 space-y-2">
             <button
-              onClick={handleNewPatient}
+              onClick={handleHome}
               className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-gray-700 transition-all"
             >
               <Home className="w-5 h-5" />
-              <span className="text-sm font-medium">New Patient</span>
+              <span className="text-sm font-medium">Home</span>
+            </button>
+            <button
+              onClick={handleNewPatient}
+              className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-gray-700 transition-all"
+            >
+              <User className="w-5 h-5" />
+              <span className="text-sm font-medium">New Assessment</span>
+            </button>
+            <button
+              onClick={handleCancelAssessment}
+              className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-red-50 text-red-700 transition-all"
+            >
+              <X className="w-5 h-5" />
+              <span className="text-sm font-medium">Cancel Assessment</span>
             </button>
             <button
               className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-gray-700 transition-all"

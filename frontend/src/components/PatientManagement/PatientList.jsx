@@ -12,7 +12,9 @@ import {
   FileText,
   AlertCircle,
   Clock,
-  Activity
+  Activity,
+  Home,
+  Eye
 } from 'lucide-react';
 
 const PatientList = () => {
@@ -29,7 +31,11 @@ const PatientList = () => {
   );
   
   const handleNewPatient = () => {
-    setCurrentStep('patient-info');
+    setCurrentStep('patient-selection');
+  };
+  
+  const handleHome = () => {
+    setCurrentStep('home');
   };
   
   const formatDate = (dateString) => {
@@ -63,10 +69,19 @@ const PatientList = () => {
   
   return (
     <div className="max-w-7xl mx-auto p-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Patient Management</h1>
-        <p className="text-gray-600">View and manage patient records and diagnostic sessions</p>
+      {/* Header with Home Button */}
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Patient Management</h1>
+          <p className="text-gray-600">View and manage patient records and diagnostic sessions</p>
+        </div>
+        <button
+          onClick={handleHome}
+          className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <Home className="w-5 h-5 mr-2" />
+          Back to Home
+        </button>
       </div>
       
       {/* Search and Actions */}
@@ -201,6 +216,17 @@ const PatientDetails = ({ patient }) => {
   const records = getPatientRecords(patient.id);
   const sessions = getPatientSessions(patient.id);
   
+  const calculateAge = (dob) => {
+    const today = new Date();
+    const birthDate = new Date(dob);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+  
   const handleNewSession = () => {
     // Pre-fill patient data from latest record
     const latestRecord = records[0]; // Already sorted by date
@@ -208,7 +234,7 @@ const PatientDetails = ({ patient }) => {
     setPatientData({
       id: patient.id,
       name: patient.name,
-      age: patient.age,
+      age: calculateAge(patient.dateOfBirth),
       gender: patient.gender,
       dateOfBirth: patient.dateOfBirth,
       chiefComplaint: '',
@@ -243,6 +269,12 @@ const PatientDetails = ({ patient }) => {
     });
     
     setCurrentStep('clinical-assessment');
+  };
+  
+  const handleViewDetails = () => {
+    // Store the patient ID we're viewing
+    setPatientData(prev => ({ ...prev, viewingPatientId: patient.id }));
+    setCurrentStep('patient-detail');
   };
   
   const handleResumeSession = (session) => {
@@ -306,13 +338,22 @@ const PatientDetails = ({ patient }) => {
           </div>
         </div>
         
-        <button
-          onClick={handleNewSession}
-          className="w-full mt-6 flex items-center justify-center px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Activity className="w-5 h-5 mr-2" />
-          Start New Diagnostic Session
-        </button>
+        <div className="grid grid-cols-2 gap-3 mt-6">
+          <button
+            onClick={handleViewDetails}
+            className="flex items-center justify-center px-4 py-2 border border-blue-600 text-blue-600 font-medium rounded-lg hover:bg-blue-50 transition-colors"
+          >
+            <Eye className="w-5 h-5 mr-2" />
+            View Full Details
+          </button>
+          <button
+            onClick={handleNewSession}
+            className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Activity className="w-5 h-5 mr-2" />
+            Start Assessment
+          </button>
+        </div>
       </div>
       
       {/* Incomplete Sessions */}

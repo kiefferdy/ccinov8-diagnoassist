@@ -4,6 +4,8 @@ import { AppDataProvider } from './contexts/AppDataContext';
 import Layout from './components/Layout/Layout';
 import Home from './components/Home/Home';
 import PatientList from './components/PatientManagement/PatientList';
+import PatientDetailView from './components/PatientManagement/PatientDetailView';
+import PatientSelection from './components/Patient/PatientSelection';
 import PatientInformation from './components/Patient/PatientInformation';
 import ClinicalAssessment from './components/Patient/ClinicalAssessment';
 import PhysicalExam from './components/Diagnosis/PhysicalExam';
@@ -24,6 +26,10 @@ function AppContent() {
     switch (currentStep) {
       case 'patient-list':
         return <PatientList />;
+      case 'patient-detail':
+        return <PatientDetailView />;
+      case 'patient-selection':
+        return <PatientSelection />;
       case 'patient-info':
         return <PatientInformation />;
       case 'clinical-assessment':
@@ -46,7 +52,10 @@ function AppContent() {
   };
   
   // Show layout with sidebar only when patient workflow is active
-  const showLayout = currentStep !== 'home' && currentStep !== 'patient-list';
+  const showLayout = currentStep !== 'home' && 
+                    currentStep !== 'patient-list' && 
+                    currentStep !== 'patient-detail' && 
+                    currentStep !== 'patient-selection';
   
   if (showLayout) {
     return (

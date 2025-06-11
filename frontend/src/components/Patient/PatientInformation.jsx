@@ -24,7 +24,7 @@ const PatientInformation = () => {
     }
   });
   
-  const [showMedicalHistory, setShowMedicalHistory] = useState(false);
+  const [showMedicalHistory, setShowMedicalHistory] = useState(patientData.medicalHistory.length > 0 || patientData.medications.length > 0 || patientData.allergies.length > 0);
   const [newCondition, setNewCondition] = useState('');
   const [newMedication, setNewMedication] = useState('');
   const [newAllergy, setNewAllergy] = useState('');
@@ -76,7 +76,9 @@ const PatientInformation = () => {
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-gray-900 mb-2">Patient Information</h2>
-        <p className="text-gray-600">Enter the patient's basic information and chief complaint</p>
+        <p className="text-gray-600">
+          {patientData.id ? `Reviewing information for ${patientData.name}` : 'Enter the patient\'s basic information and chief complaint'}
+        </p>
       </div>
       
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -90,13 +92,14 @@ const PatientInformation = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Patient Name *
+                Patient Name {!patientData.id && '*'}
               </label>
               <input
                 type="text"
-                {...register('name', { required: 'Patient name is required' })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                {...register('name', { required: !patientData.id ? 'Patient name is required' : false })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:bg-gray-100 disabled:text-gray-600"
                 placeholder="John Doe"
+                disabled={!!patientData.id}
               />
               {errors.name && (
                 <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
@@ -105,17 +108,18 @@ const PatientInformation = () => {
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Age *
+                Age {!patientData.id && '*'}
               </label>
               <input
                 type="number"
                 {...register('age', { 
-                  required: 'Age is required',
+                  required: !patientData.id ? 'Age is required' : false,
                   min: { value: 0, message: 'Age must be positive' },
                   max: { value: 150, message: 'Please enter a valid age' }
                 })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:bg-gray-100 disabled:text-gray-600"
                 placeholder="35"
+                disabled={!!patientData.id}
               />
               {errors.age && (
                 <p className="mt-1 text-sm text-red-600">{errors.age.message}</p>
@@ -124,16 +128,17 @@ const PatientInformation = () => {
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Gender *
+                Gender {!patientData.id && '*'}
               </label>
               <select
-                {...register('gender', { required: 'Gender is required' })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                {...register('gender', { required: !patientData.id ? 'Gender is required' : false })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:bg-gray-100 disabled:text-gray-600"
+                disabled={!!patientData.id}
               >
                 <option value="">Select gender</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
               </select>
               {errors.gender && (
                 <p className="mt-1 text-sm text-red-600">{errors.gender.message}</p>
@@ -149,7 +154,8 @@ const PatientInformation = () => {
                 <input
                   type="date"
                   {...register('dateOfBirth')}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:bg-gray-100 disabled:text-gray-600"
+                  disabled={!!patientData.id}
                 />
               </div>
             </div>
@@ -219,6 +225,14 @@ const PatientInformation = () => {
           
           {showMedicalHistory && (
             <div className="space-y-6">
+              {patientData.id && (patientData.medicalHistory.length > 0 || patientData.medications.length > 0 || patientData.allergies.length > 0) && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-blue-800">
+                    <strong>Note:</strong> Medical history has been pre-filled from previous records. You can add or remove items as needed.
+                  </p>
+                </div>
+              )}
+              
               {/* Past Medical Conditions */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">

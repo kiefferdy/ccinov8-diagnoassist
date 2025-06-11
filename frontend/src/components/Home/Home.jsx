@@ -6,7 +6,7 @@ const Home = () => {
   const { setCurrentStep } = usePatient();
   
   const handleNewPatient = () => {
-    setCurrentStep('patient-info');
+    setCurrentStep('patient-selection');
   };
   
   const handlePatientList = () => {
