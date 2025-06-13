@@ -45,3 +45,53 @@
 .animate-fade-in {
   animation: fade-in 0.3s ease-out;
 }
+
+/* Custom slider styles */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-track {
+  background: #e5e7eb;
+  border-radius: 0.5rem;
+  height: 0.5rem;
+}
+
+.slider::-moz-range-track {
+  background: #e5e7eb;
+  border-radius: 0.5rem;
+  height: 0.5rem;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: #3b82f6;
+  border-radius: 50%;
+  cursor: pointer;
+  height: 1.5rem;
+  width: 1.5rem;
+  margin-top: -0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.slider::-moz-range-thumb {
+  background: #3b82f6;
+  border-radius: 50%;
+  cursor: pointer;
+  height: 1.5rem;
+  width: 1.5rem;
+  border: none;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.slider:hover::-webkit-slider-thumb {
+  background: #2563eb;
+}
+
+.slider:hover::-moz-range-thumb {
+  background: #2563eb;
+}

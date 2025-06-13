@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { usePatient } from '../../contexts/PatientContext';
 import { 
   MessageSquare, 
@@ -7,481 +7,819 @@ import {
   Plus, 
   Loader, 
   X, 
-  SkipForward,
   Edit3,
   FileText,
-  ChevronDown
+  Brain,
+  AlertCircle,
+  Activity,
+  ClipboardList,
+  PenTool,
+  CheckCircle,
+  Zap,
+  SkipForward,
+  History,
+  Navigation,
+  StickyNote,
+  ArrowRight,
+  HelpCircle,
+  Stethoscope,
+  User,
+  BookOpen,
+  Target,
+  Route,
+  Maximize2,
+  Minimize2,
+  ChevronUp,
+  ChevronDown,
+  Lightbulb,
+  FileQuestion,
+  Clock,
+  ThermometerSun,
+  ClipboardCheck
 } from 'lucide-react';
 import FileUpload from '../common/FileUpload';
-
-// Mock API function - replace with actual API call
-const generateFollowUpQuestion = async (chiefComplaint, answers) => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  // Mock questions based on chief complaint
-  const questionBank = {
-    chest: [
-      "How long have you been experiencing this chest pain?",
-      "On a scale of 1-10, how would you rate the pain?",
-      "Does the pain radiate to other parts of your body?",
-      "Is the pain worse with physical activity?",
-      "Do you experience shortness of breath with the pain?",
-      "Have you had any previous heart conditions?"
-    ],
-    head: [
-      "How long have you been experiencing headaches?",
-      "Where exactly is the pain located?",
-      "Is the headache constant or does it come and go?",
-      "Do you experience any visual disturbances?",
-      "Have you noticed any triggers for your headaches?",
-      "Do you have any nausea or vomiting with the headaches?"
-    ],
-    stomach: [
-      "How long have you been experiencing stomach pain?",
-      "Where exactly is the pain located in your abdomen?",
-      "Is the pain constant or intermittent?",
-      "Does eating make the pain better or worse?",
-      "Have you experienced any changes in bowel movements?",
-      "Do you have any nausea or vomiting?"
-    ],
-    cough: [
-      "How long have you had this cough?",
-      "Is the cough dry or productive?",
-      "If productive, what color is the sputum?",
-      "Do you have any fever or chills?",
-      "Have you experienced any shortness of breath?",
-      "Have you been exposed to anyone who is sick?"
-    ]
-  };
-  
-  // Determine which question bank to use
-  let questions = [];
-  const complaintLower = chiefComplaint.toLowerCase();
-  
-  if (complaintLower.includes('chest')) questions = questionBank.chest;
-  else if (complaintLower.includes('head')) questions = questionBank.head;
-  else if (complaintLower.includes('stomach') || complaintLower.includes('abdom')) questions = questionBank.stomach;
-  else if (complaintLower.includes('cough')) questions = questionBank.cough;
-  else {
-    // Generic questions
-    questions = [
-      "How long have you been experiencing these symptoms?",
-      "On a scale of 1-10, how severe are your symptoms?",
-      "Have the symptoms been getting better, worse, or staying the same?",
-      "Have you tried any treatments or medications?",
-      "Do you have any other symptoms?",
-      "Is there anything that makes your symptoms better or worse?"
-    ];
-  }
-  
-  // Return a question that hasn't been asked yet
-  const askedQuestions = answers.map(a => a.question);
-  const availableQuestions = questions.filter(q => !askedQuestions.includes(q));
-  
-  if (availableQuestions.length === 0) {
-    return null; // No more questions
-  }
-  
-  return availableQuestions[0];
-};
+import { generateNextQuestion, analyzeSymptoms, getStandardizedTools, getSuggestedDirections, generateAssessmentSummary } from './utils/clinicalAssessmentAI.jsx';
+import StandardizedToolModal from './components/StandardizedToolModal.jsx';
 
 const ClinicalAssessment = () => {
   const { patientData, updatePatientData, setCurrentStep } = usePatient();
-  const [currentQuestion, setCurrentQuestion] = useState('');
+  const [currentQuestion, setCurrentQuestion] = useState(null);
+  const [questionHistory, setQuestionHistory] = useState([]);
   const [currentAnswer, setCurrentAnswer] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [additionalNotes, setAdditionalNotes] = useState(patientData.additionalClinicalNotes || '');
-  const [showAdditionalNotes, setShowAdditionalNotes] = useState(false);
-  const [showCustomQuestion, setShowCustomQuestion] = useState(false);
-  const [customQuestion, setCustomQuestion] = useState('');
+  const [isGeneratingQuestion, setIsGeneratingQuestion] = useState(false);
+  const [showStandardizedTool, setShowStandardizedTool] = useState(false);
+  const [selectedTool, setSelectedTool] = useState(null);
+  const [completedTools, setCompletedTools] = useState([]);
   const [assessmentDocuments, setAssessmentDocuments] = useState(patientData.assessmentDocuments || []);
-  const [editingIndex, setEditingIndex] = useState(null);
-  const [editedAnswer, setEditedAnswer] = useState('');
-  const [skipReason, setSkipReason] = useState('');
+  const [assessmentSummary, setAssessmentSummary] = useState({ summary: '', insights: [] });
+  const [redFlags, setRedFlags] = useState([]);
+  const [showCustomQuestion, setShowCustomQuestion] = useState(false);
+  const [customQuestionText, setCustomQuestionText] = useState('');
+  const [suggestedDirections, setSuggestedDirections] = useState([]);
+  const [showNotes, setShowNotes] = useState(true);
+  const [notesExpanded, setNotesExpanded] = useState(false);
+  const [clinicalNotes, setClinicalNotes] = useState(patientData.clinicalNotes || '');
+  const [skipContext, setSkipContext] = useState('');
   const [showSkipDialog, setShowSkipDialog] = useState(false);
+  const [showCustomPathway, setShowCustomPathway] = useState(false);
+  const [customPathwayText, setCustomPathwayText] = useState('');
+  const notesRef = useRef(null);
   
+  // Initialize with first question
   useEffect(() => {
-    // Generate first question when component mounts
-    if (patientData.chiefComplaintDetails.length === 0 && patientData.chiefComplaint) {
+    if (patientData.chiefComplaint && !currentQuestion && questionHistory.length === 0) {
       generateInitialQuestion();
     }
   }, []);
-  
-  const generateInitialQuestion = async () => {
-    setIsLoading(true);
-    const question = await generateFollowUpQuestion(patientData.chiefComplaint, []);
-    setCurrentQuestion(question || '');
-    setIsLoading(false);
-  };
-  
-  const handleAnswerSubmit = async () => {
-    if (!currentAnswer.trim()) return;
+
+  // Update assessment overview whenever questions are answered
+  useEffect(() => {
+    const allAnswers = {};
+    questionHistory.forEach(q => {
+      if (q.answer && !q.skipped) {
+        allAnswers[q.id] = { question: q.text, answer: q.answer, category: q.category };
+      }
+    });
     
-    // Save the current Q&A
-    const newDetail = {
-      question: currentQuestion,
+    if (Object.keys(allAnswers).length > 0) {
+      const insights = analyzeSymptoms(patientData.chiefComplaint, allAnswers, patientData);
+      setRedFlags(insights.redFlags || []);
+      
+      // Generate assessment summary
+      const summary = generateAssessmentSummary(patientData.chiefComplaint, allAnswers, patientData);
+      setAssessmentSummary(summary);
+    }
+  }, [questionHistory, patientData.chiefComplaint, patientData]);
+
+  const generateInitialQuestion = async () => {
+    setIsGeneratingQuestion(true);
+    const firstQuestion = await generateNextQuestion(
+      patientData.chiefComplaint, 
+      [], 
+      patientData
+    );
+    setCurrentQuestion(firstQuestion.question);
+    setSuggestedDirections(firstQuestion.suggestedDirections || []);
+    setIsGeneratingQuestion(false);
+  };
+
+  const handleAnswerSubmit = async () => {
+    if (!currentAnswer.trim() && currentQuestion.type === 'text') return;
+
+    // Save current Q&A to history
+    const completedQuestion = {
+      ...currentQuestion,
       answer: currentAnswer,
-      timestamp: new Date().toISOString(),
-      isCustom: false
+      timestamp: new Date().toISOString()
     };
     
-    const updatedDetails = [...patientData.chiefComplaintDetails, newDetail];
-    updatePatientData('chiefComplaintDetails', updatedDetails);
+    const newHistory = [...questionHistory, completedQuestion];
+    setQuestionHistory(newHistory);
     
+    // Update patient data
+    updatePatientData('chiefComplaintDetails', newHistory);
+
     // Clear current answer
     setCurrentAnswer('');
     
     // Generate next question
-    setIsLoading(true);
-    const nextQuestion = await generateFollowUpQuestion(patientData.chiefComplaint, updatedDetails);
+    setIsGeneratingQuestion(true);
+    const nextData = await generateNextQuestion(
+      patientData.chiefComplaint,
+      newHistory,
+      patientData
+    );
     
-    if (nextQuestion) {
-      setCurrentQuestion(nextQuestion);
+    if (nextData.question) {
+      setCurrentQuestion(nextData.question);
+      setSuggestedDirections(nextData.suggestedDirections || []);
     } else {
-      setCurrentQuestion('');
+      setCurrentQuestion(null);
     }
-    setIsLoading(false);
+    setIsGeneratingQuestion(false);
   };
-  
+
   const handleSkipQuestion = () => {
     setShowSkipDialog(true);
   };
-  
-  const confirmSkip = () => {
-    // Save skipped question
-    const skippedDetail = {
-      question: currentQuestion,
-      answer: `[Skipped: ${skipReason || 'No reason provided'}]`,
-      timestamp: new Date().toISOString(),
-      isSkipped: true
+
+  const confirmSkip = async () => {
+    const skippedQuestion = {
+      ...currentQuestion,
+      answer: '[Skipped]',
+      skipContext: skipContext || '',
+      skipped: true,
+      timestamp: new Date().toISOString()
     };
     
-    const updatedDetails = [...patientData.chiefComplaintDetails, skippedDetail];
-    updatePatientData('chiefComplaintDetails', updatedDetails);
+    const newHistory = [...questionHistory, skippedQuestion];
+    setQuestionHistory(newHistory);
+    updatePatientData('chiefComplaintDetails', newHistory);
     
-    // Generate next question
-    setIsLoading(true);
-    generateFollowUpQuestion(patientData.chiefComplaint, updatedDetails).then(nextQuestion => {
-      if (nextQuestion) {
-        setCurrentQuestion(nextQuestion);
-      } else {
-        setCurrentQuestion('');
-      }
-      setIsLoading(false);
-    });
+    // Generate next question with skip context
+    setIsGeneratingQuestion(true);
+    const nextData = await generateNextQuestion(
+      patientData.chiefComplaint,
+      newHistory,
+      patientData,
+      skipContext ? `skip_context: ${skipContext}` : null
+    );
+    
+    if (nextData.question) {
+      setCurrentQuestion(nextData.question);
+      setSuggestedDirections(nextData.suggestedDirections || []);
+    } else {
+      setCurrentQuestion(null);
+    }
     
     setShowSkipDialog(false);
-    setSkipReason('');
+    setSkipContext('');
+    setIsGeneratingQuestion(false);
   };
-  
-  const handleCustomQuestionSubmit = () => {
-    if (!customQuestion.trim()) return;
+
+  const handleCustomQuestion = async () => {
+    if (!customQuestionText.trim()) return;
+    
+    const customQuestion = {
+      id: `custom_${Date.now()}`,
+      text: customQuestionText,
+      type: 'text',
+      category: 'Custom',
+      isCustom: true,
+      placeholder: 'Document the patient\'s response in detail...'
+    };
     
     setCurrentQuestion(customQuestion);
-    setCustomQuestion('');
+    setCustomQuestionText('');
     setShowCustomQuestion(false);
+    setSuggestedDirections([]);
   };
-  
-  const handleRemoveQuestion = (index) => {
-    const updatedDetails = patientData.chiefComplaintDetails.filter((_, i) => i !== index);
-    updatePatientData('chiefComplaintDetails', updatedDetails);
-  };
-  
-  const handleEditAnswer = (index) => {
-    setEditingIndex(index);
-    setEditedAnswer(patientData.chiefComplaintDetails[index].answer);
-  };
-  
-  const handleSaveEdit = () => {
-    const updatedDetails = [...patientData.chiefComplaintDetails];
-    updatedDetails[editingIndex] = {
-      ...updatedDetails[editingIndex],
-      answer: editedAnswer,
-      edited: true,
-      editedAt: new Date().toISOString()
-    };
-    updatePatientData('chiefComplaintDetails', updatedDetails);
-    setEditingIndex(null);
-    setEditedAnswer('');
-  };
-  
-  const handleDocumentsChange = (files) => {
-    setAssessmentDocuments(files);
-  };
-  
-  const handleContinue = () => {
-    if (additionalNotes.trim()) {
-      updatePatientData('additionalClinicalNotes', additionalNotes);
+
+  const handleDirectionChoice = async (direction) => {
+    setIsGeneratingQuestion(true);
+    const nextData = await generateNextQuestion(
+      patientData.chiefComplaint,
+      questionHistory,
+      patientData,
+      direction.focus
+    );
+    
+    if (nextData.question) {
+      setCurrentQuestion(nextData.question);
+      setSuggestedDirections(nextData.suggestedDirections || []);
     }
-    updatePatientData('assessmentDocuments', assessmentDocuments);
-    setCurrentStep('physical-exam');
+    setIsGeneratingQuestion(false);
   };
-  
-  const handleBack = () => {
-    setCurrentStep('patient-info');
+
+  const handleCustomPathway = async () => {
+    if (!customPathwayText.trim()) return;
+    
+    const customDirection = {
+      label: 'Custom pathway',
+      description: customPathwayText,
+      focus: `custom: ${customPathwayText}`
+    };
+    
+    setShowCustomPathway(false);
+    setCustomPathwayText('');
+    handleDirectionChoice(customDirection);
   };
-  
-  return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Clinical Assessment</h2>
-        <p className="text-gray-600">Gather detailed information about the patient's chief complaint</p>
-      </div>
-      
-      {/* Chief Complaint Summary */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 mb-6">
-        <p className="text-sm font-medium text-blue-900 mb-1">Chief Complaint:</p>
-        <p className="text-lg text-blue-800">{patientData.chiefComplaint}</p>
-      </div>
-      
-      {/* Q&A History */}
-      {patientData.chiefComplaintDetails.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Assessment History</h3>
-          <div className="space-y-4 max-h-96 overflow-y-auto">
-            {patientData.chiefComplaintDetails.map((detail, index) => (
-              <div 
-                key={index} 
-                className={`border-l-4 pl-4 pr-2 ${
-                  detail.isSkipped ? 'border-gray-400' : 
-                  detail.isCustom ? 'border-purple-500' : 
-                  'border-blue-500'
-                }`}
+
+  const navigateToQuestion = (index) => {
+    // Allow navigation back to previous questions
+    if (index < questionHistory.length) {
+      const targetQuestion = questionHistory[index];
+      setCurrentQuestion(targetQuestion);
+      setCurrentAnswer(targetQuestion.answer || '');
+      // Remove questions after this point
+      setQuestionHistory(questionHistory.slice(0, index));
+    }
+  };
+
+  const handleNotesChange = (value) => {
+    setClinicalNotes(value);
+    updatePatientData('clinicalNotes', value);
+  };
+
+  const toggleNotesExpanded = () => {
+    setNotesExpanded(!notesExpanded);
+  };
+
+  const renderQuestionInput = () => {
+    if (!currentQuestion) return null;
+
+    const handleKeyPress = (e) => {
+      if (e.key === 'Enter' && e.ctrlKey) {
+        e.preventDefault();
+        handleAnswerSubmit();
+      }
+    };
+
+    switch (currentQuestion.type) {
+      case 'boolean':
+        return (
+          <div className="space-y-4">
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setCurrentAnswer('Yes');
+                  handleAnswerSubmit();
+                }}
+                className="flex-1 px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900 mb-1 flex items-center">
-                      {detail.question}
-                      {detail.isCustom && (
-                        <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">Custom</span>
-                      )}
-                    </p>
-                    {editingIndex === index ? (
-                      <div className="flex items-center space-x-2 mt-2">
-                        <input
-                          type="text"
-                          value={editedAnswer}
-                          onChange={(e) => setEditedAnswer(e.target.value)}
-                          className="flex-1 px-3 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                        <button
-                          onClick={handleSaveEdit}
-                          className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={() => setEditingIndex(null)}
-                          className="px-3 py-1 border border-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-50"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <p className={`text-gray-700 ${detail.isSkipped ? 'italic' : ''}`}>
-                        {detail.answer}
-                        {detail.edited && (
-                          <span className="ml-2 text-xs text-gray-500">(edited)</span>
-                        )}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center space-x-1 ml-2">
-                    {!detail.isSkipped && editingIndex !== index && (
-                      <button
-                        onClick={() => handleEditAnswer(index)}
-                        className="p-1 text-gray-400 hover:text-gray-600"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                    )}
+                Yes
+              </button>
+              <button
+                onClick={() => {
+                  setCurrentAnswer('No');
+                  handleAnswerSubmit();
+                }}
+                className="flex-1 px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
+              >
+                No
+              </button>
+              <button
+                onClick={() => {
+                  setCurrentAnswer('Unknown/Not assessed');
+                  handleAnswerSubmit();
+                }}
+                className="flex-1 px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
+              >
+                Unknown
+              </button>
+            </div>
+            <div className="text-center">
+              <button
+                onClick={() => setCurrentAnswer('')}
+                className="text-sm text-blue-600 hover:text-blue-700"
+              >
+                Or provide detailed response below
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'severity':
+        return (
+          <div className="space-y-4">
+            <div className="bg-gray-50 rounded-lg p-4">
+              <div className="flex justify-between text-sm text-gray-600 mb-2">
+                <span>No pain</span>
+                <span>Moderate</span>
+                <span>Severe pain</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="10"
+                value={currentAnswer.split(' ')[0] || 0}
+                onChange={(e) => setCurrentAnswer(e.target.value)}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+              />
+              <div className="text-center mt-3">
+                <span className="text-3xl font-bold text-blue-600">{currentAnswer || 0}</span>
+                <span className="text-gray-600 text-lg">/10</span>
+              </div>
+            </div>
+            <textarea
+              value={currentAnswer.includes('Additional') ? currentAnswer.split('Additional details: ')[1] : ''}
+              onChange={(e) => setCurrentAnswer(`${currentAnswer.split(' ')[0] || 0}. Additional details: ${e.target.value}`)}
+              onKeyDown={handleKeyPress}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+              rows={2}
+              placeholder="Add qualitative description (optional)..."
+            />
+            <button
+              onClick={handleAnswerSubmit}
+              className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              Continue
+            </button>
+          </div>
+        );
+
+      default:
+        return (
+          <div className="space-y-4">
+            <textarea
+              value={currentAnswer}
+              onChange={(e) => setCurrentAnswer(e.target.value)}
+              onKeyDown={handleKeyPress}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+              rows={4}
+              placeholder={currentQuestion.placeholder || "Document the patient's response in detail..."}
+              autoFocus
+            />
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-500">Press Ctrl+Enter to submit</span>
+              <button
+                onClick={handleAnswerSubmit}
+                disabled={!currentAnswer.trim()}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-gray-300"
+              >
+                Continue
+              </button>
+            </div>
+            
+            {/* Quick response templates */}
+            {currentQuestion.templates && (
+              <div className="border-t pt-3">
+                <p className="text-xs text-gray-500 mb-2">Quick templates:</p>
+                <div className="flex flex-wrap gap-2">
+                  {currentQuestion.templates.map((template, idx) => (
                     <button
-                      onClick={() => handleRemoveQuestion(index)}
-                      className="p-1 text-red-400 hover:text-red-600"
+                      key={idx}
+                      onClick={() => setCurrentAnswer(template)}
+                      className="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-700"
                     >
-                      <X className="w-4 h-4" />
+                      {template}
                     </button>
-                  </div>
+                  ))}
                 </div>
               </div>
+            )}
+          </div>
+        );
+    }
+  };
+
+  const renderMainContent = () => (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Main Question Area */}
+      <div className="lg:col-span-2 space-y-4">
+        {/* Question History */}
+        {questionHistory.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-gray-900 flex items-center">
+                <History className="w-4 h-4 mr-2" />
+                Assessment Progress
+              </h3>
+              <span className="text-sm text-gray-500">{questionHistory.length} questions documented</span>
+            </div>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {questionHistory.map((q, index) => (
+                <button
+                  key={index}
+                  onClick={() => navigateToQuestion(index)}
+                  className="w-full text-left p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors group"
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center mb-1">
+                        <span className="text-xs font-medium text-gray-500 uppercase">{q.category}</span>
+                        {q.isCustom && (
+                          <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">Custom</span>
+                        )}
+                      </div>
+                      <p className="text-sm font-medium text-gray-700">{q.text}</p>
+                      <p className={`text-sm mt-1 ${q.skipped ? 'text-gray-400 italic' : 'text-gray-600'} line-clamp-2`}>
+                        {q.skipped ? `Skipped${q.skipContext ? ` - Next focus: ${q.skipContext}` : ''}` : q.answer}
+                      </p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600 ml-2 flex-shrink-0" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Current Question */}
+        {currentQuestion ? (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="mb-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <div className="flex items-center mb-2">
+                    <Stethoscope className="w-5 h-5 text-blue-600 mr-2" />
+                    <span className="text-sm font-medium text-blue-600">
+                      {currentQuestion.category || 'Clinical Question'} • Question {questionHistory.length + 1}
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-medium text-gray-900">
+                    {currentQuestion.text}
+                  </h3>
+                  {currentQuestion.helpText && (
+                    <div className="mt-2 text-sm text-gray-600 bg-blue-50 rounded-lg p-3">
+                      <HelpCircle className="w-4 h-4 inline mr-1 text-blue-600" />
+                      <span>{currentQuestion.helpText}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {renderQuestionInput()}
+            </div>
+
+            {/* Question Actions */}
+            <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+              <div className="flex space-x-2">
+                <button
+                  onClick={handleSkipQuestion}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium flex items-center"
+                >
+                  <SkipForward className="w-4 h-4 mr-1" />
+                  Skip
+                </button>
+                <button
+                  onClick={() => setShowCustomQuestion(true)}
+                  className="px-4 py-2 text-purple-600 hover:text-purple-700 font-medium flex items-center"
+                >
+                  <Edit3 className="w-4 h-4 mr-1" />
+                  Custom Question
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : isGeneratingQuestion ? (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+            <div className="flex flex-col items-center">
+              <Loader className="w-8 h-8 text-blue-600 animate-spin mb-4" />
+              <p className="text-gray-600">Analyzing clinical context...</p>
+              <p className="text-sm text-gray-500 mt-1">Generating relevant follow-up question</p>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-green-50 rounded-xl border border-green-200 p-6">
+            <div className="flex items-center mb-3">
+              <CheckCircle className="w-6 h-6 text-green-600 mr-2" />
+              <h3 className="text-lg font-semibold text-green-900">Initial Assessment Complete</h3>
+            </div>
+            <p className="text-green-800 mb-4">
+              You've documented {questionHistory.filter(q => !q.skipped).length} clinical findings. 
+              The initial assessment appears comprehensive.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setShowCustomQuestion(true)}
+                className="px-4 py-2 bg-white border border-green-300 text-green-700 rounded-lg hover:bg-green-50 flex items-center"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Add More Questions
+              </button>
+              <button
+                className="px-4 py-2 bg-white border border-green-300 text-green-700 rounded-lg hover:bg-green-50 flex items-center"
+              >
+                <FileText className="w-4 h-4 mr-1" />
+                Generate Summary
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Suggested Clinical Pathways */}
+        {suggestedDirections.length > 0 && currentQuestion && (
+          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 border border-indigo-200">
+            <h4 className="font-medium text-indigo-900 mb-3 flex items-center">
+              <Route className="w-4 h-4 mr-2" />
+              Suggested Clinical Pathways
+            </h4>
+            <p className="text-sm text-indigo-700 mb-3">
+              Based on the clinical presentation, consider exploring:
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {suggestedDirections.map((direction, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleDirectionChoice(direction)}
+                  className="p-3 bg-white rounded-lg border border-indigo-200 hover:border-indigo-300 text-left transition-colors group"
+                >
+                  <div className="flex items-center">
+                    <Target className="w-4 h-4 text-indigo-600 mr-2 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{direction.label}</p>
+                      <p className="text-xs text-gray-600 mt-0.5">{direction.description}</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-indigo-600 ml-auto" />
+                  </div>
+                </button>
+              ))}
+              <button
+                onClick={() => setShowCustomPathway(!showCustomPathway)}
+                className="p-3 bg-white rounded-lg border border-indigo-200 hover:border-indigo-300 text-left transition-colors group"
+              >
+                <div className="flex items-center">
+                  <Plus className="w-4 h-4 text-indigo-600 mr-2 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Custom pathway</p>
+                    <p className="text-xs text-gray-600 mt-0.5">Define your own focus area</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-indigo-600 ml-auto" />
+                </div>
+              </button>
+            </div>
+            
+            {/* Custom Pathway Input */}
+            {showCustomPathway && (
+              <div className="mt-3 p-3 bg-white rounded-lg border border-indigo-200">
+                <input
+                  type="text"
+                  value={customPathwayText}
+                  onChange={(e) => setCustomPathwayText(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleCustomPathway()}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm"
+                  placeholder="Describe the clinical area you want to explore..."
+                  autoFocus
+                />
+                <div className="flex justify-end mt-2 space-x-2">
+                  <button
+                    onClick={() => setShowCustomPathway(false)}
+                    className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCustomPathway}
+                    disabled={!customPathwayText.trim()}
+                    className="px-3 py-1 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:bg-gray-300"
+                  >
+                    Use Pathway
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Custom Question Input */}
+        {showCustomQuestion && (
+          <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
+            <h4 className="font-medium text-purple-900 mb-3">Create Custom Question</h4>
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={customQuestionText}
+                onChange={(e) => setCustomQuestionText(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleCustomQuestion()}
+                className="w-full px-4 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                placeholder="What specific aspect would you like to explore with the patient?"
+                autoFocus
+              />
+              <div className="flex justify-end space-x-2">
+                <button
+                  onClick={() => setShowCustomQuestion(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCustomQuestion}
+                  disabled={!customQuestionText.trim()}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300"
+                >
+                  Use Question
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Standardized Tools */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+          <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+            <ClipboardList className="w-5 h-5 mr-2" />
+            Standardized Assessment Tools
+          </h3>
+          <div className="grid grid-cols-2 gap-2">
+            {getStandardizedTools(patientData.chiefComplaint).map((tool) => (
+              <button
+                key={tool.id}
+                onClick={() => {
+                  setSelectedTool(tool);
+                  setShowStandardizedTool(true);
+                }}
+                className="p-3 rounded-lg border border-gray-200 hover:border-blue-300 text-left transition-colors group"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900 text-sm">{tool.name}</h4>
+                    <p className="text-xs text-gray-600 mt-0.5">{tool.description}</p>
+                  </div>
+                  {completedTools.includes(tool.id) ? (
+                    <CheckCircle className="w-4 h-4 text-green-500 ml-2" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600 ml-2" />
+                  )}
+                </div>
+              </button>
             ))}
           </div>
         </div>
-      )}
-      
-      {/* Current Question */}
-      {currentQuestion && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center">
-              <MessageSquare className="w-5 h-5 text-blue-600 mr-2" />
-              <h3 className="text-lg font-semibold text-gray-900">Follow-up Question</h3>
-            </div>
+      </div>
+
+      {/* Smart Summary Sidebar */}
+      <div className="lg:col-span-1 space-y-4">
+        {/* Red Flags */}
+        {redFlags.length > 0 && (
+          <div className="bg-red-50 rounded-xl p-4 border border-red-200">
+            <h4 className="font-semibold text-red-900 flex items-center mb-3">
+              <AlertCircle className="w-5 h-5 mr-2" />
+              Clinical Red Flags
+            </h4>
+            <ul className="space-y-2">
+              {redFlags.map((flag, index) => (
+                <li key={index} className="text-sm text-red-800 flex items-start">
+                  <span className="text-red-500 mr-2">•</span>
+                  {flag}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Assessment Overview */}
+        <div className="bg-gray-50 rounded-xl p-4">
+          <h4 className="font-semibold text-gray-900 flex items-center mb-3">
+            <ClipboardCheck className="w-5 h-5 text-blue-600 mr-2" />
+            Assessment Overview
+          </h4>
+          <div className="space-y-3">
+            {assessmentSummary.summary ? (
+              <>
+                <div className="text-sm text-gray-700 p-3 bg-white rounded-lg">
+                  <p className="font-medium mb-2">Clinical Summary:</p>
+                  <p className="text-gray-600">{assessmentSummary.summary}</p>
+                </div>
+                {assessmentSummary.insights.map((insight, index) => (
+                  <div key={index} className="text-sm text-gray-700 p-2 bg-white rounded-lg flex items-start">
+                    <span className="text-blue-500 mr-2">•</span>
+                    {insight}
+                  </div>
+                ))}
+              </>
+            ) : (
+              <p className="text-sm text-gray-500">Clinical findings will be summarized as you document the assessment</p>
+            )}
+          </div>
+        </div>
+
+        {/* Clinical Notes Panel */}
+        <div className={`bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden transition-all ${
+          notesExpanded ? 'lg:row-span-2' : ''
+        }`}>
+          <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+            <h4 className="font-semibold text-gray-900 flex items-center">
+              <StickyNote className="w-4 h-4 mr-2" />
+              Clinical Notes
+            </h4>
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => setShowCustomQuestion(!showCustomQuestion)}
-                className="text-sm text-purple-600 hover:text-purple-700 font-medium"
+                onClick={toggleNotesExpanded}
+                className="p-1 hover:bg-gray-100 rounded transition-colors"
+                title={notesExpanded ? "Minimize" : "Expand"}
               >
-                Custom Question
+                {notesExpanded ? (
+                  <Minimize2 className="w-4 h-4 text-gray-500" />
+                ) : (
+                  <Maximize2 className="w-4 h-4 text-gray-500" />
+                )}
               </button>
               <button
-                onClick={handleSkipQuestion}
-                className="text-sm text-gray-600 hover:text-gray-700 font-medium flex items-center"
+                onClick={() => setShowNotes(!showNotes)}
+                className="p-1 hover:bg-gray-100 rounded transition-colors"
               >
-                <SkipForward className="w-4 h-4 mr-1" />
-                Skip
+                {showNotes ? (
+                  <ChevronUp className="w-4 h-4 text-gray-500" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                )}
               </button>
             </div>
           </div>
-          
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader className="w-6 h-6 text-blue-600 animate-spin" />
-              <span className="ml-2 text-gray-600">Generating question...</span>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <p className="text-lg text-gray-800">{currentQuestion}</p>
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={currentAnswer}
-                  onChange={(e) => setCurrentAnswer(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleAnswerSubmit()}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Type patient's response..."
-                />
-                <button
-                  onClick={handleAnswerSubmit}
-                  disabled={!currentAnswer.trim()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300"
-                >
-                  Submit
-                </button>
+          {showNotes && (
+            <div className="p-4">
+              <textarea
+                ref={notesRef}
+                value={clinicalNotes}
+                onChange={(e) => handleNotesChange(e.target.value)}
+                className={`w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none transition-all ${
+                  notesExpanded ? 'h-96' : 'h-48'
+                }`}
+                placeholder="Document clinical observations, patient demeanor, environmental factors, or any additional context that may be relevant to the assessment..."
+              />
+              <div className="mt-2 flex items-center justify-between">
+                <p className="text-xs text-gray-500">
+                  {clinicalNotes.length} characters
+                </p>
+                <p className="text-xs text-gray-500">
+                  Auto-saved
+                </p>
               </div>
             </div>
           )}
         </div>
-      )}
-      
-      {/* Custom Question Input */}
-      {showCustomQuestion && (
-        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-6">
-          <div className="flex items-center mb-3">
-            <Edit3 className="w-5 h-5 text-purple-600 mr-2" />
-            <h4 className="font-medium text-purple-900">Create Custom Question</h4>
-          </div>
-          <div className="flex space-x-2">
-            <input
-              type="text"
-              value={customQuestion}
-              onChange={(e) => setCustomQuestion(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleCustomQuestionSubmit()}
-              className="flex-1 px-4 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              placeholder="Type your custom question..."
-            />
-            <button
-              onClick={handleCustomQuestionSubmit}
-              disabled={!customQuestion.trim()}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-300"
-            >
-              Use Question
+
+        {/* Quick Reference */}
+        <div className="bg-blue-50 rounded-xl p-4">
+          <h4 className="font-semibold text-blue-900 flex items-center mb-3">
+            <BookOpen className="w-4 h-4 mr-2" />
+            Quick Reference
+          </h4>
+          <div className="space-y-2 text-sm">
+            <button className="w-full text-left p-2 hover:bg-blue-100 rounded transition-colors text-blue-800">
+              → Clinical guidelines for {patientData.chiefComplaint}
+            </button>
+            <button className="w-full text-left p-2 hover:bg-blue-100 rounded transition-colors text-blue-800">
+              → Differential diagnosis checklist
+            </button>
+            <button className="w-full text-left p-2 hover:bg-blue-100 rounded transition-colors text-blue-800">
+              → Red flag symptoms reference
             </button>
           </div>
         </div>
-      )}
-      
-      {/* Skip Question Dialog */}
-      {showSkipDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Skip Question</h3>
-            <p className="text-gray-600 mb-4">Please provide a reason for skipping this question (optional):</p>
-            <input
-              type="text"
-              value={skipReason}
-              onChange={(e) => setSkipReason(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
-              placeholder="e.g., Not applicable, Patient unable to answer..."
-            />
-            <div className="flex justify-end space-x-2">
-              <button
-                onClick={() => setShowSkipDialog(false)}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmSkip}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Skip Question
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* No More Questions */}
-      {!currentQuestion && !isLoading && patientData.chiefComplaintDetails.length > 0 && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-6 mb-6">
-          <p className="text-green-800 font-medium">
-            ✓ Initial assessment complete. You've gathered {patientData.chiefComplaintDetails.filter(d => !d.isSkipped).length} responses.
-          </p>
-          <button
-            onClick={() => setShowCustomQuestion(true)}
-            className="mt-3 text-sm text-purple-600 hover:text-purple-700 font-medium"
-          >
-            Add another custom question
-          </button>
-        </div>
-      )}
-      
-      {/* Additional Notes */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-        <button
-          type="button"
-          onClick={() => setShowAdditionalNotes(!showAdditionalNotes)}
-          className="w-full flex items-center justify-between mb-4"
-        >
-          <div className="flex items-center">
-            <Plus className="w-5 h-5 text-blue-600 mr-2" />
-            <h3 className="text-lg font-semibold text-gray-900">Additional Clinical Notes</h3>
-            <span className="ml-2 text-sm text-gray-500">(Optional)</span>
-          </div>
-          <ChevronDown className={`w-5 h-5 text-gray-400 transform transition-transform ${showAdditionalNotes ? 'rotate-180' : ''}`} />
-        </button>
-        
-        {showAdditionalNotes && (
-          <div className="space-y-4">
-            <div>
-              <textarea
-                value={additionalNotes}
-                onChange={(e) => setAdditionalNotes(e.target.value)}
-                rows={4}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                placeholder="Add any additional observations or clinical notes..."
-              />
-            </div>
-            
-            <div>
-              <FileUpload
-                label="Attach Supporting Documents"
-                description="Upload clinical notes, referral letters, or other relevant documents"
-                acceptedFormats="image/*,.pdf,.doc,.docx,.txt"
-                maxFiles={5}
-                maxSizeMB={10}
-                onFilesChange={handleDocumentsChange}
-                existingFiles={assessmentDocuments}
-              />
-            </div>
-          </div>
-        )}
       </div>
-      
+    </div>
+  );
+
+  const handleContinue = () => {
+    updatePatientData('assessmentDocuments', assessmentDocuments);
+    setCurrentStep('physical-exam');
+  };
+
+  const handleBack = () => {
+    setCurrentStep('patient-info');
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto">
+      <div className="mb-8">
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">Clinical Assessment</h2>
+        <p className="text-gray-600">Guide the patient interview and document comprehensive findings</p>
+      </div>
+
+      {/* Chief Complaint Summary */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-blue-900 mb-1">Chief Complaint:</p>
+            <p className="text-lg text-blue-800">{patientData.chiefComplaint}</p>
+          </div>
+          <div className="flex items-center text-sm text-blue-700">
+            <User className="w-4 h-4 mr-1" />
+            {patientData.name}, {patientData.age} {patientData.gender}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      {renderMainContent()}
+
+      {/* File Upload Section */}
+      <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <FileUpload
+          label="Attach Supporting Documents"
+          description="Upload test results, imaging, referral letters, or other relevant clinical documents"
+          acceptedFormats="image/*,.pdf,.doc,.docx,.txt"
+          maxFiles={10}
+          maxSizeMB={20}
+          onFilesChange={setAssessmentDocuments}
+          existingFiles={assessmentDocuments}
+        />
+      </div>
+
       {/* Navigation Buttons */}
-      <div className="flex justify-between">
+      <div className="flex justify-between mt-8">
         <button
           onClick={handleBack}
           className="px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center"
@@ -492,13 +830,68 @@ const ClinicalAssessment = () => {
         
         <button
           onClick={handleContinue}
-          disabled={patientData.chiefComplaintDetails.length === 0}
-          className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-all flex items-center disabled:bg-gray-300 shadow-sm hover:shadow-md"
+          className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-all flex items-center shadow-sm hover:shadow-md"
         >
           Continue to Physical Exam
           <ChevronRight className="ml-2 w-5 h-5" />
         </button>
       </div>
+
+      {/* Skip Question Dialog */}
+      {showSkipDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Skip Current Question</h3>
+            <p className="text-gray-600 mb-4">
+              Optionally, guide the next question by specifying what you'd like to explore instead:
+            </p>
+            <input
+              type="text"
+              value={skipContext}
+              onChange={(e) => setSkipContext(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 mb-2"
+              placeholder="e.g., 'Focus on sleep patterns' or 'Explore family history'"
+              autoFocus
+            />
+            <p className="text-xs text-gray-500 mb-4">
+              Leave blank to let the system choose the next question automatically
+            </p>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setShowSkipDialog(false);
+                  setSkipContext('');
+                }}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmSkip}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Skip & Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Standardized Tool Modal */}
+      {showStandardizedTool && selectedTool && (
+        <StandardizedToolModal
+          tool={selectedTool}
+          onClose={() => setShowStandardizedTool(false)}
+          onComplete={(results) => {
+            setCompletedTools([...completedTools, selectedTool.id]);
+            updatePatientData('standardizedAssessments', {
+              ...patientData.standardizedAssessments,
+              [selectedTool.id]: results
+            });
+            setShowStandardizedTool(false);
+          }}
+        />
+      )}
     </div>
   );
 };

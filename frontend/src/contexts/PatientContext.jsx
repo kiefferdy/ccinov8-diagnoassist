@@ -24,6 +24,8 @@ export const PatientProvider = ({ children }) => {
     chiefComplaint: '',
     chiefComplaintDetails: [],
     additionalClinicalNotes: '',
+    clinicalNotes: '', // For free-form notes
+    standardizedAssessments: {}, // For storing PHQ-9, GAD-7, etc. results
     
     // Medical History
     medicalHistory: [],
@@ -121,6 +123,8 @@ export const PatientProvider = ({ children }) => {
       chiefComplaint: '',
       chiefComplaintDetails: [],
       additionalClinicalNotes: '',
+      clinicalNotes: '',
+      standardizedAssessments: {},
       medicalHistory: [],
       medications: [],
       allergies: [],
