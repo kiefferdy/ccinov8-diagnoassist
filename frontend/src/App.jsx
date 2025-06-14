@@ -12,7 +12,9 @@ import PhysicalExam from './components/Diagnosis/PhysicalExam';
 import DiagnosticAnalysis from './components/Diagnosis/DiagnosticAnalysis';
 import RecommendedTests from './components/Tests/RecommendedTests';
 import TestResults from './components/Tests/TestResults';
-import FinalDiagnosis from './components/Treatment/FinalDiagnosis';
+import FinalDiagnosis from './components/FinalDiagnosis/FinalDiagnosis';
+import TreatmentPlan from './components/TreatmentPlan/TreatmentPlan';
+import ClinicalSummary from './components/ClinicalSummary/ClinicalSummary';
 
 function AppContent() {
   const { currentStep } = usePatient();
@@ -46,6 +48,10 @@ function AppContent() {
         return <RecommendedTests />;
       case 'final-diagnosis':
         return <FinalDiagnosis />;
+      case 'treatment-plan':
+        return <TreatmentPlan />;
+      case 'clinical-summary':
+        return <ClinicalSummary />;
       default:
         return <Home />;
     }

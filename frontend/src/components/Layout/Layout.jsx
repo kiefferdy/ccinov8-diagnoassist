@@ -13,7 +13,9 @@ import {
   LogOut,
   FlaskConical,
   ClipboardCheck,
-  X
+  X,
+  Heart,
+  FileCheck
 } from 'lucide-react';
 
 const Layout = ({ children }) => {
@@ -34,7 +36,9 @@ const Layout = ({ children }) => {
     { id: 'diagnostic-analysis', label: 'Diagnostic Analysis', icon: Activity },
     { id: 'recommended-tests', label: 'Recommended Tests', icon: FlaskConical },
     { id: 'test-results', label: 'Test Results', icon: ClipboardCheck },
-    { id: 'final-diagnosis', label: 'Final Diagnosis', icon: FileText }
+    { id: 'final-diagnosis', label: 'Final Diagnosis', icon: FileText },
+    { id: 'treatment-plan', label: 'Treatment Plan', icon: Heart },
+    { id: 'clinical-summary', label: 'Clinical Summary', icon: FileCheck }
   ];
   
   const getStepIndex = (stepId) => steps.findIndex(s => s.id === stepId);
@@ -63,6 +67,10 @@ const Layout = ({ children }) => {
           return patientData.selectedTests && patientData.selectedTests.length > 0;
         case 'test-results':
           return patientData.testResults && Object.values(patientData.testResults).some(r => r.status === 'completed');
+        case 'final-diagnosis':
+          return patientData.selectedDiagnosis || patientData.finalDiagnosis;
+        case 'treatment-plan':
+          return patientData.treatmentPlan && patientData.treatmentPlan.length > 0;
         default:
           return false;
       }
