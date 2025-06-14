@@ -63,7 +63,7 @@ const DiagnosticAnalysis = () => {
         id: 1,
         name: "Community-Acquired Pneumonia",
         icd10: "J18.9",
-        probability: 75,
+        probability: 0.75,
         severity: "moderate",
         confidence: "high",
         supportingFactors: [
@@ -83,7 +83,7 @@ const DiagnosticAnalysis = () => {
         id: 2,
         name: "Acute Bronchitis",
         icd10: "J20.9",
-        probability: 65,
+        probability: 0.65,
         severity: "mild",
         confidence: "moderate",
         supportingFactors: [
@@ -102,7 +102,7 @@ const DiagnosticAnalysis = () => {
         id: 3,
         name: "Pulmonary Embolism",
         icd10: "I26.9",
-        probability: 25,
+        probability: 0.25,
         severity: "high",
         confidence: "low",
         supportingFactors: [
@@ -121,7 +121,7 @@ const DiagnosticAnalysis = () => {
         id: 4,
         name: "Atypical Pneumonia",
         icd10: "J15.9",
-        probability: 20,
+        probability: 0.20,
         severity: "moderate",
         confidence: "low",
         supportingFactors: [
@@ -241,9 +241,9 @@ const DiagnosticAnalysis = () => {
     // Update diagnoses based on feedback
     const updatedDiagnoses = diagnoses.map(d => {
       if (d.userFeedback === 'agreed') {
-        return { ...d, probability: Math.min(d.probability + 5, 95) };
+        return { ...d, probability: Math.min(d.probability + 0.05, 0.95) };
       } else if (d.userFeedback === 'disagreed') {
-        return { ...d, probability: Math.max(d.probability - 5, 10) };
+        return { ...d, probability: Math.max(d.probability - 0.05, 0.10) };
       }
       return d;
     }).sort((a, b) => b.probability - a.probability);
@@ -316,7 +316,7 @@ const DiagnosticAnalysis = () => {
               <div>
                 <p className="text-sm font-medium text-green-900">Analysis Complete</p>
                 <p className="text-green-800 text-sm">
-                  {diagnoses.length} conditions identified • {diagnoses.filter(d => d.probability > 50).length} high probability
+                  {diagnoses.length} conditions identified • {diagnoses.filter(d => d.probability > 0.50).length} high probability
                 </p>
               </div>
             </div>
@@ -408,10 +408,10 @@ const DiagnosticAnalysis = () => {
                     <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2">
                       <div 
                         className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full"
-                        style={{ width: `${diagnoses[0]?.probability}%` }}
+                        style={{ width: `${(diagnoses[0]?.probability * 100) || 0}%` }}
                       />
                     </div>
-                    <span className="text-sm font-medium text-gray-700">{diagnoses[0]?.probability}%</span>
+                    <span className="text-sm font-medium text-gray-700">{Math.round((diagnoses[0]?.probability || 0) * 100)}%</span>
                   </div>
                 </div>
                 

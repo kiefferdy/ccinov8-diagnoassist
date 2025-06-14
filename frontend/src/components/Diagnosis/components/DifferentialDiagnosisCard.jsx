@@ -92,8 +92,8 @@ const DifferentialDiagnosisCard = ({ diagnosis, index, onFeedback }) => {
             
             {/* Probability */}
             <div className="flex-shrink-0 text-right">
-              <div className={`text-3xl font-bold ${getProbabilityColor(diagnosis.probability)}`}>
-                {diagnosis.probability}%
+              <div className={`text-3xl font-bold ${getProbabilityColor(diagnosis.probability * 100)}`}>
+                {Math.round(diagnosis.probability * 100)}%
               </div>
               <div className="text-xs text-gray-500 uppercase tracking-wide">
                 Probability

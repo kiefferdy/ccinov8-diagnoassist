@@ -471,6 +471,39 @@ const ClinicalAssessment = () => {
                 </button>
               </div>
             </div>
+            
+            {/* Custom Question Input */}
+            {showCustomQuestion && (
+              <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <h4 className="font-medium text-purple-900 mb-3">Create Custom Question</h4>
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    value={customQuestionText}
+                    onChange={(e) => setCustomQuestionText(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleCustomQuestion()}
+                    className="w-full px-4 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    placeholder="What specific aspect would you like to explore with the patient?"
+                    autoFocus
+                  />
+                  <div className="flex justify-end space-x-2">
+                    <button
+                      onClick={() => setShowCustomQuestion(false)}
+                      className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleCustomQuestion}
+                      disabled={!customQuestionText.trim()}
+                      className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300"
+                    >
+                      Use Question
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : isGeneratingQuestion ? (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
@@ -579,39 +612,6 @@ const ClinicalAssessment = () => {
                 </div>
               </div>
             )}
-          </div>
-        )}
-
-        {/* Custom Question Input */}
-        {showCustomQuestion && (
-          <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
-            <h4 className="font-medium text-purple-900 mb-3">Create Custom Question</h4>
-            <div className="space-y-3">
-              <input
-                type="text"
-                value={customQuestionText}
-                onChange={(e) => setCustomQuestionText(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleCustomQuestion()}
-                className="w-full px-4 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                placeholder="What specific aspect would you like to explore with the patient?"
-                autoFocus
-              />
-              <div className="flex justify-end space-x-2">
-                <button
-                  onClick={() => setShowCustomQuestion(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCustomQuestion}
-                  disabled={!customQuestionText.trim()}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300"
-                >
-                  Use Question
-                </button>
-              </div>
-            </div>
           </div>
         )}
 
@@ -840,35 +840,35 @@ const ClinicalAssessment = () => {
       {/* Skip Question Dialog */}
       {showSkipDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Skip Current Question</h3>
-            <p className="text-gray-600 mb-4">
+          <div className="bg-white rounded-xl p-8 max-w-lg w-full mx-4">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Skip Current Question</h3>
+            <p className="text-gray-600 mb-6">
               Optionally, guide the next question by specifying what you'd like to explore instead:
             </p>
             <input
               type="text"
               value={skipContext}
               onChange={(e) => setSkipContext(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 mb-2"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 mb-3 text-base"
               placeholder="e.g., 'Focus on sleep patterns' or 'Explore family history'"
               autoFocus
             />
-            <p className="text-xs text-gray-500 mb-4">
+            <p className="text-sm text-gray-500 mb-6">
               Leave blank to let the system choose the next question automatically
             </p>
-            <div className="flex justify-end space-x-2">
+            <div className="flex justify-end space-x-3">
               <button
                 onClick={() => {
                   setShowSkipDialog(false);
                   setSkipContext('');
                 }}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmSkip}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Skip & Continue
               </button>

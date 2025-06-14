@@ -4,18 +4,25 @@ import { useAppData } from '../../contexts/AppDataContext';
 import { 
   FileText, 
   ChevronLeft,
+  ChevronRight,
   Check,
   AlertCircle,
   Download,
   Save,
   Printer,
   RefreshCw,
-  Pill,
-  Plus,
-  X,
   Calendar,
-  User
+  User,
+  Brain,
+  Sparkles,
+  MessageSquare,
+  BarChart3,
+  Activity,
+  PlusCircle
 } from 'lucide-react';
+import RefinedDiagnosisCard from './components/RefinedDiagnosisCard';
+import TreatmentPlanEditor from './components/TreatmentPlanEditor';
+import DiagnosticSummaryPanel from './components/DiagnosticSummaryPanel';
 
 const FinalDiagnosis = () => {
   const { patientData, updatePatientData, setCurrentStep, sessionId, resetPatient } = usePatient();
@@ -25,35 +32,59 @@ const FinalDiagnosis = () => {
   const [customDiagnosis, setCustomDiagnosis] = useState('');
   const [treatmentPlan, setTreatmentPlan] = useState('');
   const [prescriptions, setPrescriptions] = useState([]);
-  const [newPrescription, setNewPrescription] = useState({
-    medication: '',
-    dosage: '',
-    frequency: '',
-    duration: ''
-  });
-  const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [assessmentNote, setAssessmentNote] = useState('');
+  const [selectedView, setSelectedView] = useState('overview'); // 'overview', 'detailed', 'summary'
+  const [isRefining, setIsRefining] = useState(false);
+  const [showCustomDiagnosisForm, setShowCustomDiagnosisForm] = useState(false);
   
   useEffect(() => {
     // Refine diagnoses based on test results
     refineAnalysis();
+    
+    // Load existing data if available
+    if (patientData.treatmentPlan) {
+      setTreatmentPlan(patientData.treatmentPlan);
+    }
+    if (patientData.prescriptions && patientData.prescriptions.length > 0) {
+      setPrescriptions(patientData.prescriptions);
+    }
+    if (patientData.selectedDiagnosis) {
+      setSelectedDiagnosis(patientData.selectedDiagnosis);
+    }
   }, []);
   
-  const refineAnalysis = () => {
+  const refineAnalysis = async () => {
+    setIsRefining(true);
+    
     // In a real app, this would call an API with test results
-    // For now, we'll adjust probabilities based on mock logic
     const testResults = patientData.testResults || {};
     let refined = [...patientData.differentialDiagnoses];
     
-    // Mock refinement logic
+    // Enhanced refinement logic
     const testResultsArray = Object.values(testResults);
     if (testResultsArray.some(r => r.testName && r.testName.includes('Chest X-ray'))) {
       refined = refined.map(d => {
         if (d.name.includes('Pneumonia')) {
-          return { ...d, probability: 0.85, confidence: 'High' };
+          return { 
+            ...d, 
+            probability: 0.85, 
+            confidence: 'High',
+            supportingFactors: [
+              ...d.supportingFactors,
+              'Chest X-ray shows consolidation'
+            ]
+          };
         } else if (d.name.includes('Bronchitis')) {
-          return { ...d, probability: 0.10, confidence: 'Low' };
+          return { 
+            ...d, 
+            probability: 0.10, 
+            confidence: 'Low',
+            contradictingFactors: [
+              ...d.contradictingFactors,
+              'Chest X-ray findings suggest pneumonia'
+            ]
+          };
         }
         return d;
       });
@@ -65,32 +96,56 @@ const FinalDiagnosis = () => {
     
     // Generate assessment note
     generateAssessmentNote(refined[0]);
+    
+    setTimeout(() => setIsRefining(false), 1500);
   };
   
   const generateAssessmentNote = (topDiagnosis) => {
     const testResultsArray = Object.values(patientData.testResults || {});
     
-    const note = `ASSESSMENT:
-${patientData.age}-year-old ${patientData.gender} presenting with ${patientData.chiefComplaint}.
+    const note = `ASSESSMENT AND PLAN
 
-Physical examination revealed:
-- BP: ${patientData.physicalExam.bloodPressure}
-- HR: ${patientData.physicalExam.heartRate} bpm
-- Temp: ${patientData.physicalExam.temperature}°C
-- RR: ${patientData.physicalExam.respiratoryRate}/min
-- O2 Sat: ${patientData.physicalExam.oxygenSaturation}%
+PATIENT: ${patientData.name}, ${patientData.age}-year-old ${patientData.gender}
+DATE: ${new Date().toLocaleDateString()}
+CHIEF COMPLAINT: ${patientData.chiefComplaint}
 
-${patientData.physicalExam.additionalFindings ? `Additional findings: ${patientData.physicalExam.additionalFindings}` : ''}
+HISTORY OF PRESENT ILLNESS:
+${patientData.chiefComplaintDetails && patientData.chiefComplaintDetails.length > 0 
+  ? patientData.chiefComplaintDetails
+      .filter(q => q.answer && !q.skipped)
+      .map(q => `${q.text}: ${q.answer}`)
+      .join('\n') 
+  : 'See clinical notes'}
 
-Laboratory/Imaging Results:
-${testResultsArray.map(r => `- ${r.testName}: ${r.value} ${r.unit || ''} (${r.interpretation || 'pending'})`).join('\n')}
+PHYSICAL EXAMINATION:
+Vital Signs:
+- Blood Pressure: ${patientData.physicalExam.bloodPressure}
+- Heart Rate: ${patientData.physicalExam.heartRate} bpm
+- Temperature: ${patientData.physicalExam.temperature}°C
+- Respiratory Rate: ${patientData.physicalExam.respiratoryRate}/min
+- O2 Saturation: ${patientData.physicalExam.oxygenSaturation}%
 
-Based on clinical presentation and diagnostic results, the most likely diagnosis is ${topDiagnosis.name} (ICD-10: ${topDiagnosis.icd10}).
+${patientData.physicalExam.additionalFindings ? `Additional Findings:\n${patientData.physicalExam.additionalFindings}` : ''}
+
+DIAGNOSTIC RESULTS:
+${testResultsArray.length > 0 ? 
+  testResultsArray.map(r => `- ${r.testName}: ${r.value || 'Completed'} ${r.unit || ''} ${r.interpretation ? `(${r.interpretation})` : ''}`).join('\n') :
+  'No diagnostic tests performed'
+}
+
+ASSESSMENT:
+Based on the clinical presentation, physical examination, and diagnostic results, the most likely diagnosis is ${topDiagnosis?.name || 'pending further evaluation'} (ICD-10: ${topDiagnosis?.icd10 || 'TBD'}).
+
+Differential diagnoses considered included:
+${refinedDiagnoses.slice(0, 3).map((d, i) => `${i + 1}. ${d.name} (${(d.probability * 100).toFixed(0)}% probability)`).join('\n')}
 
 PLAN:
-See treatment recommendations below.`;
+See treatment recommendations below.
+
+${patientData.diagnosticNotes ? `\nCLINICAL NOTES:\n${patientData.diagnosticNotes}` : ''}`;
     
     setAssessmentNote(note);
+    updatePatientData('assessmentNote', note);
   };
   
   const handleDiagnosisSelect = async (diagnosis) => {
@@ -108,11 +163,14 @@ See treatment recommendations below.`;
         name: customDiagnosis,
         isCustom: true,
         probability: 1.0,
-        confidence: 'Doctor Override'
+        confidence: 'Doctor Override',
+        icd10: 'Custom'
       };
       setSelectedDiagnosis(custom);
       updatePatientData('selectedDiagnosis', custom);
       generateTreatmentPlan(custom);
+      setShowCustomDiagnosisForm(false);
+      setCustomDiagnosis('');
     }
   };
   
@@ -122,29 +180,37 @@ See treatment recommendations below.`;
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    // Mock treatment plan based on diagnosis
+    // Enhanced treatment plan generation
     let plan = '';
     let mockPrescriptions = [];
     
     if (diagnosis.name.includes('Pneumonia')) {
-      plan = `1. Antibiotic therapy:
-   - Start empirical treatment with amoxicillin-clavulanate
+      plan = `1. Antibiotic Therapy:
+   - Start empirical treatment with amoxicillin-clavulanate 875mg PO BID
    - Consider macrolide addition if atypical pneumonia suspected
+   - Duration: 7-10 days based on clinical response
 
-2. Supportive care:
-   - Rest and adequate hydration
-   - Antipyretics for fever (acetaminophen or ibuprofen)
+2. Supportive Care:
+   - Rest and adequate hydration (2-3L daily unless contraindicated)
+   - Antipyretics for fever (acetaminophen 500-1000mg q6h PRN)
    - Supplemental oxygen if O2 saturation < 92%
+   - Chest physiotherapy if productive cough
 
-3. Follow-up:
-   - Re-evaluate in 48-72 hours
+3. Monitoring:
+   - Daily temperature monitoring
+   - Watch for signs of clinical deterioration
+   - Monitor for medication side effects
+
+4. Follow-up:
+   - Re-evaluate in 48-72 hours (sooner if worsening)
    - Repeat chest X-ray in 4-6 weeks to ensure resolution
    - Consider admission if severe symptoms or comorbidities
 
-4. Patient education:
+5. Patient Education:
    - Complete full course of antibiotics
    - Return if symptoms worsen or no improvement in 2-3 days
-   - Smoking cessation counseling if applicable`;
+   - Smoking cessation counseling if applicable
+   - Pneumococcal and influenza vaccination when recovered`;
    
       mockPrescriptions = [
         {
@@ -152,54 +218,44 @@ See treatment recommendations below.`;
           medication: 'Amoxicillin-Clavulanate',
           dosage: '875mg',
           frequency: 'Twice daily',
-          duration: '7 days'
+          duration: '7 days',
+          instructions: 'Take with food to minimize GI upset'
         },
         {
           id: 2,
           medication: 'Acetaminophen',
           dosage: '500mg',
           frequency: 'Every 6 hours as needed',
-          duration: 'PRN for fever'
-        }
-      ];
-    } else if (diagnosis.name.includes('Hypertension')) {
-      plan = `1. Lifestyle modifications:
-   - DASH diet implementation
-   - Regular exercise (30 min/day, 5 days/week)
-   - Weight reduction if BMI > 25
-   - Limit sodium intake to < 2300mg/day
-   - Limit alcohol consumption
-
-2. Pharmacotherapy:
-   - Start ACE inhibitor or ARB as first-line
-   - Monitor blood pressure at home
-
-3. Follow-up:
-   - Recheck BP in 2-4 weeks
-   - Annual labs: BMP, lipid panel, urinalysis
-   - Assess for target organ damage
-
-4. Risk factor modification:
-   - Smoking cessation if applicable
-   - Stress management techniques`;
-   
-      mockPrescriptions = [
+          duration: 'PRN for fever',
+          instructions: 'Maximum 4g daily'
+        },
         {
-          id: 1,
-          medication: 'Lisinopril',
-          dosage: '10mg',
-          frequency: 'Once daily',
-          duration: 'Ongoing'
+          id: 3,
+          medication: 'Guaifenesin',
+          dosage: '400mg',
+          frequency: 'Every 4 hours as needed',
+          duration: 'PRN for cough',
+          instructions: 'Take with full glass of water'
         }
       ];
     } else {
-      plan = `1. Symptomatic treatment as indicated
+      // Generic treatment plan
+      plan = `1. Symptomatic Treatment:
+   - Address specific symptoms as indicated
+   - Pain management if needed
+   - Rest and hydration
 
-2. Follow-up as needed based on symptom progression
+2. Monitoring:
+   - Monitor symptom progression
+   - Track vital signs if applicable
 
-3. Return precautions provided
+3. Follow-up:
+   - As needed based on symptom progression
+   - Sooner if symptoms worsen
 
-4. Additional testing if symptoms persist or worsen`;
+4. Patient Education:
+   - Return precautions provided
+   - Lifestyle modifications as appropriate`;
     }
     
     setTreatmentPlan(plan);
@@ -210,40 +266,23 @@ See treatment recommendations below.`;
     setIsGeneratingPlan(false);
   };
   
-  const handleAddPrescription = () => {
-    if (newPrescription.medication && newPrescription.dosage) {
-      const prescription = {
-        id: prescriptions.length + 1,
-        ...newPrescription
-      };
-      setPrescriptions([...prescriptions, prescription]);
-      updatePatientData('prescriptions', [...prescriptions, prescription]);
-      setNewPrescription({
-        medication: '',
-        dosage: '',
-        frequency: '',
-        duration: ''
-      });
-      setShowPrescriptionForm(false);
-    }
-  };
-  
-  const handleRemovePrescription = (id) => {
-    const filtered = prescriptions.filter(p => p.id !== id);
-    setPrescriptions(filtered);
-    updatePatientData('prescriptions', filtered);
-  };
-  
   const handleFinalize = () => {
+    // Validate required fields
+    if (!selectedDiagnosis && !customDiagnosis) {
+      alert('Please select or enter a diagnosis before finalizing.');
+      return;
+    }
+    
     // Save final diagnosis
     updatePatientData('finalDiagnosis', selectedDiagnosis?.name || customDiagnosis);
     updatePatientData('assessmentNote', assessmentNote);
     
-    // Create patient record
+    // Create comprehensive patient record
     const record = {
       patientId: patientData.id,
       sessionId: sessionId,
       chiefComplaint: patientData.chiefComplaint,
+      chiefComplaintDetails: patientData.chiefComplaintDetails,
       finalDiagnosis: selectedDiagnosis?.name || customDiagnosis,
       icd10: selectedDiagnosis?.icd10 || 'Custom',
       physicalExam: patientData.physicalExam,
@@ -255,7 +294,10 @@ See treatment recommendations below.`;
       medications: patientData.medications,
       allergies: patientData.allergies,
       assessmentNote: assessmentNote,
-      diagnosticNotes: patientData.diagnosticNotes || ''
+      diagnosticNotes: patientData.diagnosticNotes || '',
+      differentialDiagnoses: refinedDiagnoses,
+      clinicalNotes: patientData.clinicalNotes || '',
+      standardizedAssessments: patientData.standardizedAssessments || {}
     };
     
     // Save the record
@@ -277,15 +319,29 @@ See treatment recommendations below.`;
     setCurrentStep('test-results');
   };
   
+  const exportPDF = () => {
+    // In a real app, this would generate a proper PDF
+    alert('PDF export functionality would be implemented here');
+  };
+  
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-7xl mx-auto">
+      {/* Header */}
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Final Diagnosis & Treatment Plan</h2>
-        <p className="text-gray-600">Review refined analysis, confirm diagnosis, and create treatment plan</p>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-3xl font-bold text-gray-900">Final Diagnosis & Treatment Plan</h2>
+          <div className="flex items-center space-x-2">
+            <Brain className="w-6 h-6 text-blue-600" />
+            <span className="text-sm text-gray-600">AI-Enhanced Decision Support</span>
+          </div>
+        </div>
+        <p className="text-gray-600">
+          Review AI-refined analysis based on test results and finalize the diagnosis with treatment plan
+        </p>
       </div>
       
       {/* Patient Summary */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 mb-6">
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center mb-1">
@@ -295,8 +351,8 @@ See treatment recommendations below.`;
             </div>
             <p className="text-blue-800">Chief Complaint: {patientData.chiefComplaint}</p>
           </div>
-          <div className="text-right text-sm text-blue-700">
-            <div className="flex items-center">
+          <div className="text-right">
+            <div className="flex items-center text-sm text-blue-700">
               <Calendar className="w-4 h-4 mr-1" />
               {new Date().toLocaleDateString()}
             </div>
@@ -304,218 +360,189 @@ See treatment recommendations below.`;
         </div>
       </div>
       
-      {/* Refined Diagnoses */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-        <div className="flex items-center mb-6">
-          <RefreshCw className="w-5 h-5 text-blue-600 mr-2" />
-          <h3 className="text-lg font-semibold text-gray-900">Refined Diagnostic Analysis</h3>
-          <span className="ml-2 text-sm text-gray-500">(Based on test results)</span>
-        </div>
-        
-        <div className="space-y-3">
-          {refinedDiagnoses.map((diagnosis, index) => (
-            <div
-              key={diagnosis.id}
-              onClick={() => handleDiagnosisSelect(diagnosis)}
-              className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                selectedDiagnosis?.id === diagnosis.id
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  {selectedDiagnosis?.id === diagnosis.id && (
-                    <Check className="w-5 h-5 text-blue-600 mr-2" />
-                  )}
-                  <span className="font-medium text-gray-900">
-                    {index + 1}. {diagnosis.name}
-                  </span>
-                  <span className="ml-2 text-sm text-gray-500">ICD-10: {diagnosis.icd10}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm font-medium text-gray-700">
-                    {(diagnosis.probability * 100).toFixed(0)}%
-                  </span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    diagnosis.confidence === 'High' ? 'bg-green-100 text-green-700' :
-                    diagnosis.confidence === 'Moderate' ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-red-100 text-red-700'
-                  }`}>
-                    {diagnosis.confidence}
-                  </span>
-                </div>
-              </div>
+      {/* Refinement Status */}
+      {isRefining && (
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-4 mb-6">
+          <div className="flex items-center">
+            <div className="relative mr-4">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-600"></div>
+              <Sparkles className="absolute inset-0 m-auto w-5 h-5 text-purple-600" />
             </div>
-          ))}
-          
-          {/* Custom Diagnosis Option */}
-          <div className="mt-4 p-4 border border-dashed border-gray-300 rounded-lg">
-            <p className="text-sm text-gray-600 mb-2">Or enter a custom diagnosis:</p>
-            <div className="flex space-x-2">
-              <input
-                type="text"
-                value={customDiagnosis}
-                onChange={(e) => setCustomDiagnosis(e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter diagnosis..."
-              />
-              <button
-                onClick={handleCustomDiagnosis}
-                disabled={!customDiagnosis.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300"
-              >
-                Select
-              </button>
+            <div>
+              <p className="text-purple-900 font-medium">Refining diagnoses with test results...</p>
+              <p className="text-purple-700 text-sm">Using AI to correlate clinical findings and laboratory data</p>
             </div>
           </div>
         </div>
+      )}
+      
+      {/* Tab Navigation */}
+      <div className="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-xl">
+        <button
+          onClick={() => setSelectedView('overview')}
+          className={`flex-1 flex items-center justify-center py-3 px-4 rounded-lg font-medium transition-all ${
+            selectedView === 'overview'
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4 mr-2" />
+          Diagnostic Overview
+        </button>
+        <button
+          onClick={() => setSelectedView('detailed')}
+          className={`flex-1 flex items-center justify-center py-3 px-4 rounded-lg font-medium transition-all ${
+            selectedView === 'detailed'
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <FileText className="w-4 h-4 mr-2" />
+          Treatment Details
+        </button>
+        <button
+          onClick={() => setSelectedView('summary')}
+          className={`flex-1 flex items-center justify-center py-3 px-4 rounded-lg font-medium transition-all ${
+            selectedView === 'summary'
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <MessageSquare className="w-4 h-4 mr-2" />
+          Clinical Summary
+        </button>
       </div>
       
-      {/* Treatment Plan */}
-      {selectedDiagnosis && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center">
-              <FileText className="w-5 h-5 text-blue-600 mr-2" />
-              <h3 className="text-lg font-semibold text-gray-900">Treatment Plan</h3>
+      {/* Main Content */}
+      {selectedView === 'overview' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          {/* Diagnoses List */}
+          <div className="lg:col-span-2 space-y-4">
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold text-gray-900">Select Final Diagnosis</h3>
+                <button
+                  onClick={refineAnalysis}
+                  className="flex items-center space-x-1 px-2.5 py-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors text-sm"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Re-analyze</span>
+                </button>
+              </div>
+              <p className="text-sm text-gray-600">
+                The diagnoses below are refined based on all clinical information gathered during the assessment, 
+                including patient history, physical examination, and test results.
+              </p>
             </div>
-            {isGeneratingPlan && (
-              <div className="flex items-center text-blue-600">
-                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                <span className="text-sm">Generating plan...</span>
+            
+            {refinedDiagnoses.map((diagnosis, index) => (
+              <RefinedDiagnosisCard
+                key={diagnosis.id}
+                diagnosis={diagnosis}
+                index={index}
+                isSelected={selectedDiagnosis?.id === diagnosis.id}
+                onSelect={() => {
+                  handleDiagnosisSelect(diagnosis);
+                  // Automatically switch to treatment tab when diagnosis is selected
+                  setSelectedView('detailed');
+                }}
+                testResults={patientData.testResults}
+              />
+            ))}
+            
+            {/* Custom Diagnosis Option */}
+            {!showCustomDiagnosisForm ? (
+              <button
+                onClick={() => setShowCustomDiagnosisForm(true)}
+                className="w-full p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-gray-400 transition-colors flex items-center justify-center text-gray-600 hover:text-gray-800"
+              >
+                <PlusCircle className="w-5 h-5 mr-2" />
+                <span className="font-medium">Add Custom Diagnosis</span>
+              </button>
+            ) : (
+              <div className="p-4 border-2 border-blue-300 rounded-xl bg-blue-50">
+                <h4 className="font-medium text-gray-900 mb-3">Custom Diagnosis</h4>
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={customDiagnosis}
+                    onChange={(e) => setCustomDiagnosis(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter diagnosis..."
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleCustomDiagnosis}
+                    disabled={!customDiagnosis.trim()}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300"
+                  >
+                    Select
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowCustomDiagnosisForm(false);
+                      setCustomDiagnosis('');
+                    }}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             )}
           </div>
           
-          {treatmentPlan && (
-            <div className="space-y-6">
-              <div>
-                <h4 className="font-medium text-gray-900 mb-2">Recommended Treatment:</h4>
-                <pre className="whitespace-pre-wrap text-sm text-gray-700 bg-gray-50 p-4 rounded-lg">
-                  {treatmentPlan}
-                </pre>
-              </div>
-              
-              {/* Prescriptions */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium text-gray-900 flex items-center">
-                    <Pill className="w-4 h-4 mr-2 text-blue-600" />
-                    Prescriptions
-                  </h4>
-                  <button
-                    onClick={() => setShowPrescriptionForm(!showPrescriptionForm)}
-                    className="flex items-center text-blue-600 hover:text-blue-700 text-sm font-medium"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add Prescription
-                  </button>
-                </div>
-                
-                {prescriptions.length > 0 && (
-                  <div className="space-y-2 mb-3">
-                    {prescriptions.map(rx => (
-                      <div key={rx.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div>
-                          <p className="font-medium text-gray-900">{rx.medication}</p>
-                          <p className="text-sm text-gray-600">
-                            {rx.dosage} • {rx.frequency} • {rx.duration}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => handleRemovePrescription(rx.id)}
-                          className="text-red-600 hover:bg-red-50 p-1 rounded transition-colors"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                {showPrescriptionForm && (
-                  <div className="p-4 bg-blue-50 rounded-lg space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Medication *
-                        </label>
-                        <input
-                          type="text"
-                          value={newPrescription.medication}
-                          onChange={(e) => setNewPrescription({ ...newPrescription, medication: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="e.g., Amoxicillin"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Dosage *
-                        </label>
-                        <input
-                          type="text"
-                          value={newPrescription.dosage}
-                          onChange={(e) => setNewPrescription({ ...newPrescription, dosage: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="e.g., 500mg"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Frequency
-                        </label>
-                        <input
-                          type="text"
-                          value={newPrescription.frequency}
-                          onChange={(e) => setNewPrescription({ ...newPrescription, frequency: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="e.g., Three times daily"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Duration
-                        </label>
-                        <input
-                          type="text"
-                          value={newPrescription.duration}
-                          onChange={(e) => setNewPrescription({ ...newPrescription, duration: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="e.g., 7 days"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-end space-x-2">
-                      <button
-                        onClick={() => setShowPrescriptionForm(false)}
-                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleAddPrescription}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        Add
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* Assessment Note */}
-              <div>
-                <h4 className="font-medium text-gray-900 mb-2">Medical Assessment Note:</h4>
-                <textarea
-                  value={assessmentNote}
-                  onChange={(e) => setAssessmentNote(e.target.value)}
-                  rows={10}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
-                />
-              </div>
+          {/* Side Panel */}
+          <div className="lg:col-span-1">
+            <DiagnosticSummaryPanel 
+              patientData={patientData}
+              refinedDiagnoses={refinedDiagnoses}
+              testResults={patientData.testResults}
+            />
+          </div>
+        </div>
+      ) : selectedView === 'detailed' ? (
+        <div className="mb-6">
+          {selectedDiagnosis ? (
+            <TreatmentPlanEditor
+              treatmentPlan={treatmentPlan}
+              prescriptions={prescriptions}
+              onTreatmentPlanChange={(plan) => {
+                setTreatmentPlan(plan);
+                updatePatientData('treatmentPlan', plan);
+              }}
+              onPrescriptionsChange={(rx) => {
+                setPrescriptions(rx);
+                updatePatientData('prescriptions', rx);
+              }}
+              isGenerating={isGeneratingPlan}
+              selectedDiagnosis={selectedDiagnosis}
+            />
+          ) : (
+            <div className="bg-gray-50 rounded-xl p-12 text-center">
+              <Activity className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Diagnosis Selected</h3>
+              <p className="text-gray-600">
+                Please select a diagnosis from the overview tab to generate a treatment plan
+              </p>
             </div>
           )}
+        </div>
+      ) : (
+        <div className="mb-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Medical Assessment Summary</h3>
+            <textarea
+              value={assessmentNote}
+              onChange={(e) => {
+                setAssessmentNote(e.target.value);
+                updatePatientData('assessmentNote', e.target.value);
+              }}
+              rows={20}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+              placeholder="Assessment notes will be generated automatically..."
+            />
+          </div>
         </div>
       )}
       
@@ -523,7 +550,10 @@ See treatment recommendations below.`;
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex space-x-3">
-            <button className="flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+            <button 
+              onClick={exportPDF}
+              className="flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
               <Download className="w-4 h-4 mr-2" />
               Export PDF
             </button>
@@ -532,14 +562,35 @@ See treatment recommendations below.`;
               Print
             </button>
           </div>
-          <button
-            onClick={handleFinalize}
-            disabled={!selectedDiagnosis && !customDiagnosis}
-            className="flex items-center px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-300"
-          >
-            <Save className="w-5 h-5 mr-2" />
-            Finalize & Save Record
-          </button>
+          
+          {selectedView === 'summary' ? (
+            <button
+              onClick={handleFinalize}
+              disabled={!selectedDiagnosis && !customDiagnosis}
+              className="flex items-center px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-300"
+            >
+              <Save className="w-5 h-5 mr-2" />
+              Finalize & Save Record
+            </button>
+          ) : selectedView === 'detailed' ? (
+            <button
+              onClick={() => setSelectedView('summary')}
+              disabled={!treatmentPlan}
+              className="flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 group"
+            >
+              Continue to Clinical Summary
+              <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </button>
+          ) : (
+            <button
+              onClick={() => setSelectedView('detailed')}
+              disabled={!selectedDiagnosis && !customDiagnosis}
+              className="flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 group"
+            >
+              Continue to Treatment Plan
+              <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </button>
+          )}
         </div>
       </div>
       
@@ -550,7 +601,7 @@ See treatment recommendations below.`;
           className="px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center"
         >
           <ChevronLeft className="mr-2 w-5 h-5" />
-          Back
+          Back to Test Results
         </button>
       </div>
     </div>

@@ -69,6 +69,10 @@ export const PatientProvider = ({ children }) => {
   const [currentStep, setCurrentStep] = useState('home');
   const [sessionId, setSessionId] = useState(null);
   const [lastSaved, setLastSaved] = useState(null);
+  const [savedData, setSavedData] = useState(null); // Track last saved state
+  const [dataByStep, setDataByStep] = useState({}); // Track data saved at each step
+  const [stepSnapshot, setStepSnapshot] = useState(null); // Snapshot when entering a step
+  const [highestStepReached, setHighestStepReached] = useState('home'); // Track progression
   
   // Auto-save functionality
   useEffect(() => {
@@ -89,6 +93,11 @@ export const PatientProvider = ({ children }) => {
             setSessionId(newSession.id);
           }
           setLastSaved(new Date().toISOString());
+          setSavedData(JSON.parse(JSON.stringify(patientData))); // Deep copy
+          setDataByStep(prev => ({
+            ...prev,
+            [currentStep]: JSON.parse(JSON.stringify(patientData))
+          }));
         }
       }, 2000); // Auto-save after 2 seconds of inactivity
       
@@ -154,6 +163,127 @@ export const PatientProvider = ({ children }) => {
     });
     setCurrentStep('home');
     setSessionId(null);
+    setSavedData(null);
+    setDataByStep({});
+    setStepSnapshot(null);
+    setHighestStepReached('home');
+  };
+  
+  // Check if current data has unsaved changes
+  const hasUnsavedChanges = () => {
+    if (!savedData) return false;
+    return JSON.stringify(patientData) !== JSON.stringify(savedData);
+  };
+  
+  // Get data relevant to a specific step
+  const getStepRelevantData = (step) => {
+    switch (step) {
+      case 'patient-info':
+        return {
+          name: patientData.name,
+          age: patientData.age,
+          gender: patientData.gender,
+          dateOfBirth: patientData.dateOfBirth,
+          chiefComplaint: patientData.chiefComplaint,
+          medicalHistory: patientData.medicalHistory,
+          medications: patientData.medications,
+          allergies: patientData.allergies
+        };
+      case 'clinical-assessment':
+        return {
+          chiefComplaintDetails: patientData.chiefComplaintDetails,
+          additionalClinicalNotes: patientData.additionalClinicalNotes,
+          clinicalNotes: patientData.clinicalNotes,
+          standardizedAssessments: patientData.standardizedAssessments,
+          assessmentDocuments: patientData.assessmentDocuments
+        };
+      case 'physical-exam':
+        return {
+          physicalExam: patientData.physicalExam
+        };
+      case 'diagnostic-analysis':
+        return {
+          differentialDiagnoses: patientData.differentialDiagnoses,
+          diagnosticNotes: patientData.diagnosticNotes
+        };
+      case 'recommended-tests':
+        return {
+          recommendedTests: patientData.recommendedTests,
+          selectedTests: patientData.selectedTests
+        };
+      case 'test-results':
+        return {
+          testResults: patientData.testResults
+        };
+      case 'final-diagnosis':
+        return {
+          selectedDiagnosis: patientData.selectedDiagnosis,
+          finalDiagnosis: patientData.finalDiagnosis,
+          treatmentPlan: patientData.treatmentPlan,
+          prescriptions: patientData.prescriptions
+        };
+      default:
+        return {};
+    }
+  };
+  
+  // Check if data for a specific step has changed from what was saved
+  const hasStepDataChanged = (step) => {
+    const savedStepData = dataByStep[step];
+    if (!savedStepData) return false;
+    
+    const currentStepData = getStepRelevantData(step);
+    const savedRelevantData = {};
+    
+    // Extract relevant data from saved step data
+    Object.keys(currentStepData).forEach(key => {
+      savedRelevantData[key] = savedStepData[key];
+    });
+    
+    return JSON.stringify(currentStepData) !== JSON.stringify(savedRelevantData);
+  };
+  
+  // Check if changes to a step would affect subsequent steps
+  const wouldChangesAffectSubsequentSteps = (step) => {
+    const steps = ['patient-info', 'clinical-assessment', 'physical-exam', 
+                  'diagnostic-analysis', 'recommended-tests', 'test-results', 'final-diagnosis'];
+    const stepIndex = steps.indexOf(step);
+    
+    // Check if any subsequent steps have data
+    for (let i = stepIndex + 1; i < steps.length; i++) {
+      const futureStep = steps[i];
+      const futureData = getStepRelevantData(futureStep);
+      
+      // Check if future step has meaningful data
+      if (futureStep === 'diagnostic-analysis' && patientData.differentialDiagnoses.length > 0) return true;
+      if (futureStep === 'recommended-tests' && patientData.recommendedTests.length > 0) return true;
+      if (futureStep === 'test-results' && Object.keys(patientData.testResults).length > 0) return true;
+      if (futureStep === 'final-diagnosis' && (patientData.selectedDiagnosis || patientData.treatmentPlan)) return true;
+    }
+    
+    return false;
+  };
+  
+  // Enhanced navigation with proper step tracking
+  const setCurrentStepAndTrack = (newStep) => {
+    const steps = ['patient-info', 'clinical-assessment', 'physical-exam', 
+                  'diagnostic-analysis', 'recommended-tests', 'test-results', 'final-diagnosis'];
+    const newStepIndex = steps.indexOf(newStep);
+    const highestIndex = steps.indexOf(highestStepReached);
+    
+    // Update highest step reached if moving forward
+    if (newStepIndex > highestIndex) {
+      setHighestStepReached(newStep);
+    }
+    
+    setCurrentStep(newStep);
+  };
+  
+  // Check if current step data has changed from snapshot
+  const hasChangedSinceNavigation = () => {
+    if (!stepSnapshot) return false;
+    const currentData = getStepRelevantData(currentStep);
+    return JSON.stringify(currentData) !== JSON.stringify(stepSnapshot);
   };
   
   const value = {
@@ -162,11 +292,17 @@ export const PatientProvider = ({ children }) => {
     updatePatientData,
     updatePhysicalExam,
     currentStep,
-    setCurrentStep,
+    setCurrentStep: setCurrentStepAndTrack,
     sessionId,
     setSessionId,
     lastSaved,
-    resetPatient
+    resetPatient,
+    hasUnsavedChanges,
+    hasStepDataChanged,
+    navigateToStep: setCurrentStepAndTrack,
+    wouldChangesAffectSubsequentSteps,
+    hasChangedSinceNavigation,
+    highestStepReached
   };
   
   return (

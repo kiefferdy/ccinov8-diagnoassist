@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePatient } from '../../contexts/PatientContext';
 import { appDataRef } from '../../contexts/AppDataContext';
 import AutoSaveIndicator from '../common/AutoSaveIndicator';
@@ -17,7 +17,15 @@ import {
 } from 'lucide-react';
 
 const Layout = ({ children }) => {
-  const { currentStep, setCurrentStep, patientData, resetPatient, sessionId } = usePatient();
+  const { 
+    currentStep, 
+    setCurrentStep, 
+    patientData, 
+    resetPatient, 
+    sessionId,
+    navigateToStep,
+    highestStepReached
+  } = usePatient();
   
   const steps = [
     { id: 'patient-info', label: 'Patient Information', icon: User },
@@ -34,15 +42,18 @@ const Layout = ({ children }) => {
   
   const isStepAccessible = (stepId) => {
     const stepIndex = getStepIndex(stepId);
-    // Allow going back to previous steps
-    if (stepIndex <= currentStepIndex) return true;
+    const highestIndex = getStepIndex(highestStepReached);
+    
+    // Allow access to all steps up to and including the highest reached
+    if (stepIndex <= highestIndex) return true;
+    
     // Allow next step if current step has required data
     if (stepIndex === currentStepIndex + 1) {
       switch (currentStep) {
         case 'patient-info':
           return patientData.name && patientData.age && patientData.chiefComplaint;
         case 'clinical-assessment':
-          return patientData.chiefComplaintDetails.length > 0;
+          return patientData.chiefComplaintDetails && patientData.chiefComplaintDetails.length > 0;
         case 'physical-exam':
           return patientData.physicalExam.bloodPressure || patientData.physicalExam.heartRate || 
                  patientData.physicalExam.temperature || patientData.physicalExam.respiratoryRate;
