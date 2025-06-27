@@ -1,4 +1,5 @@
 import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { PatientProvider, usePatient } from './contexts/PatientContext';
 import { AppDataProvider } from './contexts/AppDataContext';
 import Layout from './components/Layout/Layout';
@@ -15,6 +16,7 @@ import TestResults from './components/Tests/TestResults';
 import FinalDiagnosis from './components/FinalDiagnosis/FinalDiagnosis';
 import TreatmentPlan from './components/TreatmentPlan/TreatmentPlan';
 import ClinicalSummary from './components/ClinicalSummary/ClinicalSummary';
+import LandingPage from './components/LandingPage/LandingPage';
 
 function AppContent() {
   const { currentStep } = usePatient();
@@ -83,11 +85,18 @@ function AppContent() {
 
 function App() {
   return (
-    <AppDataProvider>
-      <PatientProvider>
-        <AppContent />
-      </PatientProvider>
-    </AppDataProvider>
+    <Router>
+      <Routes>
+        <Route path="/landing" element={<LandingPage />} />
+        <Route path="/*" element={
+          <AppDataProvider>
+            <PatientProvider>
+              <AppContent />
+            </PatientProvider>
+          </AppDataProvider>
+        } />
+      </Routes>
+    </Router>
   );
 }
 
