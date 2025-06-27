@@ -63,7 +63,11 @@ export const PatientProvider = ({ children }) => {
     
     // Treatment
     treatmentPlan: '',
-    prescriptions: []
+    prescriptions: [],
+    followUpRecommendations: '',
+    patientEducation: '',
+    clinicalSummary: '',
+    assessmentNote: ''
   });
   
   const [currentStep, setCurrentStep] = useState('home');
@@ -159,7 +163,11 @@ export const PatientProvider = ({ children }) => {
       selectedTests: [],
       testResults: {},
       treatmentPlan: '',
-      prescriptions: []
+      prescriptions: [],
+      followUpRecommendations: '',
+      patientEducation: '',
+      clinicalSummary: '',
+      assessmentNote: ''
     });
     setCurrentStep('home');
     setSessionId(null);
@@ -218,9 +226,19 @@ export const PatientProvider = ({ children }) => {
       case 'final-diagnosis':
         return {
           selectedDiagnosis: patientData.selectedDiagnosis,
-          finalDiagnosis: patientData.finalDiagnosis,
+          finalDiagnosis: patientData.finalDiagnosis
+        };
+      case 'treatment-plan':
+        return {
           treatmentPlan: patientData.treatmentPlan,
-          prescriptions: patientData.prescriptions
+          prescriptions: patientData.prescriptions,
+          followUpRecommendations: patientData.followUpRecommendations,
+          patientEducation: patientData.patientEducation
+        };
+      case 'clinical-summary':
+        return {
+          clinicalSummary: patientData.clinicalSummary,
+          assessmentNote: patientData.assessmentNote
         };
       default:
         return {};
@@ -246,7 +264,8 @@ export const PatientProvider = ({ children }) => {
   // Check if changes to a step would affect subsequent steps
   const wouldChangesAffectSubsequentSteps = (step) => {
     const steps = ['patient-info', 'clinical-assessment', 'physical-exam', 
-                  'diagnostic-analysis', 'recommended-tests', 'test-results', 'final-diagnosis'];
+                  'diagnostic-analysis', 'recommended-tests', 'test-results', 
+                  'final-diagnosis', 'treatment-plan', 'clinical-summary'];
     const stepIndex = steps.indexOf(step);
     
     // Check if any subsequent steps have data
@@ -258,7 +277,9 @@ export const PatientProvider = ({ children }) => {
       if (futureStep === 'diagnostic-analysis' && patientData.differentialDiagnoses.length > 0) return true;
       if (futureStep === 'recommended-tests' && patientData.recommendedTests.length > 0) return true;
       if (futureStep === 'test-results' && Object.keys(patientData.testResults).length > 0) return true;
-      if (futureStep === 'final-diagnosis' && (patientData.selectedDiagnosis || patientData.treatmentPlan)) return true;
+      if (futureStep === 'final-diagnosis' && (patientData.selectedDiagnosis || patientData.finalDiagnosis)) return true;
+      if (futureStep === 'treatment-plan' && (patientData.treatmentPlan || patientData.prescriptions.length > 0)) return true;
+      if (futureStep === 'clinical-summary' && patientData.clinicalSummary) return true;
     }
     
     return false;
@@ -267,7 +288,8 @@ export const PatientProvider = ({ children }) => {
   // Enhanced navigation with proper step tracking
   const setCurrentStepAndTrack = (newStep) => {
     const steps = ['patient-info', 'clinical-assessment', 'physical-exam', 
-                  'diagnostic-analysis', 'recommended-tests', 'test-results', 'final-diagnosis'];
+                  'diagnostic-analysis', 'recommended-tests', 'test-results', 
+                  'final-diagnosis', 'treatment-plan', 'clinical-summary'];
     const newStepIndex = steps.indexOf(newStep);
     const highestIndex = steps.indexOf(highestStepReached);
     
