@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePatient } from '../../contexts/PatientContext';
-import { Activity, Users, Clock, ChartBar, ArrowRight, FolderOpen } from 'lucide-react';
+import { Activity, Users, Clock, ChartBar, ArrowRight, FolderOpen, ExternalLink } from 'lucide-react';
 
 const Home = () => {
   const { setCurrentStep } = usePatient();
@@ -53,6 +53,15 @@ const Home = () => {
         <p className="text-xl text-gray-600 max-w-2xl mx-auto">
           Your AI-powered diagnostic assistant that enhances clinical decision-making and improves patient care
         </p>
+        <div className="mt-4">
+          <a 
+            href="/landing" 
+            className="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium"
+          >
+            View Pricing & Plans
+            <ExternalLink className="ml-1 w-4 h-4" />
+          </a>
+        </div>
       </div>
       
       {/* Stats */}
