@@ -109,8 +109,8 @@ const PhysicalExam = () => {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Physical Examination</h2>
-        <p className="text-gray-600">Record the patient's vital signs and physical exam findings</p>
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">Objective (O)</h2>
+        <p className="text-gray-600">Document the physical examination findings and vital signs</p>
       </div>
       
       {/* Optional Fields Notice */}

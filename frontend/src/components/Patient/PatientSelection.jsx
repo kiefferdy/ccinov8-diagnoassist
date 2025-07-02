@@ -29,49 +29,13 @@ const PatientSelection = () => {
   );
   
   const handleSelectPatient = (patient) => {
-    // Get the latest record for pre-filling medical history
-    const latestRecord = getPatientLatestRecord(patient.id);
-    
-    // Set patient data with pre-filled information
+    // Store the patient ID being viewed
     setPatientData({
-      id: patient.id,
-      name: patient.name,
-      age: calculateAge(patient.dateOfBirth),
-      gender: patient.gender,
-      dateOfBirth: patient.dateOfBirth,
-      chiefComplaint: '',
-      chiefComplaintDetails: [],
-      additionalClinicalNotes: '',
-      medicalHistory: latestRecord?.medicalHistory || [],
-      medications: latestRecord?.medications || [],
-      allergies: latestRecord?.allergies || [],
-      relatedDocuments: [],
-      assessmentDocuments: [],
-      physicalExam: {
-        bloodPressure: '',
-        heartRate: '',
-        temperature: '',
-        respiratoryRate: '',
-        oxygenSaturation: '',
-        height: '',
-        weight: '',
-        bmi: '',
-        additionalFindings: '',
-        examDocuments: []
-      },
-      differentialDiagnoses: [],
-      selectedDiagnosis: null,
-      finalDiagnosis: '',
-      diagnosticNotes: '',
-      recommendedTests: [],
-      selectedTests: [],
-      testResults: {},
-      treatmentPlan: '',
-      prescriptions: []
+      viewingPatientId: patient.id
     });
     
-    // Move to patient information step to review/update details
-    setCurrentStep('patient-info');
+    // Navigate to patient detail view (Visit Records tab)
+    setCurrentStep('patient-detail');
   };
   
   const handleNewPatient = () => {

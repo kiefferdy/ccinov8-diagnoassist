@@ -27,7 +27,7 @@ import {
 const PatientDetailView = () => {
   const { currentStep, setCurrentStep, patientData, setPatientData } = usePatient();
   const { getPatient, getPatientRecords, getPatientSessions, patients } = useAppData();
-  const [selectedTab, setSelectedTab] = useState('overview');
+  const [selectedTab, setSelectedTab] = useState('records'); // Changed default from 'overview' to 'records'
   const [expandedRecord, setExpandedRecord] = useState(null);
   
   // Get patient ID from patientData or URL params
@@ -124,7 +124,50 @@ const PatientDetailView = () => {
       prescriptions: []
     });
     
-    setCurrentStep('clinical-assessment');
+    setCurrentStep('chief-complaint');
+  };
+  
+  const handleFollowUp = (record) => {
+    // Set patient data with pre-filled information from the selected record
+    setPatientData({
+      id: patient.id,
+      name: patient.name,
+      age: calculateAge(patient.dateOfBirth),
+      gender: patient.gender,
+      dateOfBirth: patient.dateOfBirth,
+      chiefComplaint: `Follow-up: ${record.chiefComplaint}`,
+      chiefComplaintDetails: [],
+      additionalClinicalNotes: `Previous diagnosis: ${record.finalDiagnosis}\nPrevious treatment: ${record.treatmentPlan}`,
+      medicalHistory: record.medicalHistory || [],
+      medications: record.medications || [],
+      allergies: record.allergies || [],
+      relatedDocuments: [],
+      assessmentDocuments: [],
+      physicalExam: {
+        bloodPressure: '',
+        heartRate: '',
+        temperature: '',
+        respiratoryRate: '',
+        oxygenSaturation: '',
+        height: '',
+        weight: '',
+        bmi: '',
+        additionalFindings: '',
+        examDocuments: []
+      },
+      differentialDiagnoses: [],
+      selectedDiagnosis: null,
+      finalDiagnosis: '',
+      diagnosticNotes: '',
+      recommendedTests: [],
+      selectedTests: [],
+      testResults: {},
+      treatmentPlan: '',
+      prescriptions: [],
+      previousVisitId: record.id // Track which visit this is a follow-up to
+    });
+    
+    setCurrentStep('chief-complaint');
   };
   
   // Get all medical conditions from all records
@@ -447,6 +490,17 @@ const PatientDetailView = () => {
                         <div className="mt-4">
                           <h4 className="font-medium text-gray-900 mb-2">Treatment Plan</h4>
                           <p className="text-sm text-gray-700 whitespace-pre-wrap">{record.treatmentPlan}</p>
+                        </div>
+                        
+                        {/* Follow-up Button */}
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <button
+                            onClick={() => handleFollowUp(record)}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                          >
+                            <Activity className="w-4 h-4 mr-2" />
+                            Start Follow-up Visit
+                          </button>
                         </div>
                       </div>
                     )}

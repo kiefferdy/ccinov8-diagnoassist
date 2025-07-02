@@ -194,8 +194,8 @@ const TestResults = () => {
   return (
     <div className="max-w-5xl mx-auto">
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Test Results Entry</h2>
-        <p className="text-gray-600">Enter the results for the selected laboratory tests</p>
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">Results Review</h2>
+        <p className="text-gray-600">Review and document the test results as they become available</p>
       </div>
       
       {/* Progress Bar */}

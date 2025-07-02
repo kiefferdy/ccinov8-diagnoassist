@@ -778,14 +778,14 @@ const ClinicalAssessment = () => {
   };
 
   const handleBack = () => {
-    setCurrentStep('patient-info');
+    setCurrentStep('chief-complaint');
   };
 
   return (
     <div className="max-w-7xl mx-auto">
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Clinical Assessment</h2>
-        <p className="text-gray-600">Guide the patient interview and document comprehensive findings</p>
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">Subjective (S)</h2>
+        <p className="text-gray-600">Document the patient's story, symptoms, and history related to their chief complaint</p>
       </div>
 
       {/* Chief Complaint Summary */}

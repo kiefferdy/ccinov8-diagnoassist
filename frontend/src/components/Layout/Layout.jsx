@@ -15,7 +15,8 @@ import {
   ClipboardCheck,
   X,
   Heart,
-  FileCheck
+  FileCheck,
+  MessageSquare
 } from 'lucide-react';
 
 const Layout = ({ children }) => {
@@ -30,12 +31,13 @@ const Layout = ({ children }) => {
   } = usePatient();
   
   const steps = [
-    { id: 'patient-info', label: 'Patient Information', icon: User },
-    { id: 'clinical-assessment', label: 'Clinical Assessment', icon: ClipboardList },
-    { id: 'physical-exam', label: 'Physical Exam', icon: Stethoscope },
-    { id: 'diagnostic-analysis', label: 'Diagnostic Analysis', icon: Activity },
-    { id: 'recommended-tests', label: 'Recommended Tests', icon: FlaskConical },
-    { id: 'test-results', label: 'Test Results', icon: ClipboardCheck },
+    { id: 'patient-info', label: 'Patient Demographics', icon: User },
+    { id: 'chief-complaint', label: 'Chief Complaint', icon: MessageSquare },
+    { id: 'clinical-assessment', label: 'Subjective (S)', icon: ClipboardList },
+    { id: 'physical-exam', label: 'Objective (O)', icon: Stethoscope },
+    { id: 'diagnostic-analysis', label: 'Assessment (A)', icon: Activity },
+    { id: 'recommended-tests', label: 'Plan (P)', icon: FlaskConical },
+    { id: 'test-results', label: 'Results Review', icon: ClipboardCheck },
     { id: 'final-diagnosis', label: 'Final Diagnosis', icon: FileText },
     { id: 'treatment-plan', label: 'Treatment Plan', icon: Heart },
     { id: 'clinical-summary', label: 'Clinical Summary', icon: FileCheck }
@@ -55,7 +57,9 @@ const Layout = ({ children }) => {
     if (stepIndex === currentStepIndex + 1) {
       switch (currentStep) {
         case 'patient-info':
-          return patientData.name && patientData.age && patientData.chiefComplaint;
+          return patientData.name && patientData.age;
+        case 'chief-complaint':
+          return patientData.chiefComplaint;
         case 'clinical-assessment':
           return patientData.chiefComplaintDetails && patientData.chiefComplaintDetails.length > 0;
         case 'physical-exam':
@@ -125,6 +129,15 @@ const Layout = ({ children }) => {
             </div>
           </div>
           
+          {/* Home Button at Top */}
+          <button
+            onClick={handleHome}
+            className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-gray-700 transition-all mb-4"
+          >
+            <Home className="w-5 h-5" />
+            <span className="text-sm font-medium">Home</span>
+          </button>
+          
           {patientData.name && (
             <div className="mb-6 p-4 bg-blue-50 rounded-lg">
               <p className="text-sm font-medium text-blue-900">Current Patient</p>
@@ -168,13 +181,6 @@ const Layout = ({ children }) => {
           </nav>
           
           <div className="mt-8 space-y-2">
-            <button
-              onClick={handleHome}
-              className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-gray-700 transition-all"
-            >
-              <Home className="w-5 h-5" />
-              <span className="text-sm font-medium">Home</span>
-            </button>
             <button
               onClick={handleNewPatient}
               className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-gray-700 transition-all"
