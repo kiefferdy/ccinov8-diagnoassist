@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePatient } from '../../contexts/PatientContext';
 import { 
   ChevronRight, 
@@ -14,54 +14,129 @@ import {
   Bot,
   RefreshCw,
   Eye,
-  EyeOff
+  EyeOff,
+  MessageSquare,
+  Sparkles,
+  Mic,
+  PenTool,
+  Plus,
+  X,
+  Target,
+  Loader,
+  Search,
+  AlertTriangle,
+  HelpCircle,
+  BookOpen,
+  ChevronDown,
+  Edit2
 } from 'lucide-react';
 import ClinicalInsightsPanel from './components/ClinicalInsightsPanel';
+import SpeechToTextTranscriber from '../Patient/components/SpeechToTextTranscriber';
+import { generatePostAssessmentQuestions } from '../Patient/utils/postAssessmentAI';
 
 const DiagnosticAnalysis = () => {
   const { patientData, updatePatientData, setCurrentStep } = usePatient();
+  const [activeTab, setActiveTab] = useState('diagnosis');
   const [doctorDiagnosis, setDoctorDiagnosis] = useState(patientData.doctorDiagnosis || '');
   const [diagnosticNotes, setDiagnosticNotes] = useState(patientData.diagnosticNotes || '');
   const [showInsights, setShowInsights] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [errors, setErrors] = useState({});
+  const [assessmentMode, setAssessmentMode] = useState('manual'); // 'manual' or 'voice'
+  const [isEditingTranscription, setIsEditingTranscription] = useState(false);
+  const [transcribedData, setTranscribedData] = useState(null);
   
-  const handleSaveDiagnosis = () => {
-    // Validate doctor's diagnosis
-    const newErrors = {};
-    if (!doctorDiagnosis.trim()) {
-      newErrors.doctorDiagnosis = 'Please enter your diagnosis';
-    }
-    
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-    
-    // Save doctor's diagnosis
-    updatePatientData('doctorDiagnosis', doctorDiagnosis);
-    updatePatientData('diagnosticNotes', diagnosticNotes);
-    
-    // Show success
-    setErrors({});
-  };
+  // Clarifying Questions State
+  const [suggestedQuestions, setSuggestedQuestions] = useState([]);
+  const [selectedQuestions, setSelectedQuestions] = useState([]);
+  const [questionAnswers, setQuestionAnswers] = useState({});
+  const [customQuestion, setCustomQuestion] = useState('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
   
-  const handleToggleInsights = () => {
-    if (!showInsights && !patientData.hasViewedInsights) {
-      setIsAnalyzing(true);
-      setTimeout(() => {
-        setIsAnalyzing(false);
-        updatePatientData('hasViewedInsights', true);
-      }, 1000);
-    }
-    setShowInsights(!showInsights);
-  };
+  // Auto-save functionality
+  useEffect(() => {
+    const saveTimer = setTimeout(() => {
+      updatePatientData('doctorDiagnosis', doctorDiagnosis);
+      updatePatientData('diagnosticNotes', diagnosticNotes);
+      updatePatientData('questionAnswers', questionAnswers);
+    }, 1000);
+    
+    return () => clearTimeout(saveTimer);
+  }, [doctorDiagnosis, diagnosticNotes, questionAnswers]);
   
-  const handleRefreshInsights = () => {
-    setIsAnalyzing(true);
+  const generateSmartQuestions = () => {
+    setIsGeneratingQuestions(true);
+    
     setTimeout(() => {
-      setIsAnalyzing(false);
+      const questions = generatePostAssessmentQuestions(patientData);
+      setSuggestedQuestions(questions);
+      setIsGeneratingQuestions(false);
     }, 1500);
+  };
+  
+  const handleQuestionToggle = (questionId) => {
+    if (selectedQuestions.includes(questionId)) {
+      setSelectedQuestions(selectedQuestions.filter(id => id !== questionId));
+      // Remove answer if question is deselected
+      const newAnswers = { ...questionAnswers };
+      delete newAnswers[questionId];
+      setQuestionAnswers(newAnswers);
+    } else {
+      setSelectedQuestions([...selectedQuestions, questionId]);
+    }
+  };
+  
+  const handleAnswerChange = (questionId, answer) => {
+    setQuestionAnswers({
+      ...questionAnswers,
+      [questionId]: answer
+    });
+  };
+  
+  const handleAddCustomQuestion = () => {
+    if (customQuestion.trim()) {
+      const newQuestion = {
+        id: `custom-${Date.now()}`,
+        category: 'Custom',
+        question: customQuestion,
+        rationale: 'Doctor-specified clarification',
+        priority: 'high',
+        isCustom: true
+      };
+      setSuggestedQuestions([...suggestedQuestions, newQuestion]);
+      setSelectedQuestions([...selectedQuestions, newQuestion.id]);
+      setCustomQuestion('');
+      setShowCustomInput(false);
+    }
+  };
+  
+  const handleTranscriptionComplete = (parsedData) => {
+    setTranscribedData(parsedData);
+    setIsEditingTranscription(true);
+    
+    // For assessment, we might get diagnosis and notes
+    if (parsedData.diagnosis) {
+      setDoctorDiagnosis(parsedData.diagnosis);
+    }
+    if (parsedData.notes) {
+      setDiagnosticNotes(parsedData.notes);
+    }
+  };
+  
+  const handleSaveTranscription = () => {
+    setIsEditingTranscription(false);
+    setAssessmentMode('manual');
+    setTranscribedData(null);
+  };
+  
+  const handleCancelTranscription = () => {
+    setDoctorDiagnosis(patientData.doctorDiagnosis || '');
+    setDiagnosticNotes(patientData.diagnosticNotes || '');
+    
+    setIsEditingTranscription(false);
+    setAssessmentMode('manual');
+    setTranscribedData(null);
   };
   
   const handleContinue = () => {
@@ -70,7 +145,10 @@ const DiagnosticAnalysis = () => {
       return;
     }
     
-    // Save final data
+    // Save all data including selected questions and answers
+    const questionsToAsk = suggestedQuestions.filter(q => selectedQuestions.includes(q.id));
+    updatePatientData('clarifyingQuestions', questionsToAsk);
+    updatePatientData('questionAnswers', questionAnswers);
     updatePatientData('doctorDiagnosis', doctorDiagnosis);
     updatePatientData('diagnosticNotes', diagnosticNotes);
     
@@ -79,7 +157,14 @@ const DiagnosticAnalysis = () => {
   
   const handleBack = () => {
     setCurrentStep('physical-exam');
-  };  
+  };
+  
+  const tabs = [
+    { id: 'diagnosis', label: 'Clinical Diagnosis', icon: Brain },
+    { id: 'questions', label: 'Clarifying Questions', icon: MessageSquare },
+    { id: 'ask-ai', label: 'Ask AI', icon: Sparkles }
+  ];
+  
   return (
     <div className="max-w-6xl mx-auto">
       <div className="mb-8">
@@ -101,169 +186,513 @@ const DiagnosticAnalysis = () => {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Doctor's Diagnosis Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center">
-                <Activity className="w-5 h-5 text-blue-600 mr-2" />
-                <h3 className="text-lg font-semibold text-gray-900">Clinical Diagnosis</h3>
-              </div>
-              <button
-                onClick={handleToggleInsights}
-                className={`text-sm px-3 py-1 rounded-lg transition-colors flex items-center
-                  ${showInsights 
-                    ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-              >
-                {showInsights ? (
-                  <>
-                    <EyeOff className="w-4 h-4 mr-1" />
-                    Hide Insights
-                  </>
-                ) : (
-                  <>
-                    <Eye className="w-4 h-4 mr-1" />
-                    Show Insights
-                  </>
-                )}
-              </button>
-            </div>            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Your Diagnosis *
-                </label>
-                <input
-                  type="text"
-                  value={doctorDiagnosis}
-                  onChange={(e) => {
-                    setDoctorDiagnosis(e.target.value);
-                    if (errors.doctorDiagnosis) {
-                      setErrors({ ...errors, doctorDiagnosis: null });
-                    }
-                  }}
-                  className={`w-full px-4 py-2 border ${
-                    errors.doctorDiagnosis ? 'border-red-300' : 'border-gray-300'
-                  } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all`}
-                  placeholder="Enter your primary diagnosis (e.g., Community-acquired pneumonia)"
-                />
-                {errors.doctorDiagnosis && (
-                  <p className="mt-1 text-sm text-red-600">{errors.doctorDiagnosis}</p>
-                )}
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Clinical Reasoning & Notes (Optional)
-                </label>
-                <textarea
-                  value={diagnosticNotes}
-                  onChange={(e) => setDiagnosticNotes(e.target.value)}
-                  rows={4}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
-                  placeholder="Document your clinical reasoning, differential considerations, severity assessment, or any factors that influenced your diagnosis..."
-                />
-              </div>
-              
-              <div className="pt-4">
+      {/* Tabs */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="border-b border-gray-200">
+          <nav className="flex space-x-8 px-6" aria-label="Tabs">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
                 <button
-                  onClick={handleSaveDiagnosis}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`
+                    py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2
+                    ${activeTab === tab.id
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }
+                  `}
                 >
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Diagnosis
+                  <Icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                  {tab.id === 'questions' && selectedQuestions.length > 0 && (
+                    <span className="ml-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                      {selectedQuestions.length}
+                    </span>
+                  )}
                 </button>
+              );
+            })}
+          </nav>
+        </div>
+        
+        <div className="p-6">
+          {/* Clinical Diagnosis Tab */}
+          {activeTab === 'diagnosis' && (
+            <div className="space-y-6">
+              {/* Mode Toggle */}
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">Clinical Assessment</h3>
+                <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setAssessmentMode('manual')}
+                    disabled={isEditingTranscription}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                      assessmentMode === 'manual'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    } ${isEditingTranscription ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <PenTool className="w-4 h-4 inline mr-2" />
+                    Manual Entry
+                  </button>
+                  <button
+                    onClick={() => setAssessmentMode('voice')}
+                    disabled={isEditingTranscription}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                      assessmentMode === 'voice'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    } ${isEditingTranscription ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <Mic className="w-4 h-4 inline mr-2" />
+                    Voice Transcription
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
-          
-          {/* Clinical Insights Panel - Only shown when toggled */}
-          {showInsights && (
-            <ClinicalInsightsPanel 
-              patientData={patientData}
-              isAnalyzing={isAnalyzing}
-              onRefresh={handleRefreshInsights}
-            />
-          )}
-        </div>        
-        {/* Sidebar */}
-        <div className="lg:col-span-1 space-y-4">
-          {/* Quick Summary */}
-          <div className="bg-gray-50 rounded-xl p-4">
-            <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-              <FileText className="w-4 h-4 mr-2" />
-              Assessment Summary
-            </h4>
-            <div className="space-y-2 text-sm">
-              <div>
-                <p className="text-gray-600">Subjective findings:</p>
-                <p className="text-gray-900">
-                  {patientData.chiefComplaintDetails?.length || 0} clinical details documented
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-600">Objective findings:</p>
-                <p className="text-gray-900">
-                  Vitals and physical exam completed
-                </p>
-              </div>
-              {doctorDiagnosis && (
-                <div className="pt-2 border-t">
-                  <p className="text-gray-600">Your diagnosis:</p>
-                  <p className="text-gray-900 font-medium">{doctorDiagnosis}</p>
+              
+              {/* Voice Transcription Mode */}
+              {assessmentMode === 'voice' && !isEditingTranscription && (
+                <SpeechToTextTranscriber 
+                  onTranscriptionComplete={handleTranscriptionComplete}
+                  patientData={patientData}
+                  isAssessment={true}
+                />
+              )}
+              
+              {/* Editable Transcription Results */}
+              {isEditingTranscription && transcribedData && (
+                <div className="bg-purple-50 border border-purple-200 rounded-xl p-6 mb-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-semibold text-purple-900 flex items-center">
+                      <Sparkles className="w-5 h-5 text-purple-600 mr-2" />
+                      AI-Parsed Assessment (Editable)
+                    </h4>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={handleSaveTranscription}
+                        className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center"
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        Save Changes
+                      </button>
+                      <button
+                        onClick={handleCancelTranscription}
+                        className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <p className="text-sm text-purple-700 mb-4">
+                    Review and edit the parsed assessment below. Click "Save Changes" when done.
+                  </p>
                 </div>
               )}
+              
+              {/* Manual Entry or Editing Mode */}
+              {(assessmentMode === 'manual' || isEditingTranscription) && (
+                <>
+                  {/* Key Findings Summary */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                        <FileText className="w-4 h-4 mr-2 text-blue-600" />
+                        Subjective Findings
+                      </h4>
+                      <ul className="space-y-2 text-sm text-gray-700">
+                        {patientData.chiefComplaint && (
+                          <li className="flex items-start">
+                            <span className="text-blue-600 mr-2">•</span>
+                            <span><strong>Chief Complaint:</strong> {patientData.chiefComplaint}</span>
+                          </li>
+                        )}
+                        {patientData.chiefComplaintDuration && (
+                          <li className="flex items-start">
+                            <span className="text-blue-600 mr-2">•</span>
+                            <span><strong>Duration:</strong> {patientData.chiefComplaintDuration}</span>
+                          </li>
+                        )}
+                        {patientData.historyOfPresentIllness && (
+                          <li className="flex items-start">
+                            <span className="text-blue-600 mr-2">•</span>
+                            <span><strong>HPI:</strong> {patientData.historyOfPresentIllness.substring(0, 100)}...</span>
+                          </li>
+                        )}
+                        {patientData.medications && patientData.medications.length > 0 && (
+                          <li className="flex items-start">
+                            <span className="text-blue-600 mr-2">•</span>
+                            <span><strong>Medications:</strong> {patientData.medications.join(', ')}</span>
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                    
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                        <Activity className="w-4 h-4 mr-2 text-green-600" />
+                        Objective Findings
+                      </h4>
+                      <ul className="space-y-2 text-sm text-gray-700">
+                        {patientData.physicalExam.bloodPressure && (
+                          <li className="flex items-start">
+                            <span className="text-green-600 mr-2">•</span>
+                            <span><strong>BP:</strong> {patientData.physicalExam.bloodPressure} mmHg</span>
+                          </li>
+                        )}
+                        {patientData.physicalExam.heartRate && (
+                          <li className="flex items-start">
+                            <span className="text-green-600 mr-2">•</span>
+                            <span><strong>HR:</strong> {patientData.physicalExam.heartRate} bpm</span>
+                          </li>
+                        )}
+                        {patientData.physicalExam.temperature && (
+                          <li className="flex items-start">
+                            <span className="text-green-600 mr-2">•</span>
+                            <span><strong>Temp:</strong> {patientData.physicalExam.temperature}°C</span>
+                          </li>
+                        )}
+                        {patientData.physicalExam.respiratoryRate && (
+                          <li className="flex items-start">
+                            <span className="text-green-600 mr-2">•</span>
+                            <span><strong>RR:</strong> {patientData.physicalExam.respiratoryRate} breaths/min</span>
+                          </li>
+                        )}
+                        {patientData.physicalExam.additionalFindings && (
+                          <li className="flex items-start">
+                            <span className="text-green-600 mr-2">•</span>
+                            <span><strong>Exam:</strong> {patientData.physicalExam.additionalFindings.substring(0, 80)}...</span>
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+                  
+                  {/* Diagnosis Framework Helper */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                      <h5 className="font-medium text-purple-900 mb-2 flex items-center">
+                        <Target className="w-4 h-4 mr-2" />
+                        Primary Diagnosis
+                      </h5>
+                      <p className="text-sm text-purple-700">
+                        What is the most likely diagnosis based on the clinical presentation?
+                      </p>
+                    </div>
+                    
+                    <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+                      <h5 className="font-medium text-orange-900 mb-2 flex items-center">
+                        <AlertTriangle className="w-4 h-4 mr-2" />
+                        Differential Diagnoses
+                      </h5>
+                      <p className="text-sm text-orange-700">
+                        What other conditions should be considered and ruled out?
+                      </p>
+                    </div>
+                    
+                    <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                      <h5 className="font-medium text-green-900 mb-2 flex items-center">
+                        <Search className="w-4 h-4 mr-2" />
+                        Clinical Reasoning
+                      </h5>
+                      <p className="text-sm text-green-700">
+                        What findings support or refute each diagnosis?
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Doctor's Diagnosis */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Clinical Diagnosis *
+                    </label>
+                    <textarea
+                      value={doctorDiagnosis}
+                      onChange={(e) => {
+                        setDoctorDiagnosis(e.target.value);
+                        if (errors.doctorDiagnosis) {
+                          setErrors({ ...errors, doctorDiagnosis: null });
+                        }
+                      }}
+                      rows={4}
+                      className={`w-full px-4 py-3 border ${
+                        errors.doctorDiagnosis ? 'border-red-300' : 'border-gray-300'
+                      } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none`}
+                      placeholder="Enter your clinical diagnosis based on the subjective and objective findings..."
+                    />
+                    {errors.doctorDiagnosis && (
+                      <p className="mt-1 text-sm text-red-600">{errors.doctorDiagnosis}</p>
+                    )}
+                  </div>
+                  
+                  {/* Diagnostic Notes */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Additional Assessment Notes
+                    </label>
+                    <textarea
+                      value={diagnosticNotes}
+                      onChange={(e) => setDiagnosticNotes(e.target.value)}
+                      rows={6}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      placeholder="Include differential diagnoses, clinical reasoning, red flags, or any other relevant assessment notes..."
+                    />
+                    <div className="mt-2 flex items-center justify-between">
+                      <p className="text-xs text-gray-500">{diagnosticNotes.length} characters</p>
+                      <p className="text-xs text-gray-500">Auto-saving...</p>
+                    </div>
+                  </div>
+                  
+                  {/* Visual Diagnosis Helper */}
+                  <div className="bg-blue-50 rounded-lg p-4">
+                    <h4 className="font-medium text-blue-900 mb-2 flex items-center">
+                      <Lightbulb className="w-4 h-4 mr-2" />
+                      Diagnosis Documentation Tips
+                    </h4>
+                    <ul className="space-y-1 text-sm text-blue-800">
+                      <li>• Include primary diagnosis and relevant differential diagnoses</li>
+                      <li>• Document your clinical reasoning and key findings that support your diagnosis</li>
+                      <li>• Note any uncertainties or areas requiring further investigation</li>
+                      <li>• Consider severity, acuity, and potential complications</li>
+                    </ul>
+                  </div>
+                </>
+              )}
             </div>
-          </div>
+          )}
           
-          {/* Quick Tips */}
-          <div className="bg-blue-50 rounded-xl p-4">
-            <h4 className="font-semibold text-blue-900 mb-3 flex items-center">
-              <Lightbulb className="w-4 h-4 mr-2" />
-              Assessment Tips
-            </h4>
-            <ul className="space-y-2 text-sm text-blue-800">
-              <li>• Synthesize subjective and objective findings</li>
-              <li>• Consider the most likely diagnosis first</li>
-              <li>• Document your clinical reasoning</li>
-              <li>• Think about what to rule out</li>
-              <li>• Clinical insights are optional aids only</li>
-            </ul>
-          </div>
+          {/* Clarifying Questions Tab */}
+          {activeTab === 'questions' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">AI-Suggested Clarifying Questions</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Based on the assessment, consider asking these targeted questions
+                  </p>
+                </div>
+                {suggestedQuestions.length === 0 && (
+                  <button
+                    onClick={generateSmartQuestions}
+                    className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center"
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Generate Questions
+                  </button>
+                )}
+              </div>
+              
+              {isGeneratingQuestions ? (
+                <div className="flex flex-col items-center py-12">
+                  <Loader className="w-8 h-8 text-purple-600 animate-spin mb-4" />
+                  <p className="text-gray-600">Analyzing clinical data to generate relevant questions...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Question List */}
+                  <div className="space-y-3">
+                    {suggestedQuestions.map((question) => (
+                      <div
+                        key={question.id}
+                        className={`border rounded-lg p-4 transition-all ${
+                          selectedQuestions.includes(question.id)
+                            ? 'border-purple-500 bg-purple-50'
+                            : 'border-gray-200'
+                        }`}
+                      >
+                        <div className="flex items-start">
+                          <input
+                            type="checkbox"
+                            checked={selectedQuestions.includes(question.id)}
+                            onChange={() => handleQuestionToggle(question.id)}
+                            className="mt-1 mr-3"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                                question.priority === 'high' 
+                                  ? 'bg-red-100 text-red-700'
+                                  : question.priority === 'medium'
+                                  ? 'bg-yellow-100 text-yellow-700'
+                                  : 'bg-gray-100 text-gray-700'
+                              }`}>
+                                {question.category}
+                              </span>
+                              {question.isCustom && (
+                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+                                  Custom
+                                </span>
+                              )}
+                            </div>
+                            <p className="font-medium text-gray-900 mb-1">{question.question}</p>
+                            <p className="text-sm text-gray-600 mb-3">{question.rationale}</p>
+                            
+                            {/* Answer Input for Selected Questions */}
+                            {selectedQuestions.includes(question.id) && (
+                              <div className="mt-3 p-3 bg-white rounded-lg border border-purple-200">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Patient's Response:
+                                </label>
+                                <textarea
+                                  value={questionAnswers[question.id] || ''}
+                                  onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                                  rows={2}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none text-sm"
+                                  placeholder="Enter patient's response..."
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Add Custom Question */}
+                  {!showCustomInput ? (
+                    <button
+                      onClick={() => setShowCustomInput(true)}
+                      className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-purple-300 hover:text-purple-600 transition-colors flex items-center justify-center"
+                    >
+                      <Plus className="w-5 h-5 mr-2" />
+                      Add Custom Question
+                    </button>
+                  ) : (
+                    <div className="border-2 border-purple-200 rounded-lg p-4 bg-purple-50">
+                      <div className="flex items-start space-x-2">
+                        <input
+                          type="text"
+                          value={customQuestion}
+                          onChange={(e) => setCustomQuestion(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && handleAddCustomQuestion()}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                          placeholder="Enter your custom question..."
+                          autoFocus
+                        />
+                        <button
+                          onClick={handleAddCustomQuestion}
+                          className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                        >
+                          Add
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowCustomInput(false);
+                            setCustomQuestion('');
+                          }}
+                          className="px-3 py-2 text-gray-600 hover:text-gray-800"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Info Box */}
+                  <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                    <h5 className="font-medium text-blue-900 mb-1 flex items-center">
+                      <Target className="w-4 h-4 mr-2" />
+                      Why these questions?
+                    </h5>
+                    <p className="text-sm text-blue-800">
+                      These questions are generated based on gaps identified in the clinical data. 
+                      They aim to rule out serious conditions, clarify ambiguous findings, and ensure comprehensive assessment.
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           
-          {/* Info about Insights */}
-          {!showInsights && (
-            <div className="bg-purple-50 rounded-xl p-4">
-              <h4 className="font-semibold text-purple-900 mb-2 flex items-center">
-                <Brain className="w-4 h-4 mr-2" />
-                AI Clinical Insights
-              </h4>
-              <p className="text-sm text-purple-800 mb-3">
-                Optional AI-powered insights can help you:
-              </p>
-              <ul className="space-y-1 text-sm text-purple-700">
-                <li>• Identify red flags</li>
-                <li>• Consider differentials</li>
-                <li>• Review diagnostic approaches</li>
-                <li>• Access clinical pearls</li>
-              </ul>
-              <button
-                onClick={handleToggleInsights}
-                className="mt-3 w-full px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
-              >
-                Show Clinical Insights
-              </button>
+          {/* Ask AI Tab */}
+          {activeTab === 'ask-ai' && (
+            <div className="space-y-6">
+              <ClinicalInsightsPanel 
+                patientData={patientData}
+                doctorDiagnosis={doctorDiagnosis}
+              />
+              
+              {/* Additional AI Features */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                  <h4 className="font-medium text-purple-900 mb-2 flex items-center">
+                    <Brain className="w-4 h-4 mr-2" />
+                    Differential Diagnosis Assistant
+                  </h4>
+                  <p className="text-sm text-purple-800 mb-3">
+                    Get AI-powered differential diagnoses based on symptoms
+                  </p>
+                  <button className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700">
+                    Generate Differentials
+                  </button>
+                </div>
+                
+                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                  <h4 className="font-medium text-blue-900 mb-2 flex items-center">
+                    <Search className="w-4 h-4 mr-2" />
+                    Clinical Guidelines Search
+                  </h4>
+                  <p className="text-sm text-blue-800 mb-3">
+                    Search relevant clinical guidelines for your diagnosis
+                  </p>
+                  <button className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
+                    Search Guidelines
+                  </button>
+                </div>
+                
+                <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                  <h4 className="font-medium text-green-900 mb-2 flex items-center">
+                    <BookOpen className="w-4 h-4 mr-2" />
+                    Evidence Summary
+                  </h4>
+                  <p className="text-sm text-green-800 mb-3">
+                    Review evidence supporting your clinical assessment
+                  </p>
+                  <button className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700">
+                    View Evidence
+                  </button>
+                </div>
+                
+                <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+                  <h4 className="font-medium text-orange-900 mb-2 flex items-center">
+                    <AlertTriangle className="w-4 h-4 mr-2" />
+                    Red Flag Analyzer
+                  </h4>
+                  <p className="text-sm text-orange-800 mb-3">
+                    Check for potential red flags or serious conditions
+                  </p>
+                  <button className="px-4 py-2 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700">
+                    Analyze Red Flags
+                  </button>
+                </div>
+              </div>
+              
+              {/* Clinical Chat Interface */}
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Ask Clinical Questions
+                </h4>
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    placeholder="Ask about differential diagnoses, treatment options, or clinical guidelines..."
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  />
+                  <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                    Ask AI
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
       </div>
       
-      {/* Navigation */}
-      <div className="flex justify-between mt-8">
+      {/* Navigation Buttons */}
+      <div className="mt-8 flex justify-between">
         <button
           onClick={handleBack}
           className="px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center"
@@ -274,7 +703,10 @@ const DiagnosticAnalysis = () => {
         
         <button
           onClick={handleContinue}
-          className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-all flex items-center shadow-sm hover:shadow-md"
+          disabled={!doctorDiagnosis.trim()}
+          className={`px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-all flex items-center shadow-sm hover:shadow-md ${
+            !doctorDiagnosis.trim() ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
         >
           Continue to Plan
           <ChevronRight className="ml-2 w-5 h-5" />

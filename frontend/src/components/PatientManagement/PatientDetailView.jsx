@@ -142,14 +142,10 @@ const PatientDetailView = () => {
         followUp: '',
         patientEducation: ''
       },
-      treatmentPlan: '',
       prescriptions: [],
       followUpRecommendations: '',
-      patientEducation: '',
       clinicalSummary: '',
-      assessmentNote: '',
-      clarifyingQuestions: [],
-      redFlags: [],
+      assessmentNote: [],
       previousVisitId: latestRecord?.id // Track which visit this is a follow-up to
     });
     
@@ -308,20 +304,20 @@ const PatientDetailView = () => {
                             <div>
                               <span className="text-gray-600">Chief Complaint: </span>
                               <span className="text-gray-900">
-                                {session.data.chiefComplaint || 'Not yet recorded'}
+                                {session.data?.chiefComplaint || 'Not yet recorded'}
                               </span>
                             </div>
                             <div>
                               <span className="text-gray-600">Current Step: </span>
                               <span className="font-medium text-gray-900">
-                                {session.currentStep.split('-').map(word => 
+                                {session.currentStep ? session.currentStep.split('-').map(word => 
                                   word.charAt(0).toUpperCase() + word.slice(1)
-                                ).join(' ')}
+                                ).join(' ') : 'Unknown'}
                               </span>
                             </div>
                           </div>
                           
-                          {session.data.historyOfPresentIllness && (
+                          {session.data && session.data.historyOfPresentIllness && (
                             <div className="mt-2 text-sm">
                               <span className="text-gray-600">History Preview: </span>
                               <span className="text-gray-700">

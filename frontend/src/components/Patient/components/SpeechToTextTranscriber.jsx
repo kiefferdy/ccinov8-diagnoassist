@@ -15,7 +15,7 @@ import {
   X
 } from 'lucide-react';
 
-const SpeechToTextTranscriber = ({ onTranscriptionComplete, patientData, isObjective = false }) => {
+const SpeechToTextTranscriber = ({ onTranscriptionComplete, patientData, isObjective = false, isAssessment = false }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -53,6 +53,16 @@ I'm going to feel your lymph nodes now. I can feel some slight swelling in the a
 
 Your heart sounds are regular, no murmurs appreciated. Abdomen is soft, non-tender, no organomegaly noted.`;
   
+  const sampleAssessmentConversation = `Doctor: Based on the history and physical examination, my assessment is that you have community-acquired pneumonia. The productive cough with greenish sputum, fever, shortness of breath, and most importantly, the crackles I heard in your right lung base all point to this diagnosis.
+
+This is likely a bacterial pneumonia given the color of the sputum and your symptoms. The fact that you were exposed to someone who was sick recently also supports an infectious cause.
+
+I'm concerned about the pneumonia progressing, especially given your shortness of breath with exertion. We need to start treatment promptly. I'm also considering the possibility of bronchitis as a differential diagnosis, but the lung findings make pneumonia more likely.
+
+Given that you're allergic to penicillin, we'll need to use an alternative antibiotic. I'm going to prescribe azithromycin, which is effective against the common bacteria that cause community-acquired pneumonia.
+
+We should also get a chest X-ray to confirm the diagnosis and see the extent of the infection. A complete blood count would help us assess the severity of the infection as well.`;
+  
   useEffect(() => {
     return () => {
       if (timerRef.current) {
@@ -77,7 +87,9 @@ Your heart sounds are regular, no murmurs appreciated. Abdomen is soft, non-tend
       }, 1000);
       
       // Simulate live transcription
-      const fullTranscript = isObjective ? sampleObjectiveConversation : sampleSubjectiveConversation;
+      const fullTranscript = isAssessment ? sampleAssessmentConversation : 
+                            isObjective ? sampleObjectiveConversation : 
+                            sampleSubjectiveConversation;
       const words = fullTranscript.split(' ');
       let currentIndex = 0;
       
@@ -124,7 +136,9 @@ Your heart sounds are regular, no murmurs appreciated. Abdomen is soft, non-tend
     
     // Simulate AI processing
     setTimeout(() => {
-      const parsed = isObjective ? parseObjectiveTranscript(transcript) : parseSubjectiveTranscript(transcript);
+      const parsed = isAssessment ? parseAssessmentTranscript(transcript) :
+                    isObjective ? parseObjectiveTranscript(transcript) : 
+                    parseSubjectiveTranscript(transcript);
       setParsedSections(parsed);
       setShowParsedPreview(true);
       setIsProcessing(false);
@@ -135,6 +149,8 @@ Your heart sounds are regular, no murmurs appreciated. Abdomen is soft, non-tend
     // Parse the sample subjective conversation
     return {
       chiefComplaint: 'Persistent cough for two weeks with phlegm production',
+      duration: '2 weeks',
+      onset: 'Gradual',
       history: {
         presentIllness: [
           'Started as dry cough 2 weeks ago',
@@ -172,6 +188,36 @@ Your heart sounds are regular, no murmurs appreciated. Abdomen is soft, non-tend
         abdomen: 'Soft, non-tender, no organomegaly'
       }
     };
+  };
+  
+  const parseAssessmentTranscript = (text) => {
+    // Parse the sample assessment conversation
+    return {
+      diagnosis: 'Community-acquired pneumonia',
+      notes: `Based on history and physical examination findings:
+- Productive cough with greenish sputum
+- Fever and shortness of breath
+- Crackles in right lung base on auscultation
+- Likely bacterial etiology given sputum characteristics
+- Recent exposure to sick contact supports infectious cause
+
+Differential diagnosis includes:
+1. Community-acquired pneumonia (most likely)
+2. Acute bronchitis (less likely given lung findings)
+
+Treatment plan considerations:
+- Azithromycin (patient allergic to penicillin)
+- Chest X-ray for confirmation
+- CBC to assess infection severity`,
+      differentialDiagnoses: [
+        'Community-acquired pneumonia',
+        'Acute bronchitis'
+      ],
+      recommendedTests: [
+        'Chest X-ray',
+        'Complete blood count'
+      ]
+    };
   };  
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -201,7 +247,7 @@ Your heart sounds are regular, no murmurs appreciated. Abdomen is soft, non-tend
         <div>
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <Sparkles className="w-5 h-5 text-purple-600 mr-2" />
-            AI-Powered Voice Transcription {isObjective ? '(Physical Exam)' : '(Patient History)'}
+            AI-Powered Voice Transcription {isAssessment ? '(Clinical Assessment)' : isObjective ? '(Physical Exam)' : '(Patient History)'}
           </h3>
           <p className="text-sm text-gray-600 mt-1">
             Demo: Simulated conversation transcription and parsing
@@ -270,7 +316,50 @@ Your heart sounds are regular, no murmurs appreciated. Abdomen is soft, non-tend
           <h4 className="text-lg font-semibold text-gray-900 mb-4">AI-Parsed Clinical Information</h4>
           
           <div className="space-y-4 mb-6">
-            {isObjective ? (
+            {isAssessment ? (
+              <>
+                {/* Assessment Data Display */}
+                {parsedSections.diagnosis && (
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-700 mb-2">Clinical Diagnosis</h5>
+                    <p className="p-3 bg-purple-50 rounded-lg font-medium text-purple-900">
+                      {parsedSections.diagnosis}
+                    </p>
+                  </div>
+                )}
+                
+                {parsedSections.notes && (
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-700 mb-2">Assessment Notes</h5>
+                    <div className="p-3 bg-blue-50 rounded-lg">
+                      <p className="text-sm text-blue-900 whitespace-pre-line">{parsedSections.notes}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {parsedSections.differentialDiagnoses && parsedSections.differentialDiagnoses.length > 0 && (
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-700 mb-2">Differential Diagnoses</h5>
+                    <ul className="text-sm text-gray-700 p-3 bg-yellow-50 rounded-lg space-y-1">
+                      {parsedSections.differentialDiagnoses.map((dx, idx) => (
+                        <li key={idx}>• {dx}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
+                {parsedSections.recommendedTests && parsedSections.recommendedTests.length > 0 && (
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-700 mb-2">Recommended Tests</h5>
+                    <ul className="text-sm text-gray-700 p-3 bg-green-50 rounded-lg space-y-1">
+                      {parsedSections.recommendedTests.map((test, idx) => (
+                        <li key={idx}>• {test}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
+            ) : isObjective ? (
               <>
                 {/* Objective Data Display */}
                 {parsedSections.vitalSigns && (
