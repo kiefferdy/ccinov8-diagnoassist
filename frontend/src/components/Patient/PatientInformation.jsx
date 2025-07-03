@@ -37,7 +37,7 @@ const PatientInformation = () => {
     });
     // Save related documents
     updatePatientData('relatedDocuments', relatedDocuments);
-    setCurrentStep('chief-complaint');
+    setCurrentStep('clinical-assessment');
   };  
   const addCondition = () => {
     if (newCondition.trim()) {
@@ -72,18 +72,18 @@ const PatientInformation = () => {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Patient Demographics</h2>
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">Patient Record</h2>
         <p className="text-gray-600">
-          {patientData.id ? `Reviewing information for ${patientData.name}` : 'Enter the patient\'s demographic information'}
+          {patientData.id ? `Reviewing information for ${patientData.name}` : 'Enter the patient\'s information'}
         </p>
       </div>
       
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Basic Information Card */}
+        {/* Demographics Card */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center mb-6">
             <User className="w-5 h-5 text-blue-600 mr-2" />
-            <h3 className="text-lg font-semibold text-gray-900">Basic Information</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Demographics</h3>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

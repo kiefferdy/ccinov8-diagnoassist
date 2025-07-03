@@ -8,7 +8,6 @@ import PatientList from './components/PatientManagement/PatientList';
 import PatientDetailView from './components/PatientManagement/PatientDetailView';
 import PatientSelection from './components/Patient/PatientSelection';
 import PatientInformation from './components/Patient/PatientInformation';
-import ChiefComplaint from './components/Patient/ChiefComplaint';
 import ClinicalAssessment from './components/Patient/ClinicalAssessment';
 import PhysicalExam from './components/Diagnosis/PhysicalExam';
 import DiagnosticAnalysis from './components/Diagnosis/DiagnosticAnalysis';
@@ -37,8 +36,6 @@ function AppContent() {
         return <PatientSelection />;
       case 'patient-info':
         return <PatientInformation />;
-      case 'chief-complaint':
-        return <ChiefComplaint />;
       case 'clinical-assessment':
         return <ClinicalAssessment />;
       case 'physical-exam':
@@ -66,8 +63,7 @@ function AppContent() {
   const showLayout = currentStep !== 'home' && 
                     currentStep !== 'patient-list' && 
                     currentStep !== 'patient-detail' && 
-                    currentStep !== 'patient-selection' &&
-                    currentStep !== 'chief-complaint';
+                    currentStep !== 'patient-selection';
   
   if (showLayout) {
     return (

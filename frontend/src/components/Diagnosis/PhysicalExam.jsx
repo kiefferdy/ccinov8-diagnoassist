@@ -14,15 +14,26 @@ import {
   AlertCircle,
   FileText,
   ChevronDown,
-  Info
+  Info,
+  Brain,
+  MessageSquare,
+  Mic,
+  PenTool,
+  Sparkles
 } from 'lucide-react';
 import FileUpload from '../common/FileUpload';
+import PostAssessmentQuestions from '../Patient/components/PostAssessmentQuestions';
+import SpeechToTextTranscriber from '../Patient/components/SpeechToTextTranscriber';
 
 const PhysicalExam = () => {
   const { patientData, updatePhysicalExam, setCurrentStep } = usePatient();
   const [bmiCalculated, setBmiCalculated] = useState(false);
-  const [showAdditionalFindings, setShowAdditionalFindings] = useState(false);
+  const [showAdditionalFindings, setShowAdditionalFindings] = useState(true); // Changed to true
   const [examDocuments, setExamDocuments] = useState(patientData.physicalExam.examDocuments || []);
+  const [showAIQuestions, setShowAIQuestions] = useState(false);
+  const [examCompleted, setExamCompleted] = useState(false);
+  const [assessmentMode, setAssessmentMode] = useState('manual'); // 'manual' or 'voice'
+  const [additionalFindings, setAdditionalFindings] = useState(patientData.physicalExam.additionalFindings || '');
   
   const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm({
     defaultValues: {
@@ -32,6 +43,17 @@ const PhysicalExam = () => {
   
   const watchHeight = watch('height');
   const watchWeight = watch('weight');
+  
+  // Auto-save additional findings
+  useEffect(() => {
+    const saveTimer = setTimeout(() => {
+      if (additionalFindings !== patientData.physicalExam.additionalFindings) {
+        updatePhysicalExam('additionalFindings', additionalFindings);
+      }
+    }, 1000);
+    
+    return () => clearTimeout(saveTimer);
+  }, [additionalFindings]);
   
   // Calculate BMI when height and weight change
   useEffect(() => {
@@ -54,29 +76,38 @@ const PhysicalExam = () => {
     });
     updatePhysicalExam('examDocuments', examDocuments);
     
-    // In a real app, this would call an API to analyze the data
-    // For now, we'll generate mock differential diagnoses
-    await generateInitialDiagnosis(data);
+    // Mark exam as completed
+    setExamCompleted(true);
     
+    // Show AI questions panel
+    setShowAIQuestions(true);
+  };
+  
+  const handleQuestionsComplete = async () => {
+    // Generate initial diagnosis based on all collected data
+    await generateInitialDiagnosis();
+    
+    // Navigate to assessment
     setCurrentStep('diagnostic-analysis');
   };
   
-  const generateInitialDiagnosis = async (examData) => {
+  const generateInitialDiagnosis = async () => {
     // Mock function - replace with actual API call
+    const examData = patientData.physicalExam || {};
     const mockDiagnoses = [
       {
         id: 1,
         name: "Hypertension",
         probability: 0.75,
         explanation: "Elevated blood pressure reading combined with patient's age and symptoms suggest primary hypertension.",
-        supportingEvidence: ["Blood pressure: " + examData.bloodPressure, "Patient age", "Chief complaint"]
+        supportingEvidence: ["Blood pressure: " + (examData.bloodPressure || "Not measured"), "Patient age", "Chief complaint"]
       },
       {
         id: 2,
         name: "Anxiety Disorder",
         probability: 0.45,
         explanation: "Elevated heart rate and blood pressure could be related to anxiety, especially given the patient's reported symptoms.",
-        supportingEvidence: ["Elevated heart rate: " + examData.heartRate, "Blood pressure elevation", "Symptom pattern"]
+        supportingEvidence: ["Elevated heart rate: " + (examData.heartRate || "Not measured"), "Blood pressure elevation", "Symptom pattern"]
       },
       {
         id: 3,
@@ -106,6 +137,26 @@ const PhysicalExam = () => {
     setExamDocuments(files);
   };
   
+  const handleTranscriptionComplete = (parsedData) => {
+    // Update vital signs if provided
+    if (parsedData.vitalSigns) {
+      Object.entries(parsedData.vitalSigns).forEach(([key, value]) => {
+        setValue(key, value);
+      });
+    }
+    
+    // Update additional findings with physical exam data
+    if (parsedData.physicalExam) {
+      const findings = Object.entries(parsedData.physicalExam)
+        .map(([system, finding]) => `${system.charAt(0).toUpperCase() + system.slice(1)}: ${finding}`)
+        .join('\n');
+      setAdditionalFindings(prev => prev ? `${prev}\n\n${findings}` : findings);
+    }
+    
+    // Switch back to manual mode
+    setAssessmentMode('manual');
+  };
+  
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
@@ -113,17 +164,35 @@ const PhysicalExam = () => {
         <p className="text-gray-600">Document the physical examination findings and vital signs</p>
       </div>
       
-      {/* Optional Fields Notice */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-        <div className="flex items-start">
-          <Info className="w-5 h-5 text-blue-600 mr-2 flex-shrink-0 mt-0.5" />
-          <p className="text-blue-800 text-sm">
-            All fields in this section are optional. Fill in only the measurements and observations that are available or relevant to the patient's condition.
-          </p>
+      {/* Show AI Questions if exam is completed */}
+      {showAIQuestions && examCompleted ? (
+        <div className="space-y-6">
+          <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+            <div className="flex items-center">
+              <Brain className="w-5 h-5 text-purple-600 mr-2" />
+              <p className="text-purple-900 font-medium">
+                Physical examination completed. AI is analyzing the subjective and objective findings...
+              </p>
+            </div>
+          </div>
+          
+          <PostAssessmentQuestions 
+            onComplete={handleQuestionsComplete}
+          />
         </div>
-      </div>
-      
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      ) : (
+        <>
+          {/* Optional Fields Notice */}
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+            <div className="flex items-start">
+              <Info className="w-5 h-5 text-blue-600 mr-2 flex-shrink-0 mt-0.5" />
+              <p className="text-blue-800 text-sm">
+                All fields in this section are optional. Fill in only the measurements and observations that are available or relevant to the patient's condition.
+              </p>
+            </div>
+          </div>
+          
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Vital Signs Card */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center mb-6">
@@ -327,32 +396,73 @@ const PhysicalExam = () => {
         
         {/* Additional Findings Card */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <button
-            type="button"
-            onClick={() => setShowAdditionalFindings(!showAdditionalFindings)}
-            className="w-full flex items-center justify-between mb-4"
-          >
-            <div className="flex items-center">
+          <div className="flex items-center justify-between mb-4">
+            <button
+              type="button"
+              onClick={() => setShowAdditionalFindings(!showAdditionalFindings)}
+              className="flex items-center flex-grow"
+            >
               <AlertCircle className="w-5 h-5 text-blue-600 mr-2" />
               <h3 className="text-lg font-semibold text-gray-900">Additional Physical Exam Findings</h3>
               <span className="ml-2 text-sm text-gray-500">(Optional)</span>
-            </div>
-            <ChevronDown className={`w-5 h-5 text-gray-400 transform transition-transform ${showAdditionalFindings ? 'rotate-180' : ''}`} />
-          </button>
+              <ChevronDown className={`w-5 h-5 text-gray-400 transform transition-transform ml-2 ${showAdditionalFindings ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {showAdditionalFindings && (
+              <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1 ml-4">
+                <button
+                  type="button"
+                  onClick={() => setAssessmentMode('manual')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    assessmentMode === 'manual'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <PenTool className="w-3.5 h-3.5 inline mr-1.5" />
+                  Manual
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAssessmentMode('voice')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    assessmentMode === 'voice'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <Mic className="w-3.5 h-3.5 inline mr-1.5" />
+                  Voice
+                </button>
+              </div>
+            )}
+          </div>
           
           {showAdditionalFindings && (
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Clinical Observations
-                </label>
-                <textarea
-                  {...register('additionalFindings')}
-                  rows={4}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  placeholder="Note any additional physical exam findings, abnormalities, or observations..."
+              {assessmentMode === 'voice' ? (
+                <SpeechToTextTranscriber 
+                  onTranscriptionComplete={handleTranscriptionComplete}
+                  patientData={patientData}
+                  isObjective={true}
                 />
-              </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Clinical Observations
+                  </label>
+                  <textarea
+                    value={additionalFindings}
+                    onChange={(e) => {
+                      setAdditionalFindings(e.target.value);
+                      setValue('additionalFindings', e.target.value);
+                    }}
+                    rows={4}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    placeholder="Note any additional physical exam findings, abnormalities, or observations..."
+                  />
+                </div>
+              )}
               
               <div>
                 <FileUpload
@@ -395,11 +505,13 @@ const PhysicalExam = () => {
             type="submit"
             className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-all flex items-center shadow-sm hover:shadow-md"
           >
-            Generate Diagnostic Analysis
+            Complete Physical Exam
             <ChevronRight className="ml-2 w-5 h-5" />
           </button>
         </div>
       </form>
+      </>
+      )}
     </div>
   );
 };

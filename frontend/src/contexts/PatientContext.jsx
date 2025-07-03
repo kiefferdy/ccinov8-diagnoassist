@@ -22,10 +22,19 @@ export const PatientProvider = ({ children }) => {
     
     // Chief Complaint
     chiefComplaint: '',
+    chiefComplaintDuration: '',
+    chiefComplaintOnset: '',
     chiefComplaintDetails: [],
     additionalClinicalNotes: '',
     clinicalNotes: '', // For free-form notes
     standardizedAssessments: {}, // For storing PHQ-9, GAD-7, etc. results
+    
+    // SOAP Documentation
+    historyOfPresentIllness: '',
+    reviewOfSystems: '',
+    pastMedicalHistory: '',
+    socialHistory: '',
+    familyHistory: '',
     
     // Medical History
     medicalHistory: [],
@@ -53,8 +62,10 @@ export const PatientProvider = ({ children }) => {
     // Diagnoses
     differentialDiagnoses: [],
     selectedDiagnosis: null,
+    doctorDiagnosis: '',
     finalDiagnosis: '',
     diagnosticNotes: '',
+    hasViewedInsights: false,
     
     // Tests
     recommendedTests: [],
@@ -62,12 +73,23 @@ export const PatientProvider = ({ children }) => {
     testResults: {},
     
     // Treatment
+    therapeuticPlan: {
+      medications: [],
+      procedures: [],
+      referrals: [],
+      followUp: '',
+      patientEducation: ''
+    },
     treatmentPlan: '',
     prescriptions: [],
     followUpRecommendations: '',
     patientEducation: '',
     clinicalSummary: '',
-    assessmentNote: ''
+    assessmentNote: '',
+    
+    // AI Assistance
+    clarifyingQuestions: [],
+    redFlags: []
   });
   
   const [currentStep, setCurrentStep] = useState('home');
@@ -134,10 +156,17 @@ export const PatientProvider = ({ children }) => {
       gender: '',
       dateOfBirth: '',
       chiefComplaint: '',
+      chiefComplaintDuration: '',
+      chiefComplaintOnset: '',
       chiefComplaintDetails: [],
       additionalClinicalNotes: '',
       clinicalNotes: '',
       standardizedAssessments: {},
+      historyOfPresentIllness: '',
+      reviewOfSystems: '',
+      pastMedicalHistory: '',
+      socialHistory: '',
+      familyHistory: '',
       medicalHistory: [],
       medications: [],
       allergies: [],
@@ -157,17 +186,28 @@ export const PatientProvider = ({ children }) => {
       },
       differentialDiagnoses: [],
       selectedDiagnosis: null,
+      doctorDiagnosis: '',
       finalDiagnosis: '',
       diagnosticNotes: '',
+      hasViewedInsights: false,
       recommendedTests: [],
       selectedTests: [],
       testResults: {},
+      therapeuticPlan: {
+        medications: [],
+        procedures: [],
+        referrals: [],
+        followUp: '',
+        patientEducation: ''
+      },
       treatmentPlan: '',
       prescriptions: [],
       followUpRecommendations: '',
       patientEducation: '',
       clinicalSummary: '',
-      assessmentNote: ''
+      assessmentNote: '',
+      clarifyingQuestions: [],
+      redFlags: []
     });
     setCurrentStep('home');
     setSessionId(null);
@@ -192,10 +232,15 @@ export const PatientProvider = ({ children }) => {
           age: patientData.age,
           gender: patientData.gender,
           dateOfBirth: patientData.dateOfBirth,
-          chiefComplaint: patientData.chiefComplaint,
           medicalHistory: patientData.medicalHistory,
           medications: patientData.medications,
           allergies: patientData.allergies
+        };
+      case 'chief-complaint':
+        return {
+          chiefComplaint: patientData.chiefComplaint,
+          chiefComplaintDuration: patientData.chiefComplaintDuration,
+          chiefComplaintOnset: patientData.chiefComplaintOnset
         };
       case 'clinical-assessment':
         return {
@@ -203,7 +248,12 @@ export const PatientProvider = ({ children }) => {
           additionalClinicalNotes: patientData.additionalClinicalNotes,
           clinicalNotes: patientData.clinicalNotes,
           standardizedAssessments: patientData.standardizedAssessments,
-          assessmentDocuments: patientData.assessmentDocuments
+          assessmentDocuments: patientData.assessmentDocuments,
+          historyOfPresentIllness: patientData.historyOfPresentIllness,
+          reviewOfSystems: patientData.reviewOfSystems,
+          pastMedicalHistory: patientData.pastMedicalHistory,
+          socialHistory: patientData.socialHistory,
+          familyHistory: patientData.familyHistory
         };
       case 'physical-exam':
         return {
@@ -212,12 +262,15 @@ export const PatientProvider = ({ children }) => {
       case 'diagnostic-analysis':
         return {
           differentialDiagnoses: patientData.differentialDiagnoses,
-          diagnosticNotes: patientData.diagnosticNotes
+          diagnosticNotes: patientData.diagnosticNotes,
+          doctorDiagnosis: patientData.doctorDiagnosis,
+          hasViewedInsights: patientData.hasViewedInsights
         };
       case 'recommended-tests':
         return {
           recommendedTests: patientData.recommendedTests,
-          selectedTests: patientData.selectedTests
+          selectedTests: patientData.selectedTests,
+          therapeuticPlan: patientData.therapeuticPlan
         };
       case 'test-results':
         return {

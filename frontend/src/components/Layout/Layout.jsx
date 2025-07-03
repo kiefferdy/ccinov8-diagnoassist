@@ -31,8 +31,7 @@ const Layout = ({ children }) => {
   } = usePatient();
   
   const steps = [
-    { id: 'patient-info', label: 'Patient Demographics', icon: User },
-    { id: 'chief-complaint', label: 'Chief Complaint', icon: MessageSquare },
+    { id: 'patient-info', label: 'Patient Record', icon: User },
     { id: 'clinical-assessment', label: 'Subjective (S)', icon: ClipboardList },
     { id: 'physical-exam', label: 'Objective (O)', icon: Stethoscope },
     { id: 'diagnostic-analysis', label: 'Assessment (A)', icon: Activity },
@@ -58,10 +57,8 @@ const Layout = ({ children }) => {
       switch (currentStep) {
         case 'patient-info':
           return patientData.name && patientData.age;
-        case 'chief-complaint':
-          return patientData.chiefComplaint;
         case 'clinical-assessment':
-          return patientData.chiefComplaintDetails && patientData.chiefComplaintDetails.length > 0;
+          return patientData.chiefComplaint && patientData.chiefComplaint.trim() !== '';
         case 'physical-exam':
           return patientData.physicalExam.bloodPressure || patientData.physicalExam.heartRate || 
                  patientData.physicalExam.temperature || patientData.physicalExam.respiratoryRate;
@@ -119,23 +116,17 @@ const Layout = ({ children }) => {
       {/* Sidebar */}
       <aside className="w-64 bg-white shadow-lg">
         <div className="p-6">
-          <div className="flex items-center space-x-3 mb-8">
+          <button
+            onClick={handleHome}
+            className="flex items-center space-x-3 mb-8 hover:opacity-80 transition-opacity w-full"
+          >
             <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
               <Activity className="w-6 h-6 text-white" />
             </div>
-            <div>
+            <div className="text-left">
               <h1 className="text-xl font-bold text-gray-900">DiagnoAssist</h1>
               <p className="text-xs text-gray-500">AI-Powered Diagnosis</p>
             </div>
-          </div>
-          
-          {/* Home Button at Top */}
-          <button
-            onClick={handleHome}
-            className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-gray-700 transition-all mb-4"
-          >
-            <Home className="w-5 h-5" />
-            <span className="text-sm font-medium">Home</span>
           </button>
           
           {patientData.name && (
