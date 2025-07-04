@@ -273,6 +273,7 @@ Treatment plan considerations:
       <div className="flex items-center justify-center mb-6">
         {!isRecording ? (
           <button
+            type="button"
             onClick={startRecording}
             disabled={isProcessing}
             className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center disabled:bg-gray-400"
@@ -282,6 +283,7 @@ Treatment plan considerations:
           </button>
         ) : (
           <button
+            type="button"
             onClick={stopRecording}
             className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center animate-pulse"
           >
@@ -466,10 +468,11 @@ Treatment plan considerations:
           
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <p className="text-sm text-gray-600">
-              Review the parsed information and save to populate the assessment
+              Review the parsed information carefully and make edits if necessary
             </p>
             <div className="flex space-x-2">
               <button
+                type="button"
                 onClick={handleReset}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
               >
@@ -477,6 +480,7 @@ Treatment plan considerations:
                 Reset
               </button>
               <button
+                type="button"
                 onClick={handleSaveParsedData}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
               >

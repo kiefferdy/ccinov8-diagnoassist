@@ -28,18 +28,42 @@ import {
   AlertTriangle,
   CheckCircle,
   Save,
-  X
+  X,
+  Plus,
+  Scissors,
+  Info
 } from 'lucide-react';
 
 const PatientDetailView = () => {
   const { currentStep, setCurrentStep, patientData, setPatientData } = usePatient();
   const { getPatient, getPatientRecords, getPatientSessions, patients, deleteSession, updatePatient } = useAppData();
-  const [selectedTab, setSelectedTab] = useState('incomplete-sessions');
+  const [selectedTab, setSelectedTab] = useState('overview');
   const [expandedRecord, setExpandedRecord] = useState(null);
   const [expandedSession, setExpandedSession] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editingSection, setEditingSection] = useState(null); // 'overview', 'medical-history', 'test-results', 'medications', 'allergies'
   const [editData, setEditData] = useState({});
+  
+  // Medical History Edit States
+  const [editingMedicalHistory, setEditingMedicalHistory] = useState(false);
+  const [medicalHistoryData, setMedicalHistoryData] = useState({
+    conditions: [],
+    surgicalHistory: [],
+    familyHistory: '',
+    socialHistory: ''
+  });
+  
+  // Medications Edit States
+  const [editingMedications, setEditingMedications] = useState(false);
+  const [medicationsData, setMedicationsData] = useState([]);
+  
+  // Allergies Edit States
+  const [editingAllergies, setEditingAllergies] = useState(false);
+  const [allergiesData, setAllergiesData] = useState([]);
+  
+  // Test Results Edit States
+  const [editingTestResults, setEditingTestResults] = useState(false);
+  const [testResultsData, setTestResultsData] = useState({});
   
   // Get patient ID from patientData or URL params
   const patientId = patientData.viewingPatientId;
@@ -162,7 +186,30 @@ const PatientDetailView = () => {
   const handleResumeSession = (session) => {
     // Load the session data
     setPatientData(session.data);
-    setCurrentStep(session.currentStep);
+    // Use currentStep, fallback to lastStep, and if neither exists, determine based on data
+    const step = session.currentStep || session.lastStep || determineStepFromData(session.data);
+    setCurrentStep(step);
+  };
+  
+  const determineStepFromData = (data) => {
+    // Determine the appropriate step based on what data has been filled
+    if (data.treatmentPlan && data.prescriptions) {
+      return 'treatment-plan';
+    } else if (data.finalDiagnosis) {
+      return 'final-diagnosis';
+    } else if (data.testResults && Object.keys(data.testResults).length > 0) {
+      return 'test-results';
+    } else if (data.selectedTests && data.selectedTests.length > 0) {
+      return 'recommended-tests';
+    } else if (data.doctorDiagnosis || data.diagnosticNotes) {
+      return 'diagnostic-analysis';
+    } else if (data.physicalExam && (data.physicalExam.bloodPressure || data.physicalExam.heartRate)) {
+      return 'physical-exam';
+    } else if (data.historyOfPresentIllness || data.chiefComplaint) {
+      return 'clinical-assessment';
+    } else {
+      return 'patient-info'; // Default to patient info if no other data
+    }
   };
   
   const handleDeleteSession = (sessionId) => {
@@ -186,15 +233,112 @@ const PatientDetailView = () => {
     setEditData({});
   };
   
+  // Medical History Edit Functions
+  const handleEditMedicalHistory = () => {
+    setEditingMedicalHistory(true);
+    // Initialize with current data
+    const conditions = [...new Set(records.flatMap(r => r.medicalHistory || []))];
+    const surgicalHistory = patient.surgicalHistory || [];
+    const familyHistory = patient.familyHistory || '';
+    const socialHistory = patient.socialHistory || '';
+    
+    setMedicalHistoryData({
+      conditions,
+      surgicalHistory,
+      familyHistory,
+      socialHistory
+    });
+  };
+  
+  const handleSaveMedicalHistory = () => {
+    // Update patient with new medical history data
+    updatePatient(patient.id, {
+      ...patient,
+      surgicalHistory: medicalHistoryData.surgicalHistory,
+      familyHistory: medicalHistoryData.familyHistory,
+      socialHistory: medicalHistoryData.socialHistory,
+      // Note: conditions are stored per record, not on patient level
+    });
+    setEditingMedicalHistory(false);
+  };
+  
+  const handleCancelMedicalHistory = () => {
+    setEditingMedicalHistory(false);
+  };
+  
+  // Medications Edit Functions
+  const handleEditMedications = () => {
+    setEditingMedications(true);
+    const allMeds = [...new Set(records.flatMap(r => r.medications || []))];
+    setMedicationsData(allMeds.map((med, idx) => ({ id: idx, name: med })));
+  };
+  
+  const handleSaveMedications = () => {
+    // Update the latest record with new medications
+    if (records.length > 0) {
+      const latestRecord = records[0];
+      // This would need to be implemented in your context
+      // updateRecord(latestRecord.id, { ...latestRecord, medications: medicationsData.map(m => m.name) });
+    }
+    setEditingMedications(false);
+  };
+  
+  const handleCancelMedications = () => {
+    setEditingMedications(false);
+  };
+  
+  const addMedication = () => {
+    setMedicationsData([...medicationsData, { id: Date.now(), name: '' }]);
+  };
+  
+  const removeMedication = (id) => {
+    setMedicationsData(medicationsData.filter(m => m.id !== id));
+  };
+  
+  const updateMedication = (id, name) => {
+    setMedicationsData(medicationsData.map(m => m.id === id ? { ...m, name } : m));
+  };
+  
+  // Allergies Edit Functions
+  const handleEditAllergies = () => {
+    setEditingAllergies(true);
+    const allAllergiesFromRecords = [...new Set(records.flatMap(r => r.allergies || []))];
+    setAllergiesData(allAllergiesFromRecords.map((allergy, idx) => ({ id: idx, name: allergy })));
+  };
+  
+  const handleSaveAllergies = () => {
+    // Update patient with new allergies
+    updatePatient(patient.id, {
+      ...patient,
+      allergies: allergiesData.map(a => a.name)
+    });
+    setEditingAllergies(false);
+  };
+  
+  const handleCancelAllergies = () => {
+    setEditingAllergies(false);
+  };
+  
+  const addAllergy = () => {
+    setAllergiesData([...allergiesData, { id: Date.now(), name: '' }]);
+  };
+  
+  const removeAllergy = (id) => {
+    setAllergiesData(allergiesData.filter(a => a.id !== id));
+  };
+  
+  const updateAllergy = (id, name) => {
+    setAllergiesData(allergiesData.map(a => a.id === id ? { ...a, name } : a));
+  };
+  
   // Get all medical conditions from all records
   const allMedicalConditions = [...new Set(records.flatMap(r => r.medicalHistory || []))];
   const allMedications = [...new Set(records.flatMap(r => r.medications || []))];
   const allAllergies = [...new Set(records.flatMap(r => r.allergies || []))];
   
   const tabs = [
-    { id: 'incomplete-sessions', label: 'Incomplete Sessions', icon: AlertTriangle, count: sessions.length },
-    { id: 'past-visits', label: 'Past Visits', icon: FileText, count: records.length },
     { id: 'overview', label: 'Patient Overview', icon: User },
+    { id: 'past-visits', label: 'Past Visits', icon: FileText, count: records.length },
     { id: 'medical-history', label: 'Medical History', icon: Activity },
     { id: 'test-results', label: 'Test Results', icon: TestTube },
     { id: 'medications', label: 'Medications', icon: Pill, count: allMedications.length }
@@ -260,18 +404,135 @@ const PatientDetailView = () => {
         </div>
       </div>
       
-      {/* Critical Information Banner */}
-      {allAllergies.length > 0 && (
+      {/* Critical Information Banner - Allergies */}
+      {(allAllergies.length > 0 || editingAllergies) && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <div className="flex items-start justify-between">
+            <div className="flex items-start flex-1">
+              <AlertCircle className="w-5 h-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium text-red-900">Known Allergies</h4>
+                  {!editingAllergies && (
+                    <button
+                      onClick={handleEditAllergies}
+                      className="text-sm text-red-700 hover:text-red-800 flex items-center ml-4"
+                    >
+                      <Edit2 className="w-4 h-4 mr-1" />
+                      Edit
+                    </button>
+                  )}
+                  {editingAllergies && (
+                    <div className="flex items-center space-x-2 ml-4">
+                      <button
+                        onClick={handleSaveAllergies}
+                        className="px-3 py-1 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 flex items-center"
+                      >
+                        <Save className="w-4 h-4 mr-1" />
+                        Save
+                      </button>
+                      <button
+                        onClick={handleCancelAllergies}
+                        className="px-3 py-1 border border-red-300 text-red-700 text-sm font-medium rounded-lg hover:bg-red-100"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {!editingAllergies ? (
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {allAllergies.map((allergy, index) => (
+                      <span key={index} className="px-2 py-1 bg-red-100 text-red-800 rounded text-sm">
+                        {allergy}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-2 mt-3">
+                    {allergiesData.map((allergy) => (
+                      <div key={allergy.id} className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          value={allergy.name}
+                          onChange={(e) => updateAllergy(allergy.id, e.target.value)}
+                          className="flex-1 px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 text-sm"
+                          placeholder="Enter allergy"
+                        />
+                        <button
+                          onClick={() => removeAllergy(allergy.id)}
+                          className="p-2 text-red-600 hover:bg-red-100 rounded-lg"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      onClick={addAllergy}
+                      className="flex items-center text-sm text-red-700 hover:text-red-800"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add Allergy
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Incomplete Sessions Card */}
+      {sessions.length > 0 && (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
           <div className="flex items-start">
-            <AlertCircle className="w-5 h-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
-            <div>
-              <h4 className="font-medium text-red-900">Known Allergies</h4>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {allAllergies.map((allergy, index) => (
-                  <span key={index} className="px-2 py-1 bg-red-100 text-red-800 rounded text-sm">
-                    {allergy}
-                  </span>
+            <AlertTriangle className="w-5 h-5 text-orange-600 mr-2 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="font-medium text-orange-900 mb-3">Incomplete Sessions ({sessions.length})</h4>
+              <div className="space-y-2">
+                {sessions.map((session) => (
+                  <div key={session.id} className="bg-white border border-orange-200 rounded-lg p-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-grow">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <Clock className="w-4 h-4 text-orange-600" />
+                          <p className="text-sm font-medium text-gray-900">
+                            Started: {formatDateTime(session.startedAt || session.lastUpdated)}
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-600">Chief Complaint: </span>
+                            <span className="text-gray-900">
+                              {session.data?.chiefComplaint || 'Not yet recorded'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Current Step: </span>
+                            <span className="font-medium text-gray-900">
+                              {session.currentStep ? session.currentStep.split('-').map(word => 
+                                word.charAt(0).toUpperCase() + word.slice(1)
+                              ).join(' ') : 'Unknown'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2 ml-4">
+                        <button
+                          onClick={() => handleResumeSession(session)}
+                          className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          Resume
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSession(session.id)}
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -318,82 +579,6 @@ const PatientDetailView = () => {
         </div>
         
         <div className="p-6">
-          {/* Incomplete Sessions Tab */}
-          {selectedTab === 'incomplete-sessions' && (
-            <div className="space-y-4">
-              {sessions.length > 0 ? (
-                <>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Incomplete Assessment Sessions</h3>
-                    <p className="text-sm text-gray-600">{sessions.length} session{sessions.length > 1 ? 's' : ''} in progress</p>
-                  </div>
-                  
-                  {sessions.map((session) => (
-                    <div key={session.id} className="border border-orange-200 bg-orange-50 rounded-lg p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-grow">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <Clock className="w-4 h-4 text-orange-600" />
-                            <p className="font-medium text-gray-900">
-                              Started: {formatDateTime(session.startedAt || session.lastUpdated)}
-                            </p>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <span className="text-gray-600">Chief Complaint: </span>
-                              <span className="text-gray-900">
-                                {session.data?.chiefComplaint || 'Not yet recorded'}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Current Step: </span>
-                              <span className="font-medium text-gray-900">
-                                {session.currentStep ? session.currentStep.split('-').map(word => 
-                                  word.charAt(0).toUpperCase() + word.slice(1)
-                                ).join(' ') : 'Unknown'}
-                              </span>
-                            </div>
-                          </div>
-                          
-                          {session.data && session.data.historyOfPresentIllness && (
-                            <div className="mt-2 text-sm">
-                              <span className="text-gray-600">History Preview: </span>
-                              <span className="text-gray-700">
-                                {session.data.historyOfPresentIllness.substring(0, 100)}...
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="flex items-center space-x-2 ml-4">
-                          <button
-                            onClick={() => handleResumeSession(session)}
-                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                          >
-                            Resume
-                          </button>
-                          <button
-                            onClick={() => handleDeleteSession(session.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </>
-              ) : (
-                <div className="text-center py-12">
-                  <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                  <p className="text-gray-600">No incomplete sessions</p>
-                  <p className="text-sm text-gray-500 mt-1">All assessments have been completed</p>
-                </div>
-              )}
-            </div>
-          )}
-          
           {/* Past Visits Tab */}
           {selectedTab === 'past-visits' && (
             <div className="space-y-4">
@@ -704,93 +889,278 @@ const PatientDetailView = () => {
           {/* Medical History Tab */}
           {selectedTab === 'medical-history' && (
             <div className="space-y-6">
-              {/* Medical Timeline */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Medical Timeline</h3>
-                <div className="relative">
-                  <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-300"></div>
-                  {records.map((record, index) => (
-                    <div key={record.id} className="relative pb-8">
-                      <div className="absolute left-4 w-2 h-2 bg-blue-600 rounded-full -translate-x-1/2"></div>
-                      <div className="ml-12">
-                        <div className="flex items-center mb-2">
-                          <p className="text-sm font-medium text-gray-900">{formatDate(record.date)}</p>
-                          <span className="ml-3 px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
-                            {record.icd10}
-                          </span>
-                        </div>
-                        <p className="font-medium text-gray-900">{record.finalDiagnosis}</p>
-                        <p className="text-sm text-gray-600 mt-1">Chief Complaint: {record.chiefComplaint}</p>
-                        {record.treatmentPlan && (
-                          <p className="text-sm text-gray-600 mt-1">Treatment: {record.treatmentPlan.substring(0, 100)}...</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Chronic Conditions */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Chronic Conditions</h3>
-                {allMedicalConditions.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {allMedicalConditions.map((condition, index) => {
-                      const firstRecordWithCondition = records.find(r => r.medicalHistory?.includes(condition));
-                      return (
-                        <div key={index} className="bg-white rounded-lg border border-gray-200 p-4">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h4 className="font-medium text-gray-900">{condition}</h4>
-                              {firstRecordWithCondition && (
-                                <p className="text-sm text-gray-600 mt-1">
-                                  First recorded: {formatDate(firstRecordWithCondition.date)}
-                                </p>
-                              )}
-                            </div>
-                            <Activity className="w-5 h-5 text-blue-600" />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 rounded-lg p-6 text-center">
-                    <p className="text-gray-600">No chronic conditions recorded</p>
+              {/* Edit Button */}
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Medical History</h3>
+                {!editingMedicalHistory && (
+                  <button
+                    onClick={handleEditMedicalHistory}
+                    className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
+                  >
+                    <Edit2 className="w-4 h-4 mr-1" />
+                    Edit Medical History
+                  </button>
+                )}
+                {editingMedicalHistory && (
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={handleSaveMedicalHistory}
+                      className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 flex items-center"
+                    >
+                      <Save className="w-4 h-4 mr-1" />
+                      Save
+                    </button>
+                    <button
+                      onClick={handleCancelMedicalHistory}
+                      className="px-3 py-1.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
                   </div>
                 )}
               </div>
               
-              {/* Surgical History */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Surgical History</h3>
-                <div className="bg-gray-50 rounded-lg p-6 text-center">
-                  <p className="text-gray-600">No surgical procedures recorded</p>
+              {/* Medical Timeline */}
+              {!editingMedicalHistory && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Medical Timeline</h3>
+                  <div className="relative">
+                    <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-300"></div>
+                    {records.map((record, index) => (
+                      <div key={record.id} className="relative pb-8">
+                        <div className="absolute left-4 w-2 h-2 bg-blue-600 rounded-full -translate-x-1/2"></div>
+                        <div className="ml-12">
+                          <div className="flex items-center mb-2">
+                            <p className="text-sm font-medium text-gray-900">{formatDate(record.date)}</p>
+                            <span className="ml-3 px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
+                              {record.icd10}
+                            </span>
+                          </div>
+                          <p className="font-medium text-gray-900">{record.finalDiagnosis}</p>
+                          <p className="text-sm text-gray-600 mt-1">Chief Complaint: {record.chiefComplaint}</p>
+                          {record.treatmentPlan && (
+                            <p className="text-sm text-gray-600 mt-1">Treatment: {record.treatmentPlan.substring(0, 100)}...</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
               
-              {/* Family History */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Family History</h3>
-                <div className="bg-gray-50 rounded-lg p-6 text-center">
-                  <p className="text-gray-600">No family history recorded</p>
+              {/* Editable Sections */}
+              {editingMedicalHistory && (
+                <div className="space-y-6">
+                  {/* Chronic Conditions */}
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-3">Chronic Conditions</h4>
+                    <div className="space-y-2">
+                      {medicalHistoryData.conditions.map((condition, index) => (
+                        <div key={index} className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            value={condition}
+                            onChange={(e) => {
+                              const newConditions = [...medicalHistoryData.conditions];
+                              newConditions[index] = e.target.value;
+                              setMedicalHistoryData({ ...medicalHistoryData, conditions: newConditions });
+                            }}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter medical condition"
+                          />
+                          <button
+                            onClick={() => {
+                              const newConditions = medicalHistoryData.conditions.filter((_, i) => i !== index);
+                              setMedicalHistoryData({ ...medicalHistoryData, conditions: newConditions });
+                            }}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        onClick={() => {
+                          setMedicalHistoryData({
+                            ...medicalHistoryData,
+                            conditions: [...medicalHistoryData.conditions, '']
+                          });
+                        }}
+                        className="flex items-center text-sm text-blue-600 hover:text-blue-700"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add Condition
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Surgical History */}
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-3">Surgical History</h4>
+                    <div className="space-y-2">
+                      {medicalHistoryData.surgicalHistory.map((surgery, index) => (
+                        <div key={index} className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            value={surgery}
+                            onChange={(e) => {
+                              const newSurgeries = [...medicalHistoryData.surgicalHistory];
+                              newSurgeries[index] = e.target.value;
+                              setMedicalHistoryData({ ...medicalHistoryData, surgicalHistory: newSurgeries });
+                            }}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter surgical procedure and date"
+                          />
+                          <button
+                            onClick={() => {
+                              const newSurgeries = medicalHistoryData.surgicalHistory.filter((_, i) => i !== index);
+                              setMedicalHistoryData({ ...medicalHistoryData, surgicalHistory: newSurgeries });
+                            }}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        onClick={() => {
+                          setMedicalHistoryData({
+                            ...medicalHistoryData,
+                            surgicalHistory: [...medicalHistoryData.surgicalHistory, '']
+                          });
+                        }}
+                        className="flex items-center text-sm text-blue-600 hover:text-blue-700"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add Surgery
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Family History */}
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-3">Family History</h4>
+                    <textarea
+                      value={medicalHistoryData.familyHistory}
+                      onChange={(e) => setMedicalHistoryData({ ...medicalHistoryData, familyHistory: e.target.value })}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter family medical history..."
+                    />
+                  </div>
+                  
+                  {/* Social History */}
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-3">Social History</h4>
+                    <textarea
+                      value={medicalHistoryData.socialHistory}
+                      onChange={(e) => setMedicalHistoryData({ ...medicalHistoryData, socialHistory: e.target.value })}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter social history (smoking, alcohol, occupation, etc.)..."
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
               
-              {/* Social History */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Social History</h3>
-                <div className="bg-gray-50 rounded-lg p-6 text-center">
-                  <p className="text-gray-600">No social history recorded</p>
-                </div>
-              </div>
+              {/* Non-editable view */}
+              {!editingMedicalHistory && (
+                <>
+                  {/* Chronic Conditions */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Chronic Conditions</h3>
+                    {allMedicalConditions.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {allMedicalConditions.map((condition, index) => {
+                          const firstRecordWithCondition = records.find(r => r.medicalHistory?.includes(condition));
+                          return (
+                            <div key={index} className="bg-white rounded-lg border border-gray-200 p-4">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <h4 className="font-medium text-gray-900">{condition}</h4>
+                                  {firstRecordWithCondition && (
+                                    <p className="text-sm text-gray-600 mt-1">
+                                      First recorded: {formatDate(firstRecordWithCondition.date)}
+                                    </p>
+                                  )}
+                                </div>
+                                <Activity className="w-5 h-5 text-blue-600" />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 rounded-lg p-6 text-center">
+                        <p className="text-gray-600">No chronic conditions recorded</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Surgical History */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Surgical History</h3>
+                    {patient.surgicalHistory && patient.surgicalHistory.length > 0 ? (
+                      <div className="space-y-3">
+                        {patient.surgicalHistory.map((surgery, index) => (
+                          <div key={index} className="flex items-center p-3 bg-gray-50 rounded-lg">
+                            <Scissors className="w-5 h-5 text-gray-600 mr-3" />
+                            <span className="text-gray-900">{surgery}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 rounded-lg p-6 text-center">
+                        <p className="text-gray-600">No surgical procedures recorded</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Family History */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Family History</h3>
+                    {patient.familyHistory ? (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-gray-700 whitespace-pre-wrap">{patient.familyHistory}</p>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 rounded-lg p-6 text-center">
+                        <p className="text-gray-600">No family history recorded</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Social History */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Social History</h3>
+                    {patient.socialHistory ? (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-gray-700 whitespace-pre-wrap">{patient.socialHistory}</p>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 rounded-lg p-6 text-center">
+                        <p className="text-gray-600">No social history recorded</p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           )}
           
           {/* Test Results Tab */}
           {selectedTab === 'test-results' && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Test Results History</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Test Results History</h3>
+                <button
+                  className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
+                  disabled
+                >
+                  <Info className="w-4 h-4 mr-1" />
+                  Test results are read-only from past visits
+                </button>
+              </div>
               {records.some(r => r.testResults && Object.keys(r.testResults).length > 0) ? (
                 records.filter(r => r.testResults && Object.keys(r.testResults).length > 0).map((record) => (
                   <div key={record.id} className="border border-gray-200 rounded-lg p-4">
@@ -826,29 +1196,87 @@ const PatientDetailView = () => {
           {/* Medications Tab */}
           {selectedTab === 'medications' && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Medication History</h3>
-              {allMedications.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {allMedications.map((medication, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-start">
-                        <Pill className="w-5 h-5 text-purple-600 mr-3 mt-0.5" />
-                        <div>
-                          <p className="font-medium text-gray-900">{medication}</p>
-                          <p className="text-sm text-gray-600 mt-1">
-                            Last prescribed: {records.find(r => r.medications?.includes(medication))?.date 
-                              ? formatDate(records.find(r => r.medications?.includes(medication)).date)
-                              : 'Unknown'}
-                          </p>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Medication History</h3>
+                {!editingMedications && (
+                  <button
+                    onClick={handleEditMedications}
+                    className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
+                  >
+                    <Edit2 className="w-4 h-4 mr-1" />
+                    Edit Medications
+                  </button>
+                )}
+                {editingMedications && (
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={handleSaveMedications}
+                      className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 flex items-center"
+                    >
+                      <Save className="w-4 h-4 mr-1" />
+                      Save
+                    </button>
+                    <button
+                      onClick={handleCancelMedications}
+                      className="px-3 py-1.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {!editingMedications ? (
+                allMedications.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {allMedications.map((medication, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-start">
+                          <Pill className="w-5 h-5 text-purple-600 mr-3 mt-0.5" />
+                          <div>
+                            <p className="font-medium text-gray-900">{medication}</p>
+                            <p className="text-sm text-gray-600 mt-1">
+                              Last prescribed: {records.find(r => r.medications?.includes(medication))?.date 
+                                ? formatDate(records.find(r => r.medications?.includes(medication)).date)
+                                : 'Unknown'}
+                            </p>
+                          </div>
                         </div>
                       </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Pill className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-600">No medications recorded</p>
+                  </div>
+                )
+              ) : (
+                <div className="space-y-3">
+                  {medicationsData.map((medication) => (
+                    <div key={medication.id} className="flex items-center space-x-2">
+                      <input
+                        type="text"
+                        value={medication.name}
+                        onChange={(e) => updateMedication(medication.id, e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter medication name and dosage"
+                      />
+                      <button
+                        onClick={() => removeMedication(medication.id)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   ))}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <Pill className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600">No medications recorded</p>
+                  <button
+                    onClick={addMedication}
+                    className="flex items-center text-sm text-blue-600 hover:text-blue-700"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Medication
+                  </button>
                 </div>
               )}
             </div>

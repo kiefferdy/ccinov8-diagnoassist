@@ -194,37 +194,35 @@ const DiagnosticAnalysis = () => {
       </div>
       
       {/* Tabs */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="border-b border-gray-200">
-          <nav className="flex space-x-8 px-6" aria-label="Tabs">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`
-                    py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2
-                    ${activeTab === tab.id
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }
-                  `}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
-                  {tab.id === 'questions' && selectedQuestions.length > 0 && (
-                    <span className="ml-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                      {selectedQuestions.length}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
+      <div className="mb-6">
+        <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 flex items-center justify-center py-3 px-4 rounded-lg font-medium transition-all ${
+                  activeTab === tab.id
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Icon className="w-4 h-4 mr-2" />
+                <span>{tab.label}</span>
+                {tab.id === 'questions' && selectedQuestions.length > 0 && (
+                  <span className="ml-2 bg-blue-100 text-blue-600 text-xs px-2 py-0.5 rounded-full">
+                    {selectedQuestions.length}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
-        
-        <div className="p-6">
+      </div>
+      
+      {/* Tab Content */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           {/* Clinical Diagnosis Tab */}
           {activeTab === 'diagnosis' && (
             <div className="space-y-6">
@@ -674,7 +672,6 @@ const DiagnosticAnalysis = () => {
               </div>
             </div>
           )}
-        </div>
       </div>
       
       {/* Navigation Buttons */}

@@ -134,6 +134,12 @@ const ClinicalAssessment = () => {
       return;
     }
     
+    // Clear editing state if still active
+    if (isEditingTranscription) {
+      setIsEditingTranscription(false);
+      setTranscribedData(null);
+    }
+    
     updatePatientData('assessmentDocuments', assessmentDocuments);
     setCurrentStep('physical-exam');
   };
@@ -177,24 +183,22 @@ const ClinicalAssessment = () => {
         <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
           <button
             onClick={() => setAssessmentMode('manual')}
-            disabled={isEditingTranscription}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
               assessmentMode === 'manual'
                 ? 'bg-white text-gray-900 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
-            } ${isEditingTranscription ? 'opacity-50 cursor-not-allowed' : ''}`}
+            }`}
           >
             <PenTool className="w-4 h-4 inline mr-2" />
             Manual Entry
           </button>
           <button
             onClick={() => setAssessmentMode('voice')}
-            disabled={isEditingTranscription}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
               assessmentMode === 'voice'
                 ? 'bg-white text-gray-900 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
-            } ${isEditingTranscription ? 'opacity-50 cursor-not-allowed' : ''}`}
+            }`}
           >
             <Mic className="w-4 h-4 inline mr-2" />
             Voice Transcription
@@ -403,10 +407,7 @@ const ClinicalAssessment = () => {
         
         <button
           onClick={handleContinue}
-          disabled={isEditingTranscription}
-          className={`px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-all flex items-center shadow-sm hover:shadow-md ${
-            isEditingTranscription ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
+          className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-all flex items-center shadow-sm hover:shadow-md"
         >
           Continue to Physical Exam
           <ChevronRight className="ml-2 w-5 h-5" />

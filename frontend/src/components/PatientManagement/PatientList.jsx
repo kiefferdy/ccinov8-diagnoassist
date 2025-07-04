@@ -365,8 +365,8 @@ const PatientCard = ({ patient, onViewDetails, onStartAssessment, onResumeSessio
   const latestRecord = records[0];
   
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-      <div className="p-6">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow h-full flex flex-col">
+      <div className="p-6 flex-1 flex flex-col">
         {/* Patient Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center">
@@ -402,55 +402,46 @@ const PatientCard = ({ patient, onViewDetails, onStartAssessment, onResumeSessio
         </div>
         
         {/* Medical Info */}
-        <div className="border-t pt-4 mb-4">
+        <div className="border-t pt-4 mb-4 flex-1">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600">Medical Records</span>
+            <span className="text-gray-600">Past Visits</span>
             <span className="font-medium text-gray-900">{records.length}</span>
           </div>
           {latestRecord && (
             <div className="mt-2 p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm font-medium text-gray-900">{latestRecord.finalDiagnosis}</p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-900">{latestRecord.finalDiagnosis}</p>
+                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Latest</span>
+              </div>
               <p className="text-xs text-gray-600 mt-1">{formatDate(latestRecord.date)}</p>
             </div>
           )}
-        </div>
         
-        {/* Incomplete Sessions */}
-        {sessions.length > 0 && (
-          <div className="border-t pt-4 mb-4">
-            <p className="text-sm font-medium text-gray-900 mb-2">Incomplete Sessions</p>
-            <div className="space-y-2">
-              {sessions.slice(0, 2).map(session => (
-                <div key={session.id} className="p-2 bg-orange-50 rounded-lg">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-900">
-                        {session.data?.chiefComplaint || 'No chief complaint'}
-                      </p>
-                      <p className="text-xs text-gray-600 mt-1">
-                        {formatDateTime(session.startedAt || session.lastUpdated)}
-                      </p>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <button
-                        onClick={() => onResumeSession(session)}
-                        className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                      >
-                        <Play className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={(e) => onDeleteSession(session.id, e)}
-                        className="p-1 text-red-600 hover:bg-red-50 rounded"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+          {/* Latest Incomplete Session */}
+          {sessions.length > 0 && (
+            <div className="mt-4">
+              <p className="text-sm font-medium text-gray-900 mb-2">Latest Incomplete Session</p>
+              <div className="p-2 bg-orange-50 rounded-lg">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-900">
+                      {sessions[0].data?.chiefComplaint || 'No chief complaint'}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {formatDateTime(sessions[0].startedAt || sessions[0].lastUpdated)}
+                    </p>
                   </div>
+                  <button
+                    onClick={() => onResumeSession(sessions[0])}
+                    className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                  >
+                    <Play className="w-4 h-4" />
+                  </button>
                 </div>
-              ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
         
         {/* Actions */}
         <div className="grid grid-cols-2 gap-2">

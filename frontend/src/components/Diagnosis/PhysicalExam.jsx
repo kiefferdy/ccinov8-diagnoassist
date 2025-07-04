@@ -184,6 +184,7 @@ const PhysicalExam = () => {
           <h3 className="text-lg font-semibold text-gray-900">Physical Examination</h3>
           <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
             <button
+                type="button"
                 onClick={() => setAssessmentMode('manual')}
                 disabled={isEditingTranscription}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
@@ -196,6 +197,7 @@ const PhysicalExam = () => {
                 Manual Entry
               </button>
               <button
+                type="button"
                 onClick={() => setAssessmentMode('voice')}
                 disabled={isEditingTranscription}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
@@ -212,11 +214,26 @@ const PhysicalExam = () => {
           
           {/* Voice Transcription Mode */}
           {assessmentMode === 'voice' && !isEditingTranscription && (
-            <SpeechToTextTranscriber 
-              onTranscriptionComplete={handleTranscriptionComplete}
-              patientData={patientData}
-              isObjective={true}
-            />
+            <>
+              <SpeechToTextTranscriber 
+                onTranscriptionComplete={handleTranscriptionComplete}
+                patientData={patientData}
+                isObjective={true}
+              />
+              
+              {/* File Upload Section for Voice Mode */}
+              <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <FileUpload
+                  label="Attach Examination Documents"
+                  description="Upload any relevant examination images, test results, or clinical documents"
+                  acceptedFormats="image/*,.pdf,.doc,.docx,.txt"
+                  maxFiles={10}
+                  maxSizeMB={20}
+                  onFilesChange={handleDocumentsChange}
+                  existingFiles={examDocuments}
+                />
+              </div>
+            </>
           )}
           
           {/* Editable Transcription Results */}
