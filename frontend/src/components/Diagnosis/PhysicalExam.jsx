@@ -24,7 +24,6 @@ import {
   X
 } from 'lucide-react';
 import FileUpload from '../common/FileUpload';
-import PostAssessmentQuestions from '../Patient/components/PostAssessmentQuestions';
 import SpeechToTextTranscriber from '../Patient/components/SpeechToTextTranscriber';
 
 const PhysicalExam = () => {
@@ -32,8 +31,6 @@ const PhysicalExam = () => {
   const [bmiCalculated, setBmiCalculated] = useState(false);
   const [showAdditionalFindings, setShowAdditionalFindings] = useState(true);
   const [examDocuments, setExamDocuments] = useState(patientData.physicalExam.examDocuments || []);
-  const [showAIQuestions, setShowAIQuestions] = useState(false);
-  const [examCompleted, setExamCompleted] = useState(false);
   const [assessmentMode, setAssessmentMode] = useState('manual'); // 'manual' or 'voice'
   const [additionalFindings, setAdditionalFindings] = useState(patientData.physicalExam.additionalFindings || '');
   const [isEditingTranscription, setIsEditingTranscription] = useState(false);
@@ -80,18 +77,10 @@ const PhysicalExam = () => {
     });
     updatePhysicalExam('examDocuments', examDocuments);
     
-    // Mark exam as completed
-    setExamCompleted(true);
-    
-    // Show AI questions panel
-    setShowAIQuestions(true);
-  };
-  
-  const handleQuestionsComplete = async () => {
     // Generate initial diagnosis based on all collected data
     await generateInitialDiagnosis();
     
-    // Navigate to assessment
+    // Navigate directly to assessment
     setCurrentStep('diagnostic-analysis');
   };
   
@@ -159,6 +148,9 @@ const PhysicalExam = () => {
         .join('\n');
       setAdditionalFindings(prev => prev ? `${prev}\n\n${findings}` : findings);
     }
+    
+    // Automatically switch to manual mode for editing
+    setAssessmentMode('manual');
   };
   
   const handleSaveTranscription = () => {
@@ -186,29 +178,12 @@ const PhysicalExam = () => {
         <p className="text-gray-600">Document the physical examination findings and vital signs</p>
       </div>
       
-      {/* Show AI Questions if exam is completed */}
-      {showAIQuestions && examCompleted ? (
-        <div className="space-y-6">
-          <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
-            <div className="flex items-center">
-              <Brain className="w-5 h-5 text-purple-600 mr-2" />
-              <p className="text-purple-900 font-medium">
-                Physical examination completed. AI is analyzing the subjective and objective findings...
-              </p>
-            </div>
-          </div>
-          
-          <PostAssessmentQuestions 
-            onComplete={handleQuestionsComplete}
-          />
-        </div>
-      ) : (
-        <>
-          {/* Assessment Mode Toggle */}
-          <div className="mb-6 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Physical Examination</h3>
-            <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
-              <button
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Assessment Mode Toggle */}
+        <div className="mb-6 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">Physical Examination</h3>
+          <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
+            <button
                 onClick={() => setAssessmentMode('manual')}
                 disabled={isEditingTranscription}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
@@ -250,27 +225,13 @@ const PhysicalExam = () => {
               <div className="flex items-center justify-between mb-4">
                 <h4 className="text-lg font-semibold text-purple-900 flex items-center">
                   <Sparkles className="w-5 h-5 text-purple-600 mr-2" />
-                  AI-Parsed Examination Results (Editable)
+                  AI-Parsed Examination Results
                 </h4>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={handleSaveTranscription}
-                    className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center"
-                  >
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Changes
-                  </button>
-                  <button
-                    onClick={handleCancelTranscription}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
               </div>
               
               <p className="text-sm text-purple-700 mb-4">
-                Review and edit the parsed examination findings below. Click "Save Changes" when done.
+                The examination findings below have been automatically extracted from the voice recording. 
+                Please review and make any necessary edits before proceeding to the next step.
               </p>
             </div>
           )}
@@ -288,9 +249,8 @@ const PhysicalExam = () => {
                 </div>
               </div>
               
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                {/* Vital Signs Card */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              {/* Vital Signs Card */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                   <div className="flex items-center mb-6">
                     <Activity className="w-5 h-5 text-blue-600 mr-2" />
                     <h3 className="text-lg font-semibold text-gray-900">Vital Signs</h3>
@@ -585,11 +545,9 @@ const PhysicalExam = () => {
                     <ChevronRight className="ml-2 w-5 h-5" />
                   </button>
                 </div>
-              </form>
             </>
           )}
-        </>
-      )}
+      </form>
     </div>
   );
 };

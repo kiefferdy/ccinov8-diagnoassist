@@ -65,6 +65,13 @@ const DiagnosticAnalysis = () => {
     return () => clearTimeout(saveTimer);
   }, [doctorDiagnosis, diagnosticNotes, questionAnswers]);
   
+  // Auto-generate questions when tab is opened
+  useEffect(() => {
+    if (activeTab === 'questions' && suggestedQuestions.length === 0) {
+      generateSmartQuestions();
+    }
+  }, [activeTab]);
+  
   const generateSmartQuestions = () => {
     setIsGeneratingQuestions(true);
     
@@ -473,15 +480,14 @@ const DiagnosticAnalysis = () => {
                     Based on the assessment, consider asking these targeted questions
                   </p>
                 </div>
-                {suggestedQuestions.length === 0 && (
-                  <button
-                    onClick={generateSmartQuestions}
-                    className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center"
-                  >
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Generate Questions
-                  </button>
-                )}
+                <button
+                  onClick={generateSmartQuestions}
+                  disabled={isGeneratingQuestions}
+                  className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${isGeneratingQuestions ? 'animate-spin' : ''}`} />
+                  Regenerate Questions
+                </button>
               </div>
               
               {isGeneratingQuestions ? (
@@ -614,76 +620,56 @@ const DiagnosticAnalysis = () => {
                 doctorDiagnosis={doctorDiagnosis}
               />
               
-              {/* Additional AI Features */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                  <h4 className="font-medium text-purple-900 mb-2 flex items-center">
-                    <Brain className="w-4 h-4 mr-2" />
-                    Differential Diagnosis Assistant
-                  </h4>
-                  <p className="text-sm text-purple-800 mb-3">
-                    Get AI-powered differential diagnoses based on symptoms
-                  </p>
-                  <button className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700">
-                    Generate Differentials
-                  </button>
-                </div>
-                
-                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                  <h4 className="font-medium text-blue-900 mb-2 flex items-center">
-                    <Search className="w-4 h-4 mr-2" />
-                    Clinical Guidelines Search
-                  </h4>
-                  <p className="text-sm text-blue-800 mb-3">
-                    Search relevant clinical guidelines for your diagnosis
-                  </p>
-                  <button className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
-                    Search Guidelines
-                  </button>
-                </div>
-                
-                <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                  <h4 className="font-medium text-green-900 mb-2 flex items-center">
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    Evidence Summary
-                  </h4>
-                  <p className="text-sm text-green-800 mb-3">
-                    Review evidence supporting your clinical assessment
-                  </p>
-                  <button className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700">
-                    View Evidence
-                  </button>
-                </div>
-                
-                <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
-                  <h4 className="font-medium text-orange-900 mb-2 flex items-center">
-                    <AlertTriangle className="w-4 h-4 mr-2" />
-                    Red Flag Analyzer
-                  </h4>
-                  <p className="text-sm text-orange-800 mb-3">
-                    Check for potential red flags or serious conditions
-                  </p>
-                  <button className="px-4 py-2 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700">
-                    Analyze Red Flags
-                  </button>
-                </div>
-              </div>
-              
               {/* Clinical Chat Interface */}
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <h4 className="font-medium text-gray-900 mb-3 flex items-center">
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  Ask Clinical Questions
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <h4 className="font-medium text-gray-900 mb-4 flex items-center">
+                  <MessageSquare className="w-5 h-5 text-purple-600 mr-2" />
+                  Clinical Questions Assistant
                 </h4>
-                <div className="space-y-3">
-                  <input
-                    type="text"
-                    placeholder="Ask about differential diagnoses, treatment options, or clinical guidelines..."
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                  />
-                  <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
-                    Ask AI
-                  </button>
+                <div className="space-y-4">
+                  {/* Sample Conversation */}
+                  <div className="space-y-3 mb-4 max-h-64 overflow-y-auto">
+                    <div className="flex items-start space-x-2">
+                      <Bot className="w-5 h-5 text-purple-600 mt-1" />
+                      <div className="flex-1 bg-purple-50 rounded-lg p-3">
+                        <p className="text-sm text-gray-800">
+                          Based on the patient's presentation with {patientData.chiefComplaint}, I can help you explore differential diagnoses, treatment options, or clinical guidelines. What would you like to discuss?
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Quick Actions */}
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    <button className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg text-left">
+                      <span className="font-medium">Differential Diagnosis</span>
+                      <p className="text-xs text-gray-600">Explore possible diagnoses</p>
+                    </button>
+                    <button className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg text-left">
+                      <span className="font-medium">Treatment Guidelines</span>
+                      <p className="text-xs text-gray-600">Evidence-based approaches</p>
+                    </button>
+                    <button className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg text-left">
+                      <span className="font-medium">Diagnostic Tests</span>
+                      <p className="text-xs text-gray-600">Recommended investigations</p>
+                    </button>
+                    <button className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg text-left">
+                      <span className="font-medium">Red Flags</span>
+                      <p className="text-xs text-gray-600">Critical signs to watch for</p>
+                    </button>
+                  </div>
+                  
+                  {/* Input */}
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      placeholder="Ask about differential diagnoses, treatment options, or clinical guidelines..."
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    />
+                    <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                      Ask AI
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

@@ -25,6 +25,8 @@ const FinalDiagnosis = () => {
   const [refinedDiagnoses, setRefinedDiagnoses] = useState([]);
   const [selectedDiagnosis, setSelectedDiagnosis] = useState(null);
   const [customDiagnosis, setCustomDiagnosis] = useState('');
+  const [doctorFinalDiagnosis, setDoctorFinalDiagnosis] = useState(patientData.finalDiagnosis || '');
+  const [icdCode, setIcdCode] = useState(patientData.icdCode || '');
   const [selectedView, setSelectedView] = useState('overview'); // 'overview' or 'ai-consultation'
   const [isRefining, setIsRefining] = useState(false);
   const [showCustomDiagnosisForm, setShowCustomDiagnosisForm] = useState(false);
@@ -57,7 +59,40 @@ const FinalDiagnosis = () => {
     
     // In a real app, this would call an API with test results
     const testResults = patientData.testResults || {};
-    let refined = [...patientData.differentialDiagnoses];
+    let refined = patientData.differentialDiagnoses || [];
+    
+    // If no differential diagnoses exist, create some based on the chief complaint
+    if (refined.length === 0) {
+      refined = [
+        {
+          id: 1,
+          name: "Primary Diagnosis based on clinical findings",
+          probability: 0.80,
+          confidence: 'High',
+          icd10: 'R07.9',
+          supportingFactors: [
+            "Clinical presentation matches",
+            "Physical exam findings consistent",
+            "Test results support diagnosis"
+          ],
+          contradictingFactors: []
+        },
+        {
+          id: 2,
+          name: "Alternative diagnosis to consider",
+          probability: 0.15,
+          confidence: 'Medium',
+          icd10: 'R06.02',
+          supportingFactors: [
+            "Some symptoms align",
+            "Cannot be ruled out"
+          ],
+          contradictingFactors: [
+            "Less likely given test results"
+          ]
+        }
+      ];
+    }
     
     // Enhanced refinement logic based on test results
     const testResultsArray = Object.values(testResults);
@@ -98,6 +133,12 @@ const FinalDiagnosis = () => {
   const handleDiagnosisSelect = (diagnosis) => {
     setSelectedDiagnosis(diagnosis);
     updatePatientData('selectedDiagnosis', diagnosis);
+    
+    // Auto-fill the doctor's final diagnosis section
+    setDoctorFinalDiagnosis(diagnosis.name);
+    setIcdCode(diagnosis.icd10 || '');
+    updatePatientData('finalDiagnosis', diagnosis.name);
+    updatePatientData('icdCode', diagnosis.icd10 || '');
   };
   
   const handleCustomDiagnosis = () => {
@@ -118,14 +159,12 @@ const FinalDiagnosis = () => {
   };
   
   const handleContinue = () => {
-    if (!selectedDiagnosis && !customDiagnosis) {
-      alert('Please select or enter a diagnosis before continuing.');
+    if (!doctorFinalDiagnosis.trim()) {
+      alert('Please enter a final diagnosis before continuing.');
       return;
     }
     
-    // Save final diagnosis
-    updatePatientData('finalDiagnosis', selectedDiagnosis?.name || customDiagnosis);
-    
+    // Save final diagnosis (already saved via onChange)
     // Navigate to treatment plan
     setCurrentStep('treatment-plan');
   };
@@ -251,9 +290,54 @@ const FinalDiagnosis = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           {/* Diagnoses List */}
           <div className="lg:col-span-2 space-y-4">
+            {/* Doctor's Final Diagnosis Section */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <FileText className="w-5 h-5 text-blue-600 mr-2" />
+                  Final Diagnosis
+                </h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Primary Diagnosis *
+                  </label>
+                  <textarea
+                    value={doctorFinalDiagnosis}
+                    onChange={(e) => {
+                      setDoctorFinalDiagnosis(e.target.value);
+                      updatePatientData('finalDiagnosis', e.target.value);
+                    }}
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    placeholder="Enter the final diagnosis based on all clinical findings..."
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    ICD-10 Code
+                  </label>
+                  <input
+                    type="text"
+                    value={icdCode}
+                    onChange={(e) => {
+                      setIcdCode(e.target.value);
+                      updatePatientData('icdCode', e.target.value);
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., J18.9"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* AI-Suggested Diagnoses */}
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-semibold text-gray-900">Select Final Diagnosis</h3>
+                <h3 className="text-lg font-semibold text-gray-900">AI-Suggested Diagnoses</h3>
                 <button
                   onClick={refineAnalysis}
                   className="flex items-center space-x-1 px-2.5 py-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors text-sm"
@@ -263,8 +347,7 @@ const FinalDiagnosis = () => {
                 </button>
               </div>
               <p className="text-sm text-gray-600">
-                The diagnoses below are refined based on all clinical information including test results. 
-                Select the most appropriate diagnosis to proceed with treatment planning.
+                Select from the AI-suggested diagnoses below to auto-fill the final diagnosis above.
               </p>
             </div>
             

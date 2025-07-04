@@ -67,12 +67,17 @@ const ClinicalInsightsPanel = ({ patientData, isAnalyzing, onRefresh }) => {
       {
         category: "Laboratory",
         rationale: "Based on presentation",
-        tests: ["CBC with differential", "Basic metabolic panel", "Inflammatory markers"]
+        tests: ["CBC with differential", "Basic metabolic panel", "Inflammatory markers (CRP, ESR)", "Troponin if cardiac concern"]
       },
       {
         category: "Imaging",
         rationale: "To evaluate structural causes",
-        tests: ["Chest X-ray", "Consider CT if indicated"]
+        tests: ["Chest X-ray", "Consider CT if indicated", "ECG for cardiac evaluation"]
+      },
+      {
+        category: "Additional Studies",
+        rationale: "For comprehensive evaluation",
+        tests: ["Arterial blood gas if respiratory concern", "D-dimer if PE suspected", "Blood cultures if febrile"]
       }
     ];
     
@@ -80,8 +85,18 @@ const ClinicalInsightsPanel = ({ patientData, isAnalyzing, onRefresh }) => {
     insights.clinicalPearls = [
       "Remember to consider patient's age and comorbidities in your differential",
       "Document pertinent negatives to support your clinical reasoning",
-      "Consider social factors that may impact diagnosis and treatment"
+      "Consider social factors that may impact diagnosis and treatment",
+      "Always reassess if patient's condition changes or doesn't improve as expected",
+      "Think about both common and can't-miss diagnoses"
     ];
+    
+    // Add default differential if none exists
+    if (insights.differentialConsiderations.length === 0) {
+      insights.differentialConsiderations.push({
+        category: "General Considerations",
+        items: ["Consider most likely diagnoses based on presentation", "Rule out life-threatening conditions first", "Think about common vs rare causes"]
+      });
+    }
     
     return insights;
   };

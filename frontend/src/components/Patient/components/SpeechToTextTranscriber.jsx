@@ -12,6 +12,7 @@ import {
   Play,
   RotateCcw,
   Save,
+  Edit2,
   X
 } from 'lucide-react';
 
@@ -175,7 +176,7 @@ We should also get a chest X-ray to confirm the diagnosis and see the extent of 
       vitalSigns: {
         bloodPressure: '138/82',
         heartRate: '98',
-        temperature: '100.8',
+        temperature: '38.2', // Changed from 100.8°F to 38.2°C
         respiratoryRate: '22',
         oxygenSaturation: '96%'
       },
@@ -479,8 +480,8 @@ Treatment plan considerations:
                 onClick={handleSaveParsedData}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
               >
-                <Save className="w-4 h-4 mr-2" />
-                Save to Assessment
+                <Edit2 className="w-4 h-4 mr-2" />
+                Edit
               </button>
             </div>
           </div>

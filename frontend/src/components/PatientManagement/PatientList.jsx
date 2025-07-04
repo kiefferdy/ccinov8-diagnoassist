@@ -428,7 +428,7 @@ const PatientCard = ({ patient, onViewDetails, onStartAssessment, onResumeSessio
                         {session.data?.chiefComplaint || 'No chief complaint'}
                       </p>
                       <p className="text-xs text-gray-600 mt-1">
-                        {formatDateTime(session.startedAt)}
+                        {formatDateTime(session.startedAt || session.lastUpdated)}
                       </p>
                     </div>
                     <div className="flex items-center space-x-1">
@@ -578,7 +578,7 @@ const PatientRow = ({ patient, expanded, onToggleExpand, onViewDetails, onStartA
                               {session.data?.chiefComplaint || 'No chief complaint'}
                             </p>
                             <p className="text-xs text-gray-600 mt-1">
-                              Started: {formatDateTime(session.startedAt)}
+                              Started: {formatDateTime(session.startedAt || session.lastUpdated)}
                             </p>
                           </div>
                           <div className="flex items-center space-x-2">

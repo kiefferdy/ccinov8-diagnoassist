@@ -99,6 +99,9 @@ const ClinicalAssessment = () => {
     if (parsedData.history?.allergies?.length > 0) {
       updatePatientData('allergies', [...(patientData.allergies || []), ...parsedData.history.allergies]);
     }
+    
+    // Automatically switch to manual mode for editing
+    setAssessmentMode('manual');
   };
   
   const handleSaveTranscription = () => {
@@ -213,27 +216,13 @@ const ClinicalAssessment = () => {
           <div className="flex items-center justify-between mb-4">
             <h4 className="text-lg font-semibold text-purple-900 flex items-center">
               <Sparkles className="w-5 h-5 text-purple-600 mr-2" />
-              AI-Parsed Information (Editable)
+              AI-Parsed Information
             </h4>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={handleSaveTranscription}
-                className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                Save Changes
-              </button>
-              <button
-                onClick={handleCancelTranscription}
-                className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
           </div>
           
           <p className="text-sm text-purple-700 mb-4">
-            Review and edit the parsed information below. Click "Save Changes" when done.
+            The information below has been automatically extracted from the voice recording. 
+            Please review and make any necessary edits before proceeding to the next step.
           </p>
         </div>
       )}

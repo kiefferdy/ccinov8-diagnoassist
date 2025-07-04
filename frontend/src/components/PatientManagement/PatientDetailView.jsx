@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { usePatient } from '../../contexts/PatientContext';
 import { useAppData } from '../../contexts/AppDataContext';
+import { EditableContactSection } from './PatientDetailEdit';
 import { 
   User, 
   Calendar,
@@ -14,6 +15,7 @@ import {
   Activity,
   Home,
   Edit,
+  Edit2,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -24,15 +26,20 @@ import {
   ClipboardCheck,
   Trash2,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  Save,
+  X
 } from 'lucide-react';
 
 const PatientDetailView = () => {
   const { currentStep, setCurrentStep, patientData, setPatientData } = usePatient();
-  const { getPatient, getPatientRecords, getPatientSessions, patients, deleteSession } = useAppData();
+  const { getPatient, getPatientRecords, getPatientSessions, patients, deleteSession, updatePatient } = useAppData();
   const [selectedTab, setSelectedTab] = useState('incomplete-sessions');
   const [expandedRecord, setExpandedRecord] = useState(null);
   const [expandedSession, setExpandedSession] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingSection, setEditingSection] = useState(null); // 'overview', 'medical-history', 'test-results', 'medications', 'allergies'
+  const [editData, setEditData] = useState({});
   
   // Get patient ID from patientData or URL params
   const patientId = patientData.viewingPatientId;
@@ -164,6 +171,21 @@ const PatientDetailView = () => {
     }
   };
   
+  const handleSaveEdit = () => {
+    if (editingSection === 'overview') {
+      updatePatient(patient.id, editData);
+    }
+    // Add other section saves here
+    setIsEditing(false);
+    setEditingSection(null);
+  };
+  
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditingSection(null);
+    setEditData({});
+  };
+  
   // Get all medical conditions from all records
   const allMedicalConditions = [...new Set(records.flatMap(r => r.medicalHistory || []))];
   const allMedications = [...new Set(records.flatMap(r => r.medications || []))];
@@ -171,8 +193,9 @@ const PatientDetailView = () => {
   
   const tabs = [
     { id: 'incomplete-sessions', label: 'Incomplete Sessions', icon: AlertTriangle, count: sessions.length },
-    { id: 'medical-records', label: 'Medical Records', icon: FileText, count: records.length },
+    { id: 'past-visits', label: 'Past Visits', icon: FileText, count: records.length },
     { id: 'overview', label: 'Patient Overview', icon: User },
+    { id: 'medical-history', label: 'Medical History', icon: Activity },
     { id: 'test-results', label: 'Test Results', icon: TestTube },
     { id: 'medications', label: 'Medications', icon: Pill, count: allMedications.length }
   ];
@@ -208,7 +231,23 @@ const PatientDetailView = () => {
           <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <Printer className="w-5 h-5 text-gray-600" />
           </button>
-          <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+          <button 
+            onClick={() => {
+              setIsEditing(true);
+              setEditingSection('overview');
+              setSelectedTab('overview');
+              setEditData({
+                name: patient.name,
+                dateOfBirth: patient.dateOfBirth,
+                gender: patient.gender,
+                phone: patient.phone,
+                email: patient.email,
+                address: patient.address,
+                emergencyContact: patient.emergencyContact
+              });
+            }}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
             <Edit className="w-5 h-5 text-gray-600" />
           </button>
           <button
@@ -296,7 +335,7 @@ const PatientDetailView = () => {
                           <div className="flex items-center space-x-2 mb-2">
                             <Clock className="w-4 h-4 text-orange-600" />
                             <p className="font-medium text-gray-900">
-                              Started: {formatDateTime(session.startedAt)}
+                              Started: {formatDateTime(session.startedAt || session.lastUpdated)}
                             </p>
                           </div>
                           
@@ -355,11 +394,11 @@ const PatientDetailView = () => {
             </div>
           )}
           
-          {/* Medical Records Tab */}
-          {selectedTab === 'medical-records' && (
+          {/* Past Visits Tab */}
+          {selectedTab === 'past-visits' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Medical Record History</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Past Visit History</h3>
                 <p className="text-sm text-gray-600">{records.length} visit{records.length !== 1 ? 's' : ''} on record</p>
               </div>
               
@@ -417,6 +456,18 @@ const PatientDetailView = () => {
                                   <span className="font-medium">{record.physicalExam.temperature}°C</span>
                                 </div>
                               )}
+                              {record.physicalExam.respiratoryRate && (
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">Respiratory Rate:</span>
+                                  <span className="font-medium">{record.physicalExam.respiratoryRate} breaths/min</span>
+                                </div>
+                              )}
+                              {record.physicalExam.oxygenSaturation && (
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">O2 Saturation:</span>
+                                  <span className="font-medium">{record.physicalExam.oxygenSaturation}</span>
+                                </div>
+                              )}
                               {record.physicalExam.additionalFindings && (
                                 <div className="mt-2">
                                   <p className="text-gray-600">Additional Findings:</p>
@@ -432,6 +483,12 @@ const PatientDetailView = () => {
                               <Heart className="w-4 h-4 mr-2 text-purple-600" />
                               Treatment Plan
                             </h4>
+                            {record.treatmentPlan && (
+                              <div className="mb-4">
+                                <p className="text-sm text-gray-600 mb-1">Treatment Summary:</p>
+                                <p className="text-sm text-gray-800">{record.treatmentPlan}</p>
+                              </div>
+                            )}
                             {record.prescriptions && record.prescriptions.length > 0 && (
                               <div className="space-y-2">
                                 <p className="text-sm text-gray-600">Prescriptions:</p>
@@ -439,6 +496,9 @@ const PatientDetailView = () => {
                                   <div key={idx} className="text-sm bg-white p-2 rounded border border-gray-200">
                                     <p className="font-medium text-gray-900">{prescription.medication}</p>
                                     <p className="text-gray-600">{prescription.dosage} - {prescription.frequency}</p>
+                                    {prescription.duration && (
+                                      <p className="text-gray-500 text-xs mt-1">Duration: {prescription.duration}</p>
+                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -446,20 +506,85 @@ const PatientDetailView = () => {
                           </div>
                         </div>
                         
-                        {/* Tests Ordered */}
-                        {record.selectedTests && record.selectedTests.length > 0 && (
+                        {/* History of Present Illness */}
+                        {record.historyOfPresentIllness && (
                           <div className="mt-4">
                             <h4 className="font-medium text-gray-900 mb-2 flex items-center">
-                              <TestTube className="w-4 h-4 mr-2 text-green-600" />
-                              Tests Ordered
+                              <Clock className="w-4 h-4 mr-2 text-indigo-600" />
+                              History of Present Illness
                             </h4>
-                            <div className="flex flex-wrap gap-2">
-                              {record.selectedTests.map((test, idx) => (
-                                <span key={idx} className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
-                                  {test.name}
-                                </span>
-                              ))}
+                            <p className="text-sm text-gray-700 bg-white p-3 rounded border border-gray-200">
+                              {record.historyOfPresentIllness}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* Tests and Results */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                          {/* Tests Ordered */}
+                          {record.testsPerformed && record.testsPerformed.length > 0 && (
+                            <div>
+                              <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                                <TestTube className="w-4 h-4 mr-2 text-green-600" />
+                                Tests Performed
+                              </h4>
+                              <div className="flex flex-wrap gap-2">
+                                {record.testsPerformed.map((test, idx) => (
+                                  <span key={idx} className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+                                    {test}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
+                          )}
+                          
+                          {/* Medical History at Time of Visit */}
+                          {(record.medicalHistory || record.medications || record.allergies) && (
+                            <div>
+                              <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                                <Activity className="w-4 h-4 mr-2 text-orange-600" />
+                                Patient Status at Visit
+                              </h4>
+                              <div className="space-y-2 text-sm">
+                                {record.medicalHistory && record.medicalHistory.length > 0 && (
+                                  <div>
+                                    <p className="text-gray-600">Conditions:</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {record.medicalHistory.map((condition, idx) => (
+                                        <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                                          {condition}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {record.medications && record.medications.length > 0 && (
+                                  <div>
+                                    <p className="text-gray-600">Medications:</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {record.medications.map((med, idx) => (
+                                        <span key={idx} className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs">
+                                          {med}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Additional Notes */}
+                        {record.diagnosticNotes && (
+                          <div className="mt-4">
+                            <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                              <FileText className="w-4 h-4 mr-2 text-gray-600" />
+                              Clinical Notes
+                            </h4>
+                            <p className="text-sm text-gray-700 bg-white p-3 rounded border border-gray-200">
+                              {record.diagnosticNotes}
+                            </p>
                           </div>
                         )}
                       </div>
@@ -481,40 +606,38 @@ const PatientDetailView = () => {
             <div className="space-y-6">
               {/* Contact Information */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-start">
-                    <Phone className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Phone</p>
-                      <p className="text-gray-900">{patient.phone || 'Not provided'}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start">
-                    <Mail className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Email</p>
-                      <p className="text-gray-900">{patient.email || 'Not provided'}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start">
-                    <MapPin className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Address</p>
-                      <p className="text-gray-900">{patient.address || 'Not provided'}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start">
-                    <User className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Emergency Contact</p>
-                      <p className="text-gray-900">{patient.emergencyContact || 'Not provided'}</p>
-                    </div>
-                  </div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Contact Information</h3>
+                  {!isEditing && editingSection !== 'overview' && (
+                    <button
+                      onClick={() => {
+                        setIsEditing(true);
+                        setEditingSection('overview');
+                        setEditData({
+                          name: patient.name,
+                          dateOfBirth: patient.dateOfBirth,
+                          gender: patient.gender,
+                          phone: patient.phone,
+                          email: patient.email,
+                          address: patient.address,
+                          emergencyContact: patient.emergencyContact
+                        });
+                      }}
+                      className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
+                    >
+                      <Edit2 className="w-4 h-4 mr-1" />
+                      Edit
+                    </button>
+                  )}
                 </div>
+                <EditableContactSection
+                  patient={patient}
+                  editData={editData}
+                  setEditData={setEditData}
+                  isEditing={isEditing && editingSection === 'overview'}
+                  onSave={handleSaveEdit}
+                  onCancel={handleCancelEdit}
+                />
               </div>
               
               {/* Medical History Summary */}
@@ -573,6 +696,92 @@ const PatientDetailView = () => {
                     <p className="text-2xl font-bold text-gray-900">{sessions.length}</p>
                     <p className="text-sm text-gray-600">Incomplete Sessions</p>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Medical History Tab */}
+          {selectedTab === 'medical-history' && (
+            <div className="space-y-6">
+              {/* Medical Timeline */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Medical Timeline</h3>
+                <div className="relative">
+                  <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-300"></div>
+                  {records.map((record, index) => (
+                    <div key={record.id} className="relative pb-8">
+                      <div className="absolute left-4 w-2 h-2 bg-blue-600 rounded-full -translate-x-1/2"></div>
+                      <div className="ml-12">
+                        <div className="flex items-center mb-2">
+                          <p className="text-sm font-medium text-gray-900">{formatDate(record.date)}</p>
+                          <span className="ml-3 px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
+                            {record.icd10}
+                          </span>
+                        </div>
+                        <p className="font-medium text-gray-900">{record.finalDiagnosis}</p>
+                        <p className="text-sm text-gray-600 mt-1">Chief Complaint: {record.chiefComplaint}</p>
+                        {record.treatmentPlan && (
+                          <p className="text-sm text-gray-600 mt-1">Treatment: {record.treatmentPlan.substring(0, 100)}...</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Chronic Conditions */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Chronic Conditions</h3>
+                {allMedicalConditions.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {allMedicalConditions.map((condition, index) => {
+                      const firstRecordWithCondition = records.find(r => r.medicalHistory?.includes(condition));
+                      return (
+                        <div key={index} className="bg-white rounded-lg border border-gray-200 p-4">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="font-medium text-gray-900">{condition}</h4>
+                              {firstRecordWithCondition && (
+                                <p className="text-sm text-gray-600 mt-1">
+                                  First recorded: {formatDate(firstRecordWithCondition.date)}
+                                </p>
+                              )}
+                            </div>
+                            <Activity className="w-5 h-5 text-blue-600" />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded-lg p-6 text-center">
+                    <p className="text-gray-600">No chronic conditions recorded</p>
+                  </div>
+                )}
+              </div>
+              
+              {/* Surgical History */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Surgical History</h3>
+                <div className="bg-gray-50 rounded-lg p-6 text-center">
+                  <p className="text-gray-600">No surgical procedures recorded</p>
+                </div>
+              </div>
+              
+              {/* Family History */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Family History</h3>
+                <div className="bg-gray-50 rounded-lg p-6 text-center">
+                  <p className="text-gray-600">No family history recorded</p>
+                </div>
+              </div>
+              
+              {/* Social History */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Social History</h3>
+                <div className="bg-gray-50 rounded-lg p-6 text-center">
+                  <p className="text-gray-600">No social history recorded</p>
                 </div>
               </div>
             </div>

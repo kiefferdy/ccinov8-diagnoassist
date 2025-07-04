@@ -182,6 +182,7 @@ export const AppDataProvider = ({ children }) => {
         patientId: 'P003',
         status: 'incomplete',
         lastStep: 'recommended-tests',
+        startedAt: '2024-12-21T09:00:00Z',
         lastUpdated: '2024-12-21T09:30:00Z',
         data: {
           name: 'Robert Davis',
@@ -277,6 +278,7 @@ export const AppDataProvider = ({ children }) => {
       patientId,
       status: 'incomplete',
       lastStep: data.currentStep || 'patient-info',
+      startedAt: new Date().toISOString(),
       lastUpdated: new Date().toISOString(),
       data
     };
