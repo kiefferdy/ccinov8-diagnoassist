@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Activity, Check, Star, Users, Zap, Shield, Clock, Brain, ChartBar, ArrowRight, Sparkles, Calendar, Bell } from 'lucide-react';
 import SubscriptionModal from './SubscriptionModal';
 import DemoDisclaimer from './DemoDisclaimer';
 import CountdownTimer from './CountdownTimer';
+import { trackVisit, trackClick } from '../../utils/analytics';
 
 const LandingPage = () => {
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
@@ -12,10 +13,12 @@ const LandingPage = () => {
   const handleSubscribe = (plan) => {
     setSelectedPlan(plan);
     setShowSubscriptionModal(true);
+    trackClick('subscribe', plan);
   };
   
   const handleDemo = () => {
     setShowDemoDisclaimer(true);
+    trackClick('demo');
   };
   
   const plans = [
@@ -156,6 +159,10 @@ const LandingPage = () => {
       answer: 'We offer a 30-day money-back guarantee after launch. If DiagnoAssist doesn\'t meet your expectations, we\'ll provide a full refund.'
     }
   ];
+
+  useEffect(() => {
+    trackVisit();
+  }, []);
   
   return (
     <>
