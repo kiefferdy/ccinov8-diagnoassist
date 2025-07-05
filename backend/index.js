@@ -11,7 +11,8 @@ app.listen(PORT, () => {
 });
 
 app.post('/track-visit', (req, res) => {
-    console.log(`[visit] at ${new Date().toISOString()}`);
+    const {sessionId, timestamp} = req.body;
+    console.log(`[visit] ${sessionId} at ${timestamp}`);
     res.sendStatus(200);
 })
 
