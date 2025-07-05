@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { usePatient } from '../../contexts/PatientContext';
 import { 
   ChevronLeft,
@@ -36,28 +36,9 @@ const TreatmentPlan = () => {
   const [patientEducation, setPatientEducation] = useState('');
   const [selectedTab, setSelectedTab] = useState('treatment'); // 'treatment', 'prescriptions', 'followup', 'education'
   
-  useEffect(() => {
-    // Load existing data if available
-    if (patientData.treatmentPlan) {
-      setTreatmentPlan(patientData.treatmentPlan);
-    }
-    if (patientData.prescriptions && patientData.prescriptions.length > 0) {
-      setPrescriptions(patientData.prescriptions);
-    }
-    if (patientData.followUpRecommendations) {
-      setFollowUpRecommendations(patientData.followUpRecommendations);
-    }
-    if (patientData.patientEducation) {
-      setPatientEducation(patientData.patientEducation);
-    }
+  const generateTreatmentPlan = useCallback(async () => {
+    if (!patientData.selectedDiagnosis) return;
     
-    // Generate treatment plan if not already present
-    if (!patientData.treatmentPlan && patientData.selectedDiagnosis) {
-      generateTreatmentPlan();
-    }
-  }, []);
-  
-  const generateTreatmentPlan = async () => {
     setIsGeneratingPlan(true);
     const diagnosis = patientData.selectedDiagnosis;
     
@@ -275,7 +256,28 @@ When to seek additional medical care.`;
     updatePatientData('patientEducation', education);
     
     setIsGeneratingPlan(false);
-  };
+  }, [patientData.selectedDiagnosis, updatePatientData]);
+  
+  useEffect(() => {
+    // Load existing data if available
+    if (patientData.treatmentPlan) {
+      setTreatmentPlan(patientData.treatmentPlan);
+    }
+    if (patientData.prescriptions && patientData.prescriptions.length > 0) {
+      setPrescriptions(patientData.prescriptions);
+    }
+    if (patientData.followUpRecommendations) {
+      setFollowUpRecommendations(patientData.followUpRecommendations);
+    }
+    if (patientData.patientEducation) {
+      setPatientEducation(patientData.patientEducation);
+    }
+    
+    // Generate treatment plan if not already present
+    if (!patientData.treatmentPlan && patientData.selectedDiagnosis) {
+      generateTreatmentPlan();
+    }
+  }, [patientData.prescriptions, patientData.treatmentPlan, patientData.followUpRecommendations, patientData.patientEducation, patientData.selectedDiagnosis, updatePatientData, generateTreatmentPlan]);
   
   const handleContinue = () => {
     // Save all treatment data
@@ -417,6 +419,7 @@ When to seek additional medical care.`;
     </div>
   );
   
+  // eslint-disable-next-line no-unused-vars
   const renderPrescriptionEdit = (prescription, index) => {
     const currentPrescription = tempPrescription || prescription;
     

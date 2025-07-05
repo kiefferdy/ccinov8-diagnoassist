@@ -15,7 +15,7 @@ import FileUpload from '../common/FileUpload';
 
 const PatientInformation = () => {
   const { patientData, updatePatientData, setCurrentStep } = usePatient();
-  const { register, handleSubmit, formState: { errors }, watch } = useForm({
+  const { register, handleSubmit, formState: { errors } } = useForm({
     defaultValues: {
       name: patientData.name,
       age: patientData.age,
@@ -28,8 +28,6 @@ const PatientInformation = () => {
   const [newMedication, setNewMedication] = useState('');
   const [newAllergy, setNewAllergy] = useState('');
   const [relatedDocuments, setRelatedDocuments] = useState(patientData.relatedDocuments || []);
-  
-  const watchAge = watch('age');
   
   const onSubmit = (data) => {
     Object.keys(data).forEach(key => {

@@ -35,11 +35,10 @@ import {
 } from 'lucide-react';
 
 const PatientDetailView = () => {
-  const { currentStep, setCurrentStep, patientData, setPatientData } = usePatient();
-  const { getPatient, getPatientRecords, getPatientSessions, patients, deleteSession, updatePatient } = useAppData();
+  const { setCurrentStep, patientData, setPatientData } = usePatient();
+  const { getPatient, getPatientRecords, getPatientSessions, deleteSession, updatePatient } = useAppData();
   const [selectedTab, setSelectedTab] = useState('overview');
   const [expandedRecord, setExpandedRecord] = useState(null);
-  const [expandedSession, setExpandedSession] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editingSection, setEditingSection] = useState(null); // 'overview', 'medical-history', 'test-results', 'medications', 'allergies'
   const [editData, setEditData] = useState({});
@@ -60,10 +59,6 @@ const PatientDetailView = () => {
   // Allergies Edit States
   const [editingAllergies, setEditingAllergies] = useState(false);
   const [allergiesData, setAllergiesData] = useState([]);
-  
-  // Test Results Edit States
-  const [editingTestResults, setEditingTestResults] = useState(false);
-  const [testResultsData, setTestResultsData] = useState({});
   
   // Get patient ID from patientData or URL params
   const patientId = patientData.viewingPatientId;
@@ -276,8 +271,8 @@ const PatientDetailView = () => {
   const handleSaveMedications = () => {
     // Update the latest record with new medications
     if (records.length > 0) {
-      const latestRecord = records[0];
       // This would need to be implemented in your context
+      // const latestRecord = records[0];
       // updateRecord(latestRecord.id, { ...latestRecord, medications: medicationsData.map(m => m.name) });
     }
     setEditingMedications(false);
@@ -926,7 +921,7 @@ const PatientDetailView = () => {
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Medical Timeline</h3>
                   <div className="relative">
                     <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-300"></div>
-                    {records.map((record, index) => (
+                    {records.map((record) => (
                       <div key={record.id} className="relative pb-8">
                         <div className="absolute left-4 w-2 h-2 bg-blue-600 rounded-full -translate-x-1/2"></div>
                         <div className="ml-12">

@@ -1,10 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 
 const AppDataContext = createContext(null);
 
 // Export a ref that can be accessed by other contexts
+// eslint-disable-next-line react-refresh/only-export-components
 export const appDataRef = { current: null };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAppData = () => {
   const context = useContext(AppDataContext);
   if (!context) {
@@ -226,7 +228,7 @@ export const AppDataProvider = ({ children }) => {
   }, [sessions]);
   
   // Patient management functions
-  const addPatient = (patient) => {
+  const addPatient = useCallback((patient) => {
     const newPatient = {
       ...patient,
       id: `P${String(patients.length + 1).padStart(3, '0')}`,
@@ -235,29 +237,29 @@ export const AppDataProvider = ({ children }) => {
     };
     setPatients([...patients, newPatient]);
     return newPatient;
-  };
+  }, [patients]);
   
-  const updatePatient = (patientId, updates) => {
+  const updatePatient = useCallback((patientId, updates) => {
     setPatients(patients.map(p => 
       p.id === patientId ? { ...p, ...updates } : p
     ));
-  };
+  }, [patients]);
   
-  const getPatient = (patientId) => {
+  const getPatient = useCallback((patientId) => {
     return patients.find(p => p.id === patientId);
-  };
+  }, [patients]);
   
-  const getPatientRecords = (patientId) => {
+  const getPatientRecords = useCallback((patientId) => {
     return patientRecords.filter(r => r.patientId === patientId);
-  };
+  }, [patientRecords]);
   
-  const getPatientLatestRecord = (patientId) => {
-    const records = getPatientRecords(patientId);
+  const getPatientLatestRecord = useCallback((patientId) => {
+    const records = patientRecords.filter(r => r.patientId === patientId);
     return records.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-  };
+  }, [patientRecords]);
   
   // Record management functions
-  const addRecord = (record) => {
+  const addRecord = useCallback((record) => {
     const newRecord = {
       ...record,
       id: `R${String(patientRecords.length + 1).padStart(3, '0')}`,
@@ -269,10 +271,10 @@ export const AppDataProvider = ({ children }) => {
     updatePatient(record.patientId, { lastVisit: newRecord.date });
     
     return newRecord;
-  };
+  }, [patientRecords, updatePatient]);
   
   // Session management functions
-  const createSession = (patientId, data) => {
+  const createSession = useCallback((patientId, data) => {
     const newSession = {
       id: `S${String(sessions.length + 1).padStart(3, '0')}`,
       patientId,
@@ -284,9 +286,9 @@ export const AppDataProvider = ({ children }) => {
     };
     setSessions([...sessions, newSession]);
     return newSession;
-  };
+  }, [sessions]);
   
-  const updateSession = (sessionId, data, lastStep) => {
+  const updateSession = useCallback((sessionId, data, lastStep) => {
     setSessions(sessions.map(s => 
       s.id === sessionId 
         ? { 
@@ -297,23 +299,23 @@ export const AppDataProvider = ({ children }) => {
           } 
         : s
     ));
-  };
+  }, [sessions]);
   
-  const completeSession = (sessionId) => {
+  const completeSession = useCallback((sessionId) => {
     setSessions(sessions.map(s => 
       s.id === sessionId ? { ...s, status: 'complete' } : s
     ));
-  };
+  }, [sessions]);
   
-  const deleteSession = (sessionId) => {
+  const deleteSession = useCallback((sessionId) => {
     setSessions(sessions.filter(s => s.id !== sessionId));
-  };
+  }, [sessions]);
   
-  const getPatientSessions = (patientId) => {
+  const getPatientSessions = useCallback((patientId) => {
     return sessions.filter(s => s.patientId === patientId && s.status === 'incomplete');
-  };
+  }, [sessions]);
   
-  const value = {
+  const value = useMemo(() => ({
     // Data
     patients,
     patientRecords,
@@ -335,7 +337,22 @@ export const AppDataProvider = ({ children }) => {
     completeSession,
     deleteSession,
     getPatientSessions
-  };
+  }), [
+    patients,
+    patientRecords,
+    sessions,
+    addPatient,
+    updatePatient,
+    getPatient,
+    getPatientRecords,
+    getPatientLatestRecord,
+    addRecord,
+    createSession,
+    updateSession,
+    completeSession,
+    deleteSession,
+    getPatientSessions
+  ]);
   
   // Make the context value accessible via ref
   useEffect(() => {

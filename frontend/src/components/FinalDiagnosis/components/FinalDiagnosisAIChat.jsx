@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Sparkles, Stethoscope } from 'lucide-react';
 
-const FinalDiagnosisAIChat = ({ messages, onSendMessage, diagnoses, selectedDiagnosis, patientData }) => {
+const FinalDiagnosisAIChat = ({ messages, onSendMessage, selectedDiagnosis }) => {
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);

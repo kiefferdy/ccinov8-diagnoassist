@@ -16,7 +16,7 @@ import {
   X
 } from 'lucide-react';
 
-const SpeechToTextTranscriber = ({ onTranscriptionComplete, patientData, isObjective = false, isAssessment = false }) => {
+const SpeechToTextTranscriber = ({ onTranscriptionComplete, isObjective = false, isAssessment = false }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -137,16 +137,16 @@ We should also get a chest X-ray to confirm the diagnosis and see the extent of 
     
     // Simulate AI processing
     setTimeout(() => {
-      const parsed = isAssessment ? parseAssessmentTranscript(transcript) :
-                    isObjective ? parseObjectiveTranscript(transcript) : 
-                    parseSubjectiveTranscript(transcript);
+      const parsed = isAssessment ? parseAssessmentTranscript() :
+                    isObjective ? parseObjectiveTranscript() : 
+                    parseSubjectiveTranscript();
       setParsedSections(parsed);
       setShowParsedPreview(true);
       setIsProcessing(false);
     }, 2000);
   };
   
-  const parseSubjectiveTranscript = (text) => {
+  const parseSubjectiveTranscript = () => {
     // Parse the sample subjective conversation
     return {
       chiefComplaint: 'Persistent cough for two weeks with phlegm production',
@@ -170,7 +170,7 @@ We should also get a chest X-ray to confirm the diagnosis and see the extent of 
     };
   };
   
-  const parseObjectiveTranscript = (text) => {
+  const parseObjectiveTranscript = () => {
     // Parse the sample objective examination
     return {
       vitalSigns: {
@@ -191,7 +191,7 @@ We should also get a chest X-ray to confirm the diagnosis and see the extent of 
     };
   };
   
-  const parseAssessmentTranscript = (text) => {
+  const parseAssessmentTranscript = () => {
     // Parse the sample assessment conversation
     return {
       diagnosis: 'Community-acquired pneumonia',

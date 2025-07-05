@@ -31,7 +31,7 @@ const RefinedDiagnosisCard = ({ diagnosis, index, isSelected, onSelect, testResu
     
     // Mock logic - in real app, this would be more sophisticated
     const supporting = [];
-    Object.entries(testResults).forEach(([testId, result]) => {
+    Object.entries(testResults).forEach(([, result]) => {
       if (result.status === 'completed' && result.interpretation) {
         if (diagnosis.name.includes('Pneumonia') && result.testName?.includes('Chest X-ray')) {
           supporting.push({

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { usePatient } from '../../contexts/PatientContext';
 import { 
   FileText, 
@@ -24,31 +24,34 @@ const TestResults = () => {
   const [editingResult, setEditingResult] = useState(null);
   
   // Get selected tests from previous step
-  const selectedTests = patientData.selectedTests || [];
+  const selectedTests = useMemo(() => patientData.selectedTests || [], [patientData.selectedTests]);
   
   useEffect(() => {
     // Initialize test results for selected tests
-    const initialResults = {};
-    selectedTests.forEach(test => {
-      if (!testResults[test.id]) {
-        initialResults[test.id] = {
-          testId: test.id,
-          testName: test.name,
-          status: 'pending',
-          value: '',
-          unit: '',
-          referenceRange: '',
-          interpretation: '',
-          notes: '',
-          documents: [],
-          completedAt: null
-        };
+    setTestResults(prev => {
+      const initialResults = {};
+      selectedTests.forEach(test => {
+        if (!prev[test.id]) {
+          initialResults[test.id] = {
+            testId: test.id,
+            testName: test.name,
+            status: 'pending',
+            value: '',
+            unit: '',
+            referenceRange: '',
+            interpretation: '',
+            notes: '',
+            documents: [],
+            completedAt: null
+          };
+        }
+      });
+      
+      if (Object.keys(initialResults).length > 0) {
+        return { ...prev, ...initialResults };
       }
+      return prev;
     });
-    
-    if (Object.keys(initialResults).length > 0) {
-      setTestResults(prev => ({ ...prev, ...initialResults }));
-    }
   }, [selectedTests]);
   
   const handleResultSubmit = (testId) => {

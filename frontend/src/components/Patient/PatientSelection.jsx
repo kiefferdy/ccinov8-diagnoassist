@@ -16,7 +16,7 @@ import {
 
 const PatientSelection = () => {
   const { setPatientData, setCurrentStep } = usePatient();
-  const { patients, getPatientLatestRecord } = useAppData();
+  const { patients } = useAppData();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [showNewPatient, setShowNewPatient] = useState(false);

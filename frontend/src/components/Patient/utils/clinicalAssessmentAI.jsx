@@ -293,7 +293,7 @@ export const generateNextQuestion = async (chiefComplaint, questionHistory, pati
   // If no questions asked yet, return initial question
   if (questionHistory.length === 0) {
     const initialQuestion = pattern ? pattern.initialQuestion : clinicalPatterns.general.initialQuestion;
-    const directions = getSuggestedDirections(category, [], patientData);
+    const directions = getSuggestedDirections(category, []);
     return {
       question: initialQuestion,
       suggestedDirections: directions
@@ -387,7 +387,7 @@ export const generateNextQuestion = async (chiefComplaint, questionHistory, pati
   const nextQuestion = questionBank[nextQuestionId];
   
   if (nextQuestion) {
-    const directions = getSuggestedDirections(category, questionHistory, patientData);
+    const directions = getSuggestedDirections(category, questionHistory);
     return {
       question: nextQuestion,
       suggestedDirections: directions
@@ -416,8 +416,7 @@ export const generateNextQuestion = async (chiefComplaint, questionHistory, pati
   return { question: null, suggestedDirections: [] };
 };
 
-export const getSuggestedDirections = (category, questionHistory, patientData) => {
-  const age = parseInt(patientData.age) || 0;
+export const getSuggestedDirections = (category, questionHistory) => {
   const directions = [];
   
   // Only show directions after initial questions
@@ -517,7 +516,7 @@ export const analyzeSymptoms = (chiefComplaint, answers, patientData) => {
   const answersText = Object.values(answers).join(' ').toLowerCase();
 
   // Check for red flags based on patterns
-  for (const [category, config] of Object.entries(clinicalPatterns)) {
+  for (const [, config] of Object.entries(clinicalPatterns)) {
     if (config.triggers.some(trigger => complaintLower.includes(trigger))) {
       // Check each red flag pattern
       config.redFlags.forEach(flag => {

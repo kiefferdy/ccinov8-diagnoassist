@@ -134,24 +134,6 @@ const PatientList = () => {
     }
   };
   
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-  
-  const formatDateTime = (dateString) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-  
   const calculateAge = (dob) => {
     const today = new Date();
     const birthDate = new Date(dob);
@@ -309,7 +291,6 @@ const PatientList = () => {
                 onViewDetails={handleViewPatientDetails}
                 onStartAssessment={handleStartNewAssessment}
                 onResumeSession={handleResumeSession}
-                onDeleteSession={handleDeleteSession}
               />
             ))}
           </div>
@@ -358,11 +339,29 @@ const PatientList = () => {
 };
 
 // Patient Card Component for Grid View
-const PatientCard = ({ patient, onViewDetails, onStartAssessment, onResumeSession, onDeleteSession }) => {
+const PatientCard = ({ patient, onViewDetails, onStartAssessment, onResumeSession }) => {
   const { getPatientRecords, getPatientSessions } = useAppData();
   const records = getPatientRecords(patient.id);
   const sessions = getPatientSessions(patient.id);
   const latestRecord = records[0];
+  
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+  
+  const formatDateTime = (dateString) => {
+    return new Date(dateString).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
   
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow h-full flex flex-col">

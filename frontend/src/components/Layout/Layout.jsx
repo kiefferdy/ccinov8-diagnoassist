@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { usePatient } from '../../contexts/PatientContext';
 import { appDataRef } from '../../contexts/AppDataContext';
 import AutoSaveIndicator from '../common/AutoSaveIndicator';
@@ -26,7 +26,6 @@ const Layout = ({ children }) => {
     patientData, 
     resetPatient, 
     sessionId,
-    navigateToStep,
     highestStepReached
   } = usePatient();
   
@@ -138,7 +137,7 @@ const Layout = ({ children }) => {
           )}
           
           <nav className="space-y-2">
-            {steps.map((step, index) => {
+            {steps.map((step) => {
               const Icon = step.icon;
               const isActive = step.id === currentStep;
               const isAccessible = isStepAccessible(step.id);

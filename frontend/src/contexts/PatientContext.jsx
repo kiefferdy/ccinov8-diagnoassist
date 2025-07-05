@@ -3,6 +3,7 @@ import { appDataRef } from './AppDataContext';
 
 const PatientContext = createContext(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const usePatient = () => {
   const context = useContext(PatientContext);
   if (!context) {
@@ -324,7 +325,6 @@ export const PatientProvider = ({ children }) => {
     // Check if any subsequent steps have data
     for (let i = stepIndex + 1; i < steps.length; i++) {
       const futureStep = steps[i];
-      const futureData = getStepRelevantData(futureStep);
       
       // Check if future step has meaningful data
       if (futureStep === 'diagnostic-analysis' && patientData.differentialDiagnoses.length > 0) return true;

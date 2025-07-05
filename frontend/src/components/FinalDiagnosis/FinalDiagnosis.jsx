@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { usePatient } from '../../contexts/PatientContext';
 import { 
   FileText, 
@@ -32,29 +32,7 @@ const FinalDiagnosis = () => {
   const [showCustomDiagnosisForm, setShowCustomDiagnosisForm] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   
-  useEffect(() => {
-    // Refine diagnoses based on test results
-    refineAnalysis();
-    
-    // Load existing data if available
-    if (patientData.selectedDiagnosis) {
-      setSelectedDiagnosis(patientData.selectedDiagnosis);
-    }
-    
-    // Initialize chat with welcome message
-    if (chatMessages.length === 0) {
-      setChatMessages([
-        {
-          id: 1,
-          sender: 'ai',
-          message: "I've reviewed all the clinical data including test results. Based on the comprehensive analysis, I can help you finalize the diagnosis. Would you like to discuss any specific findings or need clarification on the diagnostic conclusions?",
-          timestamp: new Date().toISOString()
-        }
-      ]);
-    }
-  }, []);
-  
-  const refineAnalysis = async () => {
+  const refineAnalysis = useCallback(async () => {
     setIsRefining(true);
     
     // In a real app, this would call an API with test results
@@ -128,7 +106,29 @@ const FinalDiagnosis = () => {
     setRefinedDiagnoses(refined);
     
     setTimeout(() => setIsRefining(false), 1500);
-  };
+  }, [patientData.testResults, patientData.differentialDiagnoses]);
+  
+  useEffect(() => {
+    // Refine diagnoses based on test results
+    refineAnalysis();
+    
+    // Load existing data if available
+    if (patientData.selectedDiagnosis) {
+      setSelectedDiagnosis(patientData.selectedDiagnosis);
+    }
+    
+    // Initialize chat with welcome message
+    if (chatMessages.length === 0) {
+      setChatMessages([
+        {
+          id: 1,
+          sender: 'ai',
+          message: "I've reviewed all the clinical data including test results. Based on the comprehensive analysis, I can help you finalize the diagnosis. Would you like to discuss any specific findings or need clarification on the diagnostic conclusions?",
+          timestamp: new Date().toISOString()
+        }
+      ]);
+    }
+  }, [chatMessages.length, patientData.selectedDiagnosis, refineAnalysis]);
   
   const handleDiagnosisSelect = (diagnosis) => {
     setSelectedDiagnosis(diagnosis);

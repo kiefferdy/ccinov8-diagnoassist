@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { usePatient } from '../../contexts/PatientContext';
 import { 
   ChevronRight, 
@@ -39,8 +39,6 @@ const DiagnosticAnalysis = () => {
   const [activeTab, setActiveTab] = useState('diagnosis');
   const [doctorDiagnosis, setDoctorDiagnosis] = useState(patientData.doctorDiagnosis || '');
   const [diagnosticNotes, setDiagnosticNotes] = useState(patientData.diagnosticNotes || '');
-  const [showInsights, setShowInsights] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [errors, setErrors] = useState({});
   const [assessmentMode, setAssessmentMode] = useState('manual'); // 'manual' or 'voice'
   const [isEditingTranscription, setIsEditingTranscription] = useState(false);
@@ -63,16 +61,9 @@ const DiagnosticAnalysis = () => {
     }, 1000);
     
     return () => clearTimeout(saveTimer);
-  }, [doctorDiagnosis, diagnosticNotes, questionAnswers]);
+  }, [doctorDiagnosis, diagnosticNotes, questionAnswers, updatePatientData]);
   
-  // Auto-generate questions when tab is opened
-  useEffect(() => {
-    if (activeTab === 'questions' && suggestedQuestions.length === 0) {
-      generateSmartQuestions();
-    }
-  }, [activeTab]);
-  
-  const generateSmartQuestions = () => {
+  const generateSmartQuestions = useCallback(() => {
     setIsGeneratingQuestions(true);
     
     setTimeout(() => {
@@ -80,7 +71,14 @@ const DiagnosticAnalysis = () => {
       setSuggestedQuestions(questions);
       setIsGeneratingQuestions(false);
     }, 1500);
-  };
+  }, [patientData]);
+  
+  // Auto-generate questions when tab is opened
+  useEffect(() => {
+    if (activeTab === 'questions' && suggestedQuestions.length === 0) {
+      generateSmartQuestions();
+    }
+  }, [activeTab, suggestedQuestions.length, generateSmartQuestions]);
   
   const handleQuestionToggle = (questionId) => {
     if (selectedQuestions.includes(questionId)) {

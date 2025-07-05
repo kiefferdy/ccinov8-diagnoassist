@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Brain, 
   AlertTriangle, 
@@ -26,7 +26,7 @@ import {
   Scale
 } from 'lucide-react';
 
-const ClinicalInsightsPanel = ({ patientData, doctorDiagnosis, isAnalyzing, onRefresh }) => {
+const ClinicalInsightsPanel = ({ patientData }) => {
   const [expandedSection, setExpandedSection] = useState('differential');
   const [selectedDifferential, setSelectedDifferential] = useState(null);
   
@@ -206,7 +206,7 @@ const ClinicalInsightsPanel = ({ patientData, doctorDiagnosis, isAnalyzing, onRe
     insights.riskStratification = calculateRiskLevel(patientData, vitals);
     
     // Generate evidence-based diagnostic plan
-    insights.diagnosticPlan = generateDiagnosticPlan(insights.differentialDiagnoses, vitals, patientData);
+    insights.diagnosticPlan = generateDiagnosticPlan(insights.differentialDiagnoses);
     
     // Add specific red flags based on presentation
     insights.redFlags = [...insights.redFlags, ...generateRedFlags(patientData, vitals, chiefComplaint)];
@@ -307,7 +307,7 @@ const ClinicalInsightsPanel = ({ patientData, doctorDiagnosis, isAnalyzing, onRe
     return redFlags;
   };
   
-  const generateDiagnosticPlan = (differentials, vitals, patientData) => {
+  const generateDiagnosticPlan = (differentials) => {
     const plan = [];
     const testsAdded = new Set();
     

@@ -64,13 +64,9 @@ const RecommendedTests = () => {
     
     // Generate test recommendations based on diagnosis
     if (patientData.doctorDiagnosis) {
-      generateRecommendations();
-    }
-  }, []);
-  
-  const generateRecommendations = () => {
-    // Sample recommended tests based on common diagnoses
-    const commonTests = [
+      const generateRecommendations = () => {
+        // Sample recommended tests based on common diagnoses
+        const commonTests = [
       {
         id: 'cbc',
         name: 'Complete Blood Count (CBC) with Differential',
@@ -127,8 +123,12 @@ const RecommendedTests = () => {
       }
     ];
     
-    setRecommendedTests(commonTests);
-  };
+        setRecommendedTests(commonTests);
+      };
+      
+      generateRecommendations();
+    }
+  }, [patientData.selectedTests, patientData.therapeuticPlan, patientData.doctorDiagnosis]);
   
   const handleTestToggle = (test) => {
     const isSelected = selectedTests.some(t => t.id === test.id);

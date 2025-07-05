@@ -54,7 +54,7 @@ const PhysicalExam = () => {
     }, 1000);
     
     return () => clearTimeout(saveTimer);
-  }, [additionalFindings]);
+  }, [additionalFindings, patientData.physicalExam.additionalFindings, updatePhysicalExam]);
   
   // Calculate BMI when height and weight change
   useEffect(() => {
@@ -151,24 +151,6 @@ const PhysicalExam = () => {
     
     // Automatically switch to manual mode for editing
     setAssessmentMode('manual');
-  };
-  
-  const handleSaveTranscription = () => {
-    setIsEditingTranscription(false);
-    setAssessmentMode('manual');
-    setTranscribedData(null);
-  };
-  
-  const handleCancelTranscription = () => {
-    // Reset to previous values
-    Object.keys(patientData.physicalExam).forEach(key => {
-      setValue(key, patientData.physicalExam[key]);
-    });
-    setAdditionalFindings(patientData.physicalExam.additionalFindings || '');
-    
-    setIsEditingTranscription(false);
-    setAssessmentMode('manual');
-    setTranscribedData(null);
   };
   
   return (

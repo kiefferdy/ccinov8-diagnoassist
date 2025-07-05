@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { usePatient } from '../../contexts/PatientContext';
 import { useAppData } from '../../contexts/AppDataContext';
 import { 
@@ -38,69 +38,7 @@ const FinalDiagnosis = () => {
   const [isRefining, setIsRefining] = useState(false);
   const [showCustomDiagnosisForm, setShowCustomDiagnosisForm] = useState(false);
   
-  useEffect(() => {
-    // Refine diagnoses based on test results
-    refineAnalysis();
-    
-    // Load existing data if available
-    if (patientData.treatmentPlan) {
-      setTreatmentPlan(patientData.treatmentPlan);
-    }
-    if (patientData.prescriptions && patientData.prescriptions.length > 0) {
-      setPrescriptions(patientData.prescriptions);
-    }
-    if (patientData.selectedDiagnosis) {
-      setSelectedDiagnosis(patientData.selectedDiagnosis);
-    }
-  }, []);
-  
-  const refineAnalysis = async () => {
-    setIsRefining(true);
-    
-    // In a real app, this would call an API with test results
-    const testResults = patientData.testResults || {};
-    let refined = [...patientData.differentialDiagnoses];
-    
-    // Enhanced refinement logic
-    const testResultsArray = Object.values(testResults);
-    if (testResultsArray.some(r => r.testName && r.testName.includes('Chest X-ray'))) {
-      refined = refined.map(d => {
-        if (d.name.includes('Pneumonia')) {
-          return { 
-            ...d, 
-            probability: 0.85, 
-            confidence: 'High',
-            supportingFactors: [
-              ...d.supportingFactors,
-              'Chest X-ray shows consolidation'
-            ]
-          };
-        } else if (d.name.includes('Bronchitis')) {
-          return { 
-            ...d, 
-            probability: 0.10, 
-            confidence: 'Low',
-            contradictingFactors: [
-              ...d.contradictingFactors,
-              'Chest X-ray findings suggest pneumonia'
-            ]
-          };
-        }
-        return d;
-      });
-    }
-    
-    // Sort by probability
-    refined.sort((a, b) => b.probability - a.probability);
-    setRefinedDiagnoses(refined);
-    
-    // Generate assessment note
-    generateAssessmentNote(refined[0]);
-    
-    setTimeout(() => setIsRefining(false), 1500);
-  };
-  
-  const generateAssessmentNote = (topDiagnosis) => {
+  const generateAssessmentNote = useCallback((topDiagnosis) => {
     const testResultsArray = Object.values(patientData.testResults || {});
     
     const note = `ASSESSMENT AND PLAN
@@ -146,7 +84,69 @@ ${patientData.diagnosticNotes ? `\nCLINICAL NOTES:\n${patientData.diagnosticNote
     
     setAssessmentNote(note);
     updatePatientData('assessmentNote', note);
-  };
+  }, [patientData, refinedDiagnoses, updatePatientData]);
+  
+  const refineAnalysis = useCallback(async () => {
+    setIsRefining(true);
+    
+    // In a real app, this would call an API with test results
+    const testResults = patientData.testResults || {};
+    let refined = [...patientData.differentialDiagnoses];
+    
+    // Enhanced refinement logic
+    const testResultsArray = Object.values(testResults);
+    if (testResultsArray.some(r => r.testName && r.testName.includes('Chest X-ray'))) {
+      refined = refined.map(d => {
+        if (d.name.includes('Pneumonia')) {
+          return { 
+            ...d, 
+            probability: 0.85, 
+            confidence: 'High',
+            supportingFactors: [
+              ...d.supportingFactors,
+              'Chest X-ray shows consolidation'
+            ]
+          };
+        } else if (d.name.includes('Bronchitis')) {
+          return { 
+            ...d, 
+            probability: 0.10, 
+            confidence: 'Low',
+            contradictingFactors: [
+              ...d.contradictingFactors,
+              'Chest X-ray findings suggest pneumonia'
+            ]
+          };
+        }
+        return d;
+      });
+    }
+    
+    // Sort by probability
+    refined.sort((a, b) => b.probability - a.probability);
+    setRefinedDiagnoses(refined);
+    
+    // Generate assessment note
+    generateAssessmentNote(refined[0]);
+    
+    setTimeout(() => setIsRefining(false), 1500);
+  }, [patientData.testResults, patientData.differentialDiagnoses, generateAssessmentNote]);
+  
+  useEffect(() => {
+    // Refine diagnoses based on test results
+    refineAnalysis();
+    
+    // Load existing data if available
+    if (patientData.treatmentPlan) {
+      setTreatmentPlan(patientData.treatmentPlan);
+    }
+    if (patientData.prescriptions && patientData.prescriptions.length > 0) {
+      setPrescriptions(patientData.prescriptions);
+    }
+    if (patientData.selectedDiagnosis) {
+      setSelectedDiagnosis(patientData.selectedDiagnosis);
+    }
+  }, [patientData.prescriptions, patientData.treatmentPlan, patientData.selectedDiagnosis, refineAnalysis]);
   
   const handleDiagnosisSelect = async (diagnosis) => {
     setSelectedDiagnosis(diagnosis);

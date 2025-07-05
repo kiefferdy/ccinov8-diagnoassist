@@ -5,7 +5,6 @@ export const generatePostAssessmentQuestions = (patientData) => {
   // Analyze chief complaint
   const chiefComplaint = patientData.chiefComplaint?.toLowerCase() || '';
   const hpi = patientData.historyOfPresentIllness?.toLowerCase() || '';
-  const ros = patientData.reviewOfSystems?.toLowerCase() || '';
   
   // Analyze vital signs and physical exam
   const exam = patientData.physicalExam || {};
@@ -114,7 +113,7 @@ const isBloodPressureAbnormal = (bp) => {
 };
 
 // Generate follow-up questions after initial assessment
-export const generateDiagnosticClarificationQuestions = (diagnosis, patientData) => {
+export const generateDiagnosticClarificationQuestions = (diagnosis) => {
   const questions = [];
   
   // Based on the doctor's diagnosis, generate specific clarifying questions

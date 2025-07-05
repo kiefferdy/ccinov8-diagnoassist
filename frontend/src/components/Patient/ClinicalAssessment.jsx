@@ -69,7 +69,7 @@ const ClinicalAssessment = () => {
     }, 1000);
     
     return () => clearTimeout(saveTimer);
-  }, [chiefComplaint, duration, onset, historyOfPresentIllness]);
+  }, [chiefComplaint, duration, onset, historyOfPresentIllness, updatePatientData]);
   
   const handleTranscriptionComplete = (parsedData) => {
     setTranscribedData(parsedData);
@@ -102,24 +102,6 @@ const ClinicalAssessment = () => {
     
     // Automatically switch to manual mode for editing
     setAssessmentMode('manual');
-  };
-  
-  const handleSaveTranscription = () => {
-    setIsEditingTranscription(false);
-    setAssessmentMode('manual');
-    setTranscribedData(null);
-  };
-  
-  const handleCancelTranscription = () => {
-    // Reset to previous values
-    setChiefComplaint(patientData.chiefComplaint || '');
-    setDuration(patientData.chiefComplaintDuration || '');
-    setOnset(patientData.chiefComplaintOnset || '');
-    setHistoryOfPresentIllness(patientData.historyOfPresentIllness || '');
-    
-    setIsEditingTranscription(false);
-    setAssessmentMode('manual');
-    setTranscribedData(null);
   };
   
   const handleContinue = () => {

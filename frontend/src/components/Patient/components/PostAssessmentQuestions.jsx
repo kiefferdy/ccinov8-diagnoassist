@@ -23,21 +23,21 @@ const PostAssessmentQuestions = ({ onComplete }) => {
   const [isGenerating, setIsGenerating] = useState(true);
   
   useEffect(() => {
-    generateSmartQuestions();
-  }, []);
-  
-  const generateSmartQuestions = () => {
-    // Analyze subjective and objective data to generate targeted questions
-    setIsGenerating(true);
-    
-    setTimeout(() => {
-      // Use enhanced AI to generate questions based on SOAP data
-      const questions = generatePostAssessmentQuestions(patientData);
+    const generateSmartQuestions = () => {
+      // Analyze subjective and objective data to generate targeted questions
+      setIsGenerating(true);
       
-      setSuggestedQuestions(questions);
-      setIsGenerating(false);
-    }, 1500);
-  };
+      setTimeout(() => {
+        // Use enhanced AI to generate questions based on SOAP data
+        const questions = generatePostAssessmentQuestions(patientData);
+        
+        setSuggestedQuestions(questions);
+        setIsGenerating(false);
+      }, 1500);
+    };
+    
+    generateSmartQuestions();
+  }, [patientData]);
   
   const handleQuestionToggle = (questionId) => {
     if (selectedQuestions.includes(questionId)) {

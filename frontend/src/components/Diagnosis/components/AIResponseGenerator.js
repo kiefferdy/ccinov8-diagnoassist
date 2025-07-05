@@ -1,5 +1,5 @@
 // Enhanced AI response generator with more sophisticated logic
-export const generateEnhancedAIResponse = (userMessage, diagnoses, patientData, chatHistory) => {
+export const generateEnhancedAIResponse = (userMessage, diagnoses, patientData) => {
   const message = userMessage.toLowerCase();
   let response = "";
   let actions = [];
@@ -242,7 +242,7 @@ export const updateDiagnosesFromChat = (diagnoses, action, additionalInfo = {}) 
         return d;
       }).sort((a, b) => b.probability - a.probability);
     
-    case 'ADD_DIAGNOSIS':
+    case 'ADD_DIAGNOSIS': {
       const newDiagnosis = {
         id: Date.now(),
         name: additionalInfo.name,
@@ -256,6 +256,7 @@ export const updateDiagnosesFromChat = (diagnoses, action, additionalInfo = {}) 
         recommendedActions: additionalInfo.recommendedActions || []
       };
       return [...diagnoses, newDiagnosis].sort((a, b) => b.probability - a.probability);
+    }
     
     default:
       return diagnoses;
