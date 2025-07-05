@@ -1,148 +1,119 @@
 import React from 'react';
-import { usePatient } from '../../contexts/PatientContext';
-import { Activity, Users, Clock, ChartBar, ArrowRight, FolderOpen, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Activity, Users, Clock, ChartBar, ArrowRight, Plus } from 'lucide-react';
 
 const Home = () => {
-  const { setCurrentStep } = usePatient();
+  const navigate = useNavigate();
   
   const handleNewPatient = () => {
-    setCurrentStep('patient-selection');
+    navigate('/patients');
   };
   
   const handlePatientList = () => {
-    setCurrentStep('patient-list');
+    navigate('/patients');
   };
   
   const stats = [
-    { icon: Users, label: 'Patients Today', value: '12' },
-    { icon: Clock, label: 'Avg. Diagnosis Time', value: '8 min' },
-    { icon: ChartBar, label: 'Accuracy Rate', value: '94%' }
+    { icon: Users, label: 'Active Patients', value: '24' },
+    { icon: Clock, label: 'Avg. Documentation Time', value: '6 min' },
+    { icon: ChartBar, label: 'Episodes This Month', value: '142' }
   ];
   
-  const features = [
+  const quickActions = [
     {
-      title: 'Dynamic Clinical Assessment',
-      description: 'AI-powered questions that adapt based on patient responses for comprehensive data gathering'
+      title: 'Start New Episode',
+      description: 'Begin documenting a new patient visit',
+      icon: Plus,
+      action: handleNewPatient,
+      color: 'blue'
     },
     {
-      title: 'Intelligent Diagnosis',
-      description: 'Advanced algorithms analyze symptoms, exam findings, and test results for accurate differential diagnoses'
-    },
-    {
-      title: 'Evidence-Based Treatment',
-      description: 'Get personalized treatment recommendations based on the latest medical guidelines and research'
-    },
-    {
-      title: 'Seamless Workflow',
-      description: 'Follows the natural clinical flow doctors use, enhancing rather than replacing medical expertise'
+      title: 'Patient List',
+      description: 'View and manage all patients',
+      icon: Users,
+      action: handlePatientList,
+      color: 'green'
     }
   ];
   
   return (
-    <div className="max-w-6xl mx-auto">
-      {/* Hero Section */}
-      <div className="text-center mb-12">
-        <div className="flex justify-center mb-6">
-          <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center">
-            <Activity className="w-12 h-12 text-white" />
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <div className="flex justify-center mb-6">
+            <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+              <Activity className="w-12 h-12 text-white" />
+            </div>
+          </div>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            DiagnoAssist
+          </h1>
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            Episode-based clinical documentation with integrated SOAP workflow
+          </p>
+        </div>
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          {stats.map((stat, index) => (
+            <div key={index} className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">{stat.label}</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
+                </div>
+                <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <stat.icon className="w-6 h-6 text-gray-600" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Quick Actions */}
+        <div className="mb-12">
+          <h2 className="text-2xl font-semibold text-gray-900 mb-6">Quick Actions</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {quickActions.map((action, index) => (
+              <button
+                key={index}
+                onClick={action.action}
+                className={`bg-white rounded-xl shadow-sm p-8 border border-gray-200 hover:shadow-md transition-all group text-left`}
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className={`w-14 h-14 bg-${action.color}-100 rounded-xl flex items-center justify-center group-hover:bg-${action.color}-200 transition-colors`}>
+                    <action.icon className={`w-7 h-7 text-${action.color}-600`} />
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">{action.title}</h3>
+                <p className="text-gray-600">{action.description}</p>
+              </button>
+            ))}
           </div>
         </div>
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">
-          Welcome to DiagnoAssist
-        </h1>
-        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-          Your AI-powered diagnostic assistant that enhances clinical decision-making and improves patient care
-        </p>
-        <div className="mt-4">
-          <a 
-            href="/landing" 
-            className="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium"
-          >
-            View Pricing & Plans
-            <ExternalLink className="ml-1 w-4 h-4" />
-          </a>
-        </div>
-      </div>
-      
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-        {stats.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-2">
-                <Icon className="w-8 h-8 text-blue-600" />
-                <span className="text-3xl font-bold text-gray-900">{stat.value}</span>
-              </div>
-              <p className="text-gray-600">{stat.label}</p>
+
+        {/* Features Grid */}
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-6">Key Features</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Episode-Based Documentation</h3>
+              <p className="text-gray-600">Track patient health issues over time with linked episodes and encounters</p>
             </div>
-          );
-        })}
-      </div>
-      
-      {/* CTA Button */}
-      <div className="text-center mb-12">
-        <div className="flex items-center justify-center space-x-4">
-          <button
-            onClick={handleNewPatient}
-            className="inline-flex items-center px-8 py-4 bg-blue-600 text-white text-lg font-medium rounded-xl hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all"
-          >
-            Start New Patient Assessment
-            <ArrowRight className="ml-3 w-6 h-6" />
-          </button>
-          <button
-            onClick={handlePatientList}
-            className="inline-flex items-center px-8 py-4 bg-gray-600 text-white text-lg font-medium rounded-xl hover:bg-gray-700 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all"
-          >
-            <FolderOpen className="mr-3 w-6 h-6" />
-            View All Patients
-          </button>
-        </div>
-      </div>
-      
-      {/* Features Grid */}
-      <div className="mb-12">
-        <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">
-          Designed for Modern Medical Practice
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {features.map((feature, index) => (
-            <div key={index} className="bg-gradient-to-br from-blue-50 to-white rounded-xl p-6 border border-blue-100">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                {feature.title}
-              </h3>
-              <p className="text-gray-600">
-                {feature.description}
-              </p>
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Flexible SOAP Workflow</h3>
+              <p className="text-gray-600">Navigate freely between sections with auto-save and progress tracking</p>
             </div>
-          ))}
-        </div>
-      </div>
-      
-      {/* Recent Patients (Mock) */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Patients</h3>
-        <div className="space-y-3">
-          {[
-            { name: 'John Smith', age: 45, diagnosis: 'Hypertension', time: '2 hours ago' },
-            { name: 'Mary Johnson', age: 32, diagnosis: 'Acute Bronchitis', time: '3 hours ago' },
-            { name: 'Robert Davis', age: 58, diagnosis: 'Type 2 Diabetes', time: '5 hours ago' }
-          ].map((patient, index) => (
-            <div key={index} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors">
-              <div className="flex items-center">
-                <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-                  <span className="text-sm font-medium text-gray-600">
-                    {patient.name.split(' ').map(n => n[0]).join('')}
-                  </span>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">{patient.name}</p>
-                  <p className="text-sm text-gray-600">{patient.age} years • {patient.diagnosis}</p>
-                </div>
-              </div>
-              <span className="text-sm text-gray-500">{patient.time}</span>
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Integrated Clinical Tools</h3>
+              <p className="text-gray-600">Order tests, view results, and manage diagnoses all within the SOAP framework</p>
             </div>
-          ))}
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">AI-Powered Assistance</h3>
+              <p className="text-gray-600">Get intelligent suggestions and clinical insights when you need them</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
