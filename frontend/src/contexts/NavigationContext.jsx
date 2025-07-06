@@ -29,7 +29,7 @@ export const NavigationProvider = ({ children }) => {
   });
 
   // Navigate to a view
-  const navigateTo = useCallback((view, params = {}) => {
+  const navigateTo = useCallback((view) => {
     setNavigationHistory(prev => [...prev, { view: currentView, timestamp: new Date().toISOString() }]);
     setCurrentView(view);
     
@@ -92,7 +92,7 @@ export const NavigationProvider = ({ children }) => {
   }, [currentSection]);
 
   // Check if can navigate to section
-  const canNavigateToSection = useCallback((section) => {
+  const canNavigateToSection = useCallback(() => {
     // In flexible navigation, always allow navigation
     return true;
   }, []);

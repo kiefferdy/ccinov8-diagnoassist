@@ -1,65 +1,55 @@
 import React from 'react';
-import { Plus, Calendar, FileText, History } from 'lucide-react';
+import { Plus, FolderOpen, Activity, Calendar } from 'lucide-react';
 
 const QuickActions = ({ onNewEpisode, onViewAllRecords }) => {
-  const actions = [
-    {
-      icon: Plus,
-      label: 'New Episode',
-      description: 'Start documenting a new health issue',
-      onClick: onNewEpisode,
-      color: 'blue',
-      primary: true
-    },
-    {
-      icon: Calendar,
-      label: 'Schedule Follow-up',
-      description: 'Plan next appointment',
-      onClick: () => console.log('Schedule follow-up - to be implemented'),
-      color: 'green'
-    },
-    {
-      icon: FileText,
-      label: 'View All Records',
-      description: 'Complete patient history',
-      onClick: onViewAllRecords,
-      color: 'purple'
-    },
-    {
-      icon: History,
-      label: 'Timeline View',
-      description: 'Visual health timeline',
-      onClick: () => console.log('Timeline view - to be implemented'),
-      color: 'gray'
-    }
-  ];
-
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {actions.map((action, index) => (
-          <button
-            key={index}
-            onClick={action.onClick}
-            className={`
-              p-4 rounded-lg border transition-all
-              ${action.primary 
-                ? 'bg-blue-50 border-blue-200 hover:bg-blue-100 hover:border-blue-300' 
-                : 'bg-gray-50 border-gray-200 hover:bg-gray-100 hover:border-gray-300'
-              }
-            `}
-          >
-            <action.icon className={`
-              w-6 h-6 mb-2 mx-auto
-              ${action.primary ? 'text-blue-600' : 'text-gray-600'}
-            `} />
-            <p className={`text-sm font-medium ${action.primary ? 'text-blue-900' : 'text-gray-900'}`}>
-              {action.label}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">{action.description}</p>
-          </button>
-        ))}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <button
+        onClick={onNewEpisode}
+        className="bg-white border-2 border-blue-200 rounded-lg p-4 hover:bg-blue-50 transition-colors group"
+      >
+        <div className="flex items-center justify-between mb-2">
+          <Plus className="w-8 h-8 text-blue-600 group-hover:scale-110 transition-transform" />
+          <span className="text-xs text-blue-600 font-medium">QUICK ACTION</span>
+        </div>
+        <h3 className="text-sm font-semibold text-gray-900 text-left">New Episode</h3>
+        <p className="text-xs text-gray-600 text-left mt-1">Start documenting a new health issue</p>
+      </button>
+      
+      <button
+        onClick={onViewAllRecords}
+        className="bg-white border-2 border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors group"
+      >
+        <div className="flex items-center justify-between mb-2">
+          <FolderOpen className="w-8 h-8 text-gray-600 group-hover:scale-110 transition-transform" />
+          <span className="text-xs text-gray-500 font-medium">RECORDS</span>
+        </div>
+        <h3 className="text-sm font-semibold text-gray-900 text-left">View All Records</h3>
+        <p className="text-xs text-gray-600 text-left mt-1">Browse complete patient history</p>
+      </button>
+      
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-2">
+          <Activity className="w-8 h-8 text-green-600" />
+          <span className="text-xs text-gray-500 font-medium">STATUS</span>
+        </div>
+        <h3 className="text-sm font-semibold text-gray-900 text-left">Active Episodes</h3>
+        <p className="text-2xl font-bold text-green-600 text-left mt-1">
+          {/* This would be passed as a prop in a real implementation */}
+          2
+        </p>
+      </div>
+      
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-2">
+          <Calendar className="w-8 h-8 text-blue-600" />
+          <span className="text-xs text-gray-500 font-medium">RECENT</span>
+        </div>
+        <h3 className="text-sm font-semibold text-gray-900 text-left">Last Visit</h3>
+        <p className="text-sm text-gray-600 text-left mt-1">
+          {/* This would be calculated from actual data */}
+          3 days ago
+        </p>
       </div>
     </div>
   );

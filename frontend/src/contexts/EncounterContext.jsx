@@ -33,16 +33,6 @@ export const EncounterProvider = ({ children }) => {
     };
     loadEncounters();
   }, []);
-  // Auto-save functionality
-  useEffect(() => {
-    if (!autoSaveEnabled || !currentEncounter || !hasUnsavedChanges) return;
-
-    const saveTimer = setTimeout(() => {
-      saveCurrentEncounter();
-    }, 30000); // Auto-save every 30 seconds
-
-    return () => clearTimeout(saveTimer);
-  }, [currentEncounter, hasUnsavedChanges, autoSaveEnabled]);
 
   // Get encounters for a specific episode
   const getEpisodeEncounters = useCallback((episodeId) => {
@@ -197,6 +187,17 @@ export const EncounterProvider = ({ children }) => {
     return true;
   }, [currentEncounter, encounters]);
 
+  // Auto-save functionality
+  useEffect(() => {
+    if (!autoSaveEnabled || !currentEncounter || !hasUnsavedChanges) return;
+
+    const saveTimer = setTimeout(() => {
+      saveCurrentEncounter();
+    }, 30000); // Auto-save every 30 seconds
+
+    return () => clearTimeout(saveTimer);
+  }, [currentEncounter, hasUnsavedChanges, autoSaveEnabled, saveCurrentEncounter]);
+
   // Sign encounter
   const signEncounter = useCallback((encounterId, providerName) => {
     const encounter = encounters.find(e => e.id === encounterId);
@@ -228,44 +229,63 @@ export const EncounterProvider = ({ children }) => {
     const sourceEncounter = encounters.find(e => e.id === sourceEncounterId);
     if (!sourceEncounter || !currentEncounter) return false;
     
-    const updates = {};
+    const updates = { ...currentEncounter };
     
     sections.forEach(section => {
       switch (section) {
         case 'vitals':
           updates.soap = {
-            ...currentEncounter.soap,
+            ...updates.soap,
             objective: {
-              ...currentEncounter.soap.objective,
+              ...updates.soap.objective,
               vitals: { ...sourceEncounter.soap.objective.vitals }
             }
           };
           break;
         case 'medications':
           updates.soap = {
-            ...currentEncounter.soap,
+            ...updates.soap,
             subjective: {
-              ...currentEncounter.soap.subjective,
+              ...updates.soap.subjective,
               medications: sourceEncounter.soap.subjective.medications
             }
           };
           break;
         case 'allergies':
           updates.soap = {
-            ...currentEncounter.soap,
+            ...updates.soap,
             subjective: {
-              ...currentEncounter.soap.subjective,
+              ...updates.soap.subjective,
               allergies: sourceEncounter.soap.subjective.allergies
             }
           };
           break;
-        // Add more sections as needed
+        case 'physicalExam':
+          updates.soap = {
+            ...updates.soap,
+            objective: {
+              ...updates.soap.objective,
+              physicalExam: { ...sourceEncounter.soap.objective.physicalExam }
+            }
+          };
+          break;
+        case 'assessment':
+          updates.soap = {
+            ...updates.soap,
+            assessment: {
+              ...updates.soap.assessment,
+              clinicalImpression: sourceEncounter.soap.assessment.clinicalImpression,
+              workingDiagnosis: { ...sourceEncounter.soap.assessment.workingDiagnosis }
+            }
+          };
+          break;
       }
     });
     
-    updateCurrentEncounter(updates);
+    setCurrentEncounter(updates);
+    setHasUnsavedChanges(true);
     return true;
-  }, [encounters, currentEncounter, updateCurrentEncounter]);
+  }, [encounters, currentEncounter]);
 
   // Get encounter statistics
   const getEncounterStats = useCallback((episodeId) => {

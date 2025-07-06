@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { usePatient } from '../../contexts/PatientContext';
 import { useEpisode } from '../../contexts/EpisodeContext';
@@ -23,34 +23,9 @@ const EpisodeWorkspace = () => {
   const [loading, setLoading] = useState(true);
   const [creatingEncounter, setCreatingEncounter] = useState(false);
 
-  // Load data
-  useEffect(() => {
-    const loadData = () => {
-      const patientData = getPatientById(patientId);
-      const episodeData = getEpisodeById(episodeId);
-      
-      if (patientData && episodeData) {
-        setPatient(patientData);
-        setEpisode(episodeData);
-        
-        const episodeEncounters = getEpisodeEncounters(episodeId);
-        setEncounters(episodeEncounters);
-        
-        // If no encounters exist, create the first one
-        if (episodeEncounters.length === 0 && !creatingEncounter) {
-          setCreatingEncounter(true);
-          handleCreateEncounter('initial');
-        } else if (episodeEncounters.length > 0 && !currentEncounter) {
-          // Set the most recent encounter as current
-          setCurrentEncounter(episodeEncounters[0]);
-        }
-      }
-      setLoading(false);
-    };
+  const handleCreateEncounter = useCallback(async (type = 'follow-up') => {
+    if (!episode || !patient) return;
     
-    loadData();
-  }, [patientId, episodeId, getPatientById, getEpisodeById, getEpisodeEncounters, currentEncounter, setCurrentEncounter, creatingEncounter]);
-  const handleCreateEncounter = async (type = 'follow-up') => {
     try {
       const newEncounter = createEncounter(episodeId, patientId, type);
       
@@ -81,8 +56,35 @@ const EpisodeWorkspace = () => {
     } catch (error) {
       console.error('Failed to create encounter:', error);
     }
-  };
+  }, [episode, patient, createEncounter, episodeId, patientId, setCurrentEncounter, encounters, navigateTo]);
 
+  // Load data
+  useEffect(() => {
+    const loadData = () => {
+      const patientData = getPatientById(patientId);
+      const episodeData = getEpisodeById(episodeId);
+      
+      if (patientData && episodeData) {
+        setPatient(patientData);
+        setEpisode(episodeData);
+        
+        const episodeEncounters = getEpisodeEncounters(episodeId);
+        setEncounters(episodeEncounters);
+        
+        // If no encounters exist, create the first one
+        if (episodeEncounters.length === 0 && !creatingEncounter) {
+          setCreatingEncounter(true);
+          handleCreateEncounter('initial');
+        } else if (episodeEncounters.length > 0 && !currentEncounter) {
+          // Set the most recent encounter as current
+          setCurrentEncounter(episodeEncounters[0]);
+        }
+      }
+      setLoading(false);
+    };
+    
+    loadData();
+  }, [patientId, episodeId, getPatientById, getEpisodeById, getEpisodeEncounters, currentEncounter, setCurrentEncounter, creatingEncounter, handleCreateEncounter]);
   const handleSelectEncounter = (encounter) => {
     setCurrentEncounter(encounter);
   };

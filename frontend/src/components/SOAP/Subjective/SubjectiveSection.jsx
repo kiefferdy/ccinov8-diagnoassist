@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { MessageSquare, Mic, History, Clock, AlertCircle } from 'lucide-react';
 import SpeechToTextTranscriber from '../../Patient/components/SpeechToTextTranscriber';
 
-const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
+const SubjectiveSection = ({ data, patient, episode, onUpdate }) => {
   const [activeTab, setActiveTab] = useState('hpi');
   const [showTranscriber, setShowTranscriber] = useState(false);
   const [transcribingField, setTranscribingField] = useState('');

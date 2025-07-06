@@ -7,7 +7,7 @@ import PatientHeader from './PatientHeader';
 import EpisodeCard from './EpisodeCard';
 import QuickActions from './QuickActions';
 import NewEpisodeModal from '../Episode/NewEpisodeModal';
-import { Activity, Archive, Filter, Search } from 'lucide-react';
+import { Activity, Archive, Filter, Search, Plus } from 'lucide-react';
 
 const PatientDashboard = () => {
   const { patientId } = useParams();
@@ -176,7 +176,7 @@ const PatientDashboard = () => {
         <NewEpisodeModal
           patientId={patientId}
           onClose={() => setShowNewEpisodeModal(false)}
-          onSuccess={(newEpisode) => {
+          onSuccess={() => {
             setShowNewEpisodeModal(false);
             // Refresh episodes list
             const updatedEpisodes = getPatientEpisodes(patientId, true);

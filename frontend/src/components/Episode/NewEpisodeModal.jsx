@@ -75,7 +75,7 @@ const NewEpisodeModal = ({ patientId, onClose, onSuccess }) => {
         // Just create episode and close modal
         onSuccess(newEpisode);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to create episode. Please try again.');
       setLoading(false);
     }
