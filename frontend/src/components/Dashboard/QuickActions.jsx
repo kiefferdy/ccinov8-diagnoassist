@@ -1,55 +1,257 @@
 import React from 'react';
-import { Plus, FolderOpen, Activity, Calendar } from 'lucide-react';
+import { 
+  Plus, FolderOpen, Activity, Calendar, 
+  FileText, Stethoscope, Clock, TrendingUp,
+  Zap, ChevronRight, Sparkles, Heart,
+  AlertCircle, BarChart3, Users, Star
+} from 'lucide-react';
 
-const QuickActions = ({ onNewEpisode, onViewAllRecords }) => {
+const QuickActions = ({ onNewEpisode, onViewAllRecords, stats = {} }) => {
+  const quickActions = [
+    {
+      id: 'new-episode',
+      title: 'New Episode',
+      description: 'Start documenting a new health issue',
+      icon: Plus,
+      color: 'blue',
+      bgGradient: 'from-blue-500 to-indigo-600',
+      onClick: onNewEpisode,
+      primary: true
+    },
+    {
+      id: 'continue-care',
+      title: 'Continue Care',
+      description: 'Resume active episode documentation',
+      icon: Stethoscope,
+      color: 'purple',
+      bgGradient: 'from-purple-500 to-pink-600',
+      onClick: () => console.log('Continue care'), // To be implemented
+      badge: stats.activeEpisodes > 0 ? stats.activeEpisodes : null
+    },
+    {
+      id: 'view-records',
+      title: 'All Records',
+      description: 'Browse complete patient history',
+      icon: FolderOpen,
+      color: 'green',
+      bgGradient: 'from-green-500 to-teal-600',
+      onClick: onViewAllRecords
+    },
+    {
+      id: 'quick-note',
+      title: 'Quick Note',
+      description: 'Add a quick clinical note',
+      icon: FileText,
+      color: 'orange',
+      bgGradient: 'from-orange-500 to-red-600',
+      onClick: () => console.log('Quick note'), // To be implemented
+    }
+  ];
+
+  const statsCards = [
+    {
+      label: 'Active Episodes',
+      value: stats.activeEpisodes || 0,
+      icon: Activity,
+      color: 'emerald',
+      trend: stats.episodeTrend,
+      urgent: stats.urgentEpisodes
+    },
+    {
+      label: 'Last Visit',
+      value: stats.lastVisit || 'N/A',
+      icon: Calendar,
+      color: 'blue',
+      subtext: stats.daysSinceLastVisit ? `${stats.daysSinceLastVisit} days ago` : null
+    },
+    {
+      label: 'Total Visits',
+      value: stats.totalVisits || 0,
+      icon: BarChart3,
+      color: 'purple',
+      trend: stats.visitTrend
+    },
+    {
+      label: 'Health Score',
+      value: stats.healthScore || 'Good',
+      icon: Heart,
+      color: 'red',
+      status: stats.healthStatus
+    }
+  ];
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <button
-        onClick={onNewEpisode}
-        className="bg-white border-2 border-blue-200 rounded-lg p-4 hover:bg-blue-50 transition-colors group"
-      >
-        <div className="flex items-center justify-between mb-2">
-          <Plus className="w-8 h-8 text-blue-600 group-hover:scale-110 transition-transform" />
-          <span className="text-xs text-blue-600 font-medium">QUICK ACTION</span>
-        </div>
-        <h3 className="text-sm font-semibold text-gray-900 text-left">New Episode</h3>
-        <p className="text-xs text-gray-600 text-left mt-1">Start documenting a new health issue</p>
-      </button>
-      
-      <button
-        onClick={onViewAllRecords}
-        className="bg-white border-2 border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors group"
-      >
-        <div className="flex items-center justify-between mb-2">
-          <FolderOpen className="w-8 h-8 text-gray-600 group-hover:scale-110 transition-transform" />
-          <span className="text-xs text-gray-500 font-medium">RECORDS</span>
-        </div>
-        <h3 className="text-sm font-semibold text-gray-900 text-left">View All Records</h3>
-        <p className="text-xs text-gray-600 text-left mt-1">Browse complete patient history</p>
-      </button>
-      
-      <div className="bg-white border border-gray-200 rounded-lg p-4">
-        <div className="flex items-center justify-between mb-2">
-          <Activity className="w-8 h-8 text-green-600" />
-          <span className="text-xs text-gray-500 font-medium">STATUS</span>
-        </div>
-        <h3 className="text-sm font-semibold text-gray-900 text-left">Active Episodes</h3>
-        <p className="text-2xl font-bold text-green-600 text-left mt-1">
-          {/* This would be passed as a prop in a real implementation */}
-          2
-        </p>
+    <div className="space-y-6">
+      {/* Quick Actions Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {quickActions.map((action) => {
+          const Icon = action.icon;
+          return (
+            <button
+              key={action.id}
+              onClick={action.onClick}
+              className={`
+                relative overflow-hidden group transition-all duration-300
+                ${action.primary 
+                  ? 'bg-gradient-to-br ' + action.bgGradient + ' text-white shadow-lg hover:shadow-xl transform hover:scale-105' 
+                  : 'bg-white border-2 border-gray-200 hover:border-' + action.color + '-300 hover:shadow-lg'
+                }
+                rounded-2xl p-6
+              `}
+            >
+              {/* Background Pattern */}
+              <div className="absolute inset-0 opacity-10">
+                <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white/20 blur-2xl" />
+                <div className="absolute -left-8 -bottom-8 w-32 h-32 rounded-full bg-white/20 blur-2xl" />
+              </div>
+              
+              {/* Content */}
+              <div className="relative">
+                <div className="flex items-start justify-between mb-4">
+                  <div className={`
+                    p-3 rounded-xl transition-all duration-300 group-hover:scale-110
+                    ${action.primary 
+                      ? 'bg-white/20 backdrop-blur-sm' 
+                      : `bg-${action.color}-100 text-${action.color}-600`
+                    }
+                  `}>
+                    <Icon className="w-6 h-6" />
+                  </div>
+                  {action.badge && (
+                    <span className={`
+                      px-2 py-1 rounded-full text-xs font-bold
+                      ${action.primary 
+                        ? 'bg-white/20 text-white' 
+                        : `bg-${action.color}-100 text-${action.color}-700`
+                      }
+                    `}>
+                      {action.badge}
+                    </span>
+                  )}
+                </div>
+                
+                <h3 className={`
+                  text-lg font-bold text-left mb-1
+                  ${action.primary ? 'text-white' : 'text-gray-900'}
+                `}>
+                  {action.title}
+                </h3>
+                <p className={`
+                  text-sm text-left
+                  ${action.primary ? 'text-white/80' : 'text-gray-600'}
+                `}>
+                  {action.description}
+                </p>
+                
+                {/* Hover Arrow */}
+                <div className={`
+                  absolute bottom-4 right-4 transition-all duration-300 
+                  opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0
+                  ${action.primary ? 'text-white' : `text-${action.color}-600`}
+                `}>
+                  <ChevronRight className="w-5 h-5" />
+                </div>
+              </div>
+              
+              {/* Sparkle Effect for Primary */}
+              {action.primary && (
+                <Sparkles className="absolute top-4 right-4 w-5 h-5 text-white/50 animate-pulse" />
+              )}
+            </button>
+          );
+        })}
       </div>
       
-      <div className="bg-white border border-gray-200 rounded-lg p-4">
-        <div className="flex items-center justify-between mb-2">
-          <Calendar className="w-8 h-8 text-blue-600" />
-          <span className="text-xs text-gray-500 font-medium">RECENT</span>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {statsCards.map((stat, idx) => {
+          const Icon = stat.icon;
+          return (
+            <div 
+              key={idx}
+              className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className={`p-2 bg-${stat.color}-100 rounded-lg`}>
+                  <Icon className={`w-5 h-5 text-${stat.color}-600`} />
+                </div>
+                {stat.trend && (
+                  <div className={`flex items-center text-sm ${
+                    stat.trend > 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    <TrendingUp className={`w-4 h-4 mr-1 ${
+                      stat.trend < 0 ? 'rotate-180' : ''
+                    }`} />
+                    {Math.abs(stat.trend)}%
+                  </div>
+                )}
+                {stat.status && (
+                  <span className={`
+                    px-2 py-1 rounded-full text-xs font-medium
+                    ${stat.status === 'good' ? 'bg-green-100 text-green-700' :
+                      stat.status === 'warning' ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-red-100 text-red-700'}
+                  `}>
+                    {stat.status}
+                  </span>
+                )}
+              </div>
+              
+              <p className="text-xs text-gray-600 mb-1">{stat.label}</p>
+              <p className={`text-2xl font-bold text-gray-900 ${
+                stat.urgent ? 'flex items-center' : ''
+              }`}>
+                {stat.value}
+                {stat.urgent && (
+                  <AlertCircle className="w-5 h-5 ml-2 text-red-500" />
+                )}
+              </p>
+              {stat.subtext && (
+                <p className="text-xs text-gray-500 mt-1">{stat.subtext}</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      
+      {/* Quick Insights */}
+      {(stats.pendingTasks || stats.criticalAlerts) && (
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 border border-indigo-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="p-2 bg-indigo-100 rounded-lg mr-3">
+                <Zap className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Quick Insights</p>
+                <p className="text-xs text-gray-600">
+                  {stats.pendingTasks && `${stats.pendingTasks} pending tasks`}
+                  {stats.pendingTasks && stats.criticalAlerts && ' • '}
+                  {stats.criticalAlerts && `${stats.criticalAlerts} alerts`}
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-gray-400" />
+          </div>
         </div>
-        <h3 className="text-sm font-semibold text-gray-900 text-left">Last Visit</h3>
-        <p className="text-sm text-gray-600 text-left mt-1">
-          {/* This would be calculated from actual data */}
-          3 days ago
-        </p>
+      )}
+      
+      {/* Favorites/Shortcuts */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-gray-700 flex items-center">
+          <Star className="w-4 h-4 mr-1 text-yellow-500" />
+          Quick Templates
+        </h3>
+        <div className="flex gap-2">
+          {['URI', 'HTN Follow-up', 'Diabetes Check', 'Wellness'].map(template => (
+            <button
+              key={template}
+              className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-xs font-medium"
+            >
+              {template}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
