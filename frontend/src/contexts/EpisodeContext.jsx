@@ -3,6 +3,7 @@ import { StorageManager, generateId } from '../utils/storage';
 
 const EpisodeContext = createContext(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useEpisode = () => {
   const context = useContext(EpisodeContext);
   if (!context) {

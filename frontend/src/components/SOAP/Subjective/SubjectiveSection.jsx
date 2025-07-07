@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   MessageSquare, Mic, History, Clock, AlertCircle, 
   Sparkles, ChevronRight, FileText, User, Calendar,
@@ -69,13 +69,15 @@ const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
     switch (tabId) {
       case 'hpi':
         return data.hpi && data.hpi.length > 50 ? 'complete' : data.hpi ? 'partial' : 'empty';
-      case 'ros':
+      case 'ros': {
         const rosSystems = Object.values(data.ros || {}).filter(v => v);
         return rosSystems.length > 10 ? 'complete' : rosSystems.length > 0 ? 'partial' : 'empty';
-      case 'history':
+      }
+      case 'history': {
         const historyFields = [data.pmh, data.medications, data.allergies, data.socialHistory, data.familyHistory];
         const filledFields = historyFields.filter(f => f);
         return filledFields.length >= 4 ? 'complete' : filledFields.length > 0 ? 'partial' : 'empty';
+      }
       default:
         return 'empty';
     }

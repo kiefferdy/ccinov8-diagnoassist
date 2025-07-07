@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Brain, Plus, X, AlertTriangle, CheckCircle, HelpCircle, 
   Sparkles, ChevronDown, ChevronUp, Target, Search, 
@@ -19,8 +19,6 @@ const AssessmentSection = ({ data, patient, episode, encounter, onUpdate }) => {
     contradictingEvidence: ''
   });
   const [expandedDiagnosis, setExpandedDiagnosis] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [icd10Suggestions, setIcd10Suggestions] = useState([]);
   const [showRiskAssessment, setShowRiskAssessment] = useState(false);
   
   // Common diagnoses based on chief complaint
@@ -484,7 +482,7 @@ const AssessmentSection = ({ data, patient, episode, encounter, onUpdate }) => {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+              <label className="block text-sm font-medium text-gray-700 mb-2 items-center">
                 <BookOpen className="w-4 h-4 mr-1" />
                 Clinical Reasoning
               </label>

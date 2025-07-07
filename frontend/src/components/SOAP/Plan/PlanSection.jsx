@@ -15,7 +15,6 @@ const PlanSection = ({ data, patient, episode, encounter, onUpdate }) => {
   const [modalType, setModalType] = useState('');
   const [newItem, setNewItem] = useState({});
   const [prescriptionView, setPrescriptionView] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
   
   const tabs = [
     { id: 'medications', label: 'Medications', icon: Pill, color: 'blue' },
@@ -631,18 +630,18 @@ const PlanSection = ({ data, patient, episode, encounter, onUpdate }) => {
                           { type: 'Telemedicine', icon: Video },
                           { type: 'Phone', icon: Phone },
                           { type: 'Message', icon: MessageSquare }
-                        ].map(({ type, icon: Icon }) => (
+                        ].map((item) => (
                           <button
-                            key={type}
-                            onClick={() => handleFollowUpUpdate('type', type)}
+                            key={item.type}
+                            onClick={() => handleFollowUpUpdate('type', item.type)}
                             className={`p-3 rounded-lg border-2 text-sm font-medium transition-all flex items-center justify-center ${
-                              data.followUp?.type === type
+                              data.followUp?.type === item.type
                                 ? 'bg-orange-100 border-orange-500 text-orange-700'
                                 : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
                             }`}
                           >
-                            <Icon className="w-4 h-4 mr-1" />
-                            {type}
+                            <item.icon className="w-4 h-4 mr-1" />
+                            {item.type}
                           </button>
                         ))}
                       </div>

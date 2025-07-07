@@ -324,7 +324,7 @@ const PatientDashboard = () => {
               Recent Activity
             </h3>
             <div className="space-y-3">
-              {recentEncounters.slice(0, 3).map((encounter, idx) => (
+              {recentEncounters.slice(0, 3).map((encounter) => (
                 <div key={encounter.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
                   <div className="flex items-center space-x-3">
                     <div className={`w-2 h-2 rounded-full ${

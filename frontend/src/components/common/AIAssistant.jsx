@@ -1,11 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MessageSquare, Send, X, Sparkles, ChevronDown, ChevronUp, HelpCircle, Stethoscope, Brain, FileText, AlertCircle } from 'lucide-react';
-import { generateNextQuestion, analyzeSymptoms, getStandardizedTools, generateAssessmentSummary } from '../Patient/utils/clinicalAssessmentAI';
+import { generateNextQuestion, analyzeSymptoms, getStandardizedTools } from '../Patient/utils/clinicalAssessmentAI';
 
 const AIAssistant = ({ 
   patient, 
   episode, 
-  encounter, 
   currentSection,
   onInsightApply,
   className = "" 
@@ -23,28 +22,7 @@ const AIAssistant = ({
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Initialize with context-aware greeting
-  useEffect(() => {
-    if (messages.length === 0 && episode) {
-      const greeting = getContextualGreeting();
-      setMessages([{
-        id: Date.now(),
-        type: 'ai',
-        content: greeting,
-        timestamp: new Date()
-      }]);
-      
-      // Generate initial suggestions based on chief complaint
-      generateInitialSuggestions();
-    }
-  }, [episode, messages.length]);
-
-  // Auto-scroll to bottom of messages
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const getContextualGreeting = () => {
+  const getContextualGreeting = useCallback(() => {
     const section = currentSection || 'general';
     const chiefComplaint = episode?.chiefComplaint || 'the patient\'s concern';
     
@@ -57,13 +35,13 @@ const AIAssistant = ({
     };
     
     return greetings[section] || greetings.general;
-  };
+  }, [currentSection, episode]);
 
-  const generateInitialSuggestions = async () => {
+  const generateInitialSuggestions = useCallback(async () => {
     if (!episode?.chiefComplaint) return;
     
     // Generate suggested questions
-    const { question, suggestedDirections } = await generateNextQuestion(
+    const { question } = await generateNextQuestion(
       episode.chiefComplaint,
       [],
       patient
@@ -80,7 +58,28 @@ const AIAssistant = ({
     // Initial analysis
     const analysis = analyzeSymptoms(episode.chiefComplaint, {}, patient);
     setClinicalInsights(analysis);
-  };
+  }, [episode, patient]);
+
+  // Initialize with context-aware greeting
+  useEffect(() => {
+    if (messages.length === 0 && episode) {
+      const greeting = getContextualGreeting();
+      setMessages([{
+        id: Date.now(),
+        type: 'ai',
+        content: greeting,
+        timestamp: new Date()
+      }]);
+      
+      // Generate initial suggestions based on chief complaint
+      generateInitialSuggestions();
+    }
+  }, [episode, messages.length, getContextualGreeting, generateInitialSuggestions]);
+
+  // Auto-scroll to bottom of messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
@@ -163,7 +162,7 @@ const AIAssistant = ({
     
     // Default intelligent response
     return {
-      content: generateIntelligentResponse(message, episode, encounter),
+      content: generateIntelligentResponse(),
       actions: []
     };
   };
@@ -204,7 +203,7 @@ const AIAssistant = ({
     return '• Please provide more specific symptoms for targeted differential diagnosis\n• Consider broad categories: Infectious, Inflammatory, Neoplastic, Vascular, Traumatic';
   };
 
-  const generateIntelligentResponse = (message, episode, encounter) => {
+  const generateIntelligentResponse = () => {
     // Analyze message intent and provide contextual response
     const responses = [
       "Based on the clinical presentation, I suggest considering additional history about onset, duration, and associated symptoms.",

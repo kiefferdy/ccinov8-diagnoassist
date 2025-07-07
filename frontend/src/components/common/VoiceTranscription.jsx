@@ -78,6 +78,7 @@ const VoiceTranscription = ({
         recognitionRef.current.stop();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRecording, onTranscript]);
 
   const startRecording = async () => {

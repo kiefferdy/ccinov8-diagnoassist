@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 
 const NavigationContext = createContext(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useNavigation = () => {
   const context = useContext(NavigationContext);
   if (!context) {

@@ -27,12 +27,6 @@ const PatientHeader = ({ patient }) => {
   
   const age = calculateAge(patient.demographics.dateOfBirth);
   
-  // Calculate BMI if height and weight available
-  const calculateBMI = () => {
-    // This would need to be pulled from recent vitals
-    return null; // Placeholder
-  };
-  
   // Get initials for avatar
   const getInitials = (name) => {
     return name

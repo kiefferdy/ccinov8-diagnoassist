@@ -158,11 +158,12 @@ const ObjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
   // Calculate tab completion
   const calculateTabCompletion = (tabId) => {
     switch (tabId) {
-      case 'vitals':
+      case 'vitals': {
         const vitalFields = Object.values(data.vitals || {}).filter(v => v);
         const examFields = [data.physicalExam?.general, data.physicalExam?.additionalFindings].filter(v => v);
         return vitalFields.length >= 5 && examFields.length >= 1 ? 'complete' : 
                vitalFields.length > 0 || examFields.length > 0 ? 'partial' : 'empty';
+      }
       case 'tests':
         return (data.diagnosticTests?.ordered?.length || 0) > 0 ? 'partial' : 'empty';
       case 'results':
@@ -307,14 +308,26 @@ const ObjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
                     { field: 'weight', label: 'Weight', icon: BarChart3, placeholder: '150 lbs', color: 'purple' },
                     { field: 'height', label: 'Height', icon: TrendingUp, placeholder: '68 inches', color: 'indigo' },
                     { field: 'bmi', label: 'BMI', icon: BarChart3, placeholder: 'Auto-calculated', color: 'green', readonly: true }
-                  ].map(({ field, label, icon: Icon, placeholder, color, readonly }) => {
+                  ].map((item) => {
+                    const { field, label, placeholder, color, readonly } = item;
                     const status = getVitalStatus(field, data.vitals?.[field]);
                     const isAbnormal = status === 'abnormal';
+                    
+                    // Color mapping for icon colors
+                    const colorClasses = {
+                      orange: 'text-orange-600',
+                      red: 'text-red-600',
+                      green: 'text-green-600',
+                      blue: 'text-blue-600',
+                      cyan: 'text-cyan-600',
+                      purple: 'text-purple-600',
+                      indigo: 'text-indigo-600'
+                    };
                     
                     return (
                       <div key={field} className={`bg-gradient-to-br from-${color}-50 to-${color}-100 rounded-xl p-4 border ${isAbnormal ? 'border-red-300' : 'border-gray-200'}`}>
                         <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-                          <Icon className={`w-4 h-4 mr-2 text-${color}-600`} />
+                          <item.icon className={`w-4 h-4 mr-2 ${colorClasses[color] || 'text-gray-600'}`} />
                           {label}
                           {isAbnormal && <AlertTriangle className="w-4 h-4 ml-auto text-red-600" />}
                         </label>
