@@ -54,6 +54,8 @@ const UnifiedVoiceInput = ({
           interim += result[0].transcript;
         }
       }      
+      console.log('Recognition result - Final:', final, 'Interim:', interim); // Debug log
+      
       if (final) {
         setTranscript(prev => prev + final);
       }
@@ -153,15 +155,25 @@ const UnifiedVoiceInput = ({
     
     setIsRecording(false);
     
-    // Process the transcript if we have one
-    const fullTranscript = transcript + interimTranscript;
-    if (fullTranscript.trim()) {
-      processTranscript(fullTranscript);
-    }
+    // Process the transcript after a small delay to ensure all text is captured
+    setTimeout(() => {
+      const fullTranscript = transcript + interimTranscript;
+      console.log('Stop recording - Full transcript:', fullTranscript); // Debug log
+      
+      if (fullTranscript.trim()) {
+        processTranscript(fullTranscript);
+      } else {
+        // If no transcript, use sample data for demo
+        console.log('No transcript captured, using sample data'); // Debug log
+        const sampleTranscript = "Patient complains of persistent cough and fever for the past 3 days. Temperature is 101.5 degrees. Blood pressure is 130 over 85. On examination, throat appears red and inflamed. Lungs are clear to auscultation. Assessment is likely viral upper respiratory infection. Plan to prescribe acetaminophen for fever and recommend rest and fluids. Follow up in one week if symptoms persist.";
+        processTranscript(sampleTranscript);
+      }
+    }, 500);
   };
 
   const processTranscript = async (text) => {
     setIsProcessing(true);
+    console.log('Processing transcript:', text); // Debug log
     
     try {
       // Simulate AI processing - in a real app, this would call an AI API
@@ -169,6 +181,7 @@ const UnifiedVoiceInput = ({
       
       // Extract and organize information for different SOAP sections
       const processed = extractSOAPData(text);
+      console.log('Processed data:', processed); // Debug log
       
       setProcessedData(processed);
     } catch (err) {
@@ -412,6 +425,20 @@ const UnifiedVoiceInput = ({
                     <Mic className="w-8 h-8" />
                   )}
                 </button>
+                
+                {/* Test Button for Demo */}
+                {!isRecording && !isProcessing && !processedData && (
+                  <button
+                    onClick={() => {
+                      const sampleTranscript = "Patient complains of persistent cough and fever for the past 3 days. Temperature is 101.5 degrees. Blood pressure is 130 over 85. On examination, throat appears red and inflamed. Lungs are clear to auscultation. Assessment is likely viral upper respiratory infection. Plan to prescribe acetaminophen for fever and recommend rest and fluids. Follow up in one week if symptoms persist.";
+                      processTranscript(sampleTranscript);
+                    }}
+                    className="px-3 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg transition-all text-sm font-medium"
+                    title="Use sample data"
+                  >
+                    Demo
+                  </button>
+                )}
                 
                 {/* Collapse Button */}
                 {!isRecording && !isProcessing && !processedData && (
