@@ -14,6 +14,7 @@ const LandingPage = () => {
     setSelectedPlan(plan);
     setShowSubscriptionModal(true);
     trackClick('subscribe', plan);
+    console.log(plan)
   };
   
   const handleDemo = () => {

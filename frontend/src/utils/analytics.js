@@ -21,10 +21,11 @@ export const trackVisit = async () => {
 };
 
 export const trackClick = (type, plan = null) =>{
+    let sessionId = Cookies.get('session_id');
 
     const planType = plan ? plan.name :  '';
 
-    axios.post(`${BACKEND}/track-click`, {type, plan})
+    axios.post(`${BACKEND}/track-click`, {type, plan, sessionId})
     .then(() => console.log(`Button Clicked: ${type} ${planType}`))
     .catch(console.error);
 }
