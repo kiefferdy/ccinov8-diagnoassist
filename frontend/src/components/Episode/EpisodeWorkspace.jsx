@@ -51,16 +51,20 @@ const EpisodeWorkspace = () => {
       }
       
       setCurrentEncounter(newEncounter);
-      setEncounters([newEncounter, ...encounters]);
+      setEncounters(prevEncounters => [newEncounter, ...prevEncounters]);
       navigateTo('episode-workspace');
     } catch (error) {
       console.error('Failed to create encounter:', error);
     }
-  }, [episode, patient, createEncounter, episodeId, patientId, setCurrentEncounter, encounters, navigateTo]);
+  }, [episode, patient, createEncounter, episodeId, patientId, setCurrentEncounter, navigateTo]);
 
   // Load data
   useEffect(() => {
-    const loadData = () => {
+    if (!patientId || !episodeId) return;
+    
+    const loadData = async () => {
+      setLoading(true);
+      
       const patientData = getPatientById(patientId);
       const episodeData = getEpisodeById(episodeId);
       
@@ -71,11 +75,10 @@ const EpisodeWorkspace = () => {
         const episodeEncounters = getEpisodeEncounters(episodeId);
         setEncounters(episodeEncounters);
         
-        // If no encounters exist, create the first one
-        if (episodeEncounters.length === 0 && !creatingEncounter) {
+        // If no encounters exist, mark that we need to create one
+        if (episodeEncounters.length === 0) {
           setCreatingEncounter(true);
-          handleCreateEncounter('initial');
-        } else if (episodeEncounters.length > 0 && !currentEncounter) {
+        } else if (episodeEncounters.length > 0) {
           // Set the most recent encounter as current
           setCurrentEncounter(episodeEncounters[0]);
         }
@@ -84,7 +87,16 @@ const EpisodeWorkspace = () => {
     };
     
     loadData();
-  }, [patientId, episodeId, getPatientById, getEpisodeById, getEpisodeEncounters, currentEncounter, setCurrentEncounter, creatingEncounter, handleCreateEncounter]);
+  }, [patientId, episodeId, getPatientById, getEpisodeById, getEpisodeEncounters, setCurrentEncounter]);
+
+  // Create initial encounter when needed
+  useEffect(() => {
+    if (creatingEncounter && episode && patient) {
+      handleCreateEncounter('initial').then(() => {
+        setCreatingEncounter(false);
+      });
+    }
+  }, [creatingEncounter, episode, patient, handleCreateEncounter]);
   const handleSelectEncounter = (encounter) => {
     setCurrentEncounter(encounter);
   };
