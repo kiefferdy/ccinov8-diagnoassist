@@ -1,9 +1,5 @@
 require('dotenv').config();
 
-console.log('SUPABASE_URL:', process.env.SUPABASE_URL);
-console.log('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY);
-
-
 const express = require('express');
 const cors = require('cors');
 const app = express();
@@ -34,9 +30,7 @@ app.post('/track-visit', async (req, res) => {
 
 app.post('/track-click', async (req, res) => {
   const { type, plan, sessionId } = req.body;
-//   const sessionId = req.headers['cookie']?.match(/session_id=([^;]+)/)?.[1];
 
-//   console.log("HELLOOOO" + sessionId);
   const { error } = await supabase
     .from('button_clicks')
     .insert({
@@ -54,4 +48,50 @@ app.post('/track-click', async (req, res) => {
   
   console.log(`[button click] ${type} ${plan?.name || ''}`);
   res.sendStatus(200);
+});
+
+app.get('/stats', async (req, res) => {
+  try {
+    // Count clicks by type and plan
+    const { data: clicks, error: clickError } = await supabase
+      .from('button_clicks')
+      .select('label, plan_type');
+
+    if (clickError) throw clickError;
+
+    res.json({ clicks }); 
+
+    //ANALYTICS:
+     let len = clicks.length;
+    console.log("Total button clicks: " + len);
+
+    let sub = 0, pro = 0, start = 0, enterprise = 0, demo = 0;
+    for(let i =0; i < len; i++){
+        if(clicks[i].label == "subscribe"){
+            sub++; 
+            switch(clicks[i].plan_type){
+                case "Starter":
+                    start++;
+                    break;
+                case "Professional":
+                    pro++;
+                    break;
+                case "Enterprise":
+                    enterprise++;
+                    break;
+            };
+        }else
+            demo++;
+    };
+    
+    console.log("Total subscribe clicks: " + sub);
+    console.log("   Starter: " + start);
+    console.log("   Professional: " + pro);
+    console.log("   Enterprise: " + enterprise);
+    console.log("Total demo clicks: " + demo);
+
+  } catch (error) {
+    console.error('Stats error:', error.message);
+    res.status(500).json({ error: error.message });
+   }
 });
