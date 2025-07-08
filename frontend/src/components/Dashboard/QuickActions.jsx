@@ -1,9 +1,9 @@
 import React from 'react';
 import { 
-  Plus, FolderOpen, Activity, Calendar, 
-  FileText, Stethoscope, Clock, TrendingUp,
-  Zap, ChevronRight, Sparkles, Heart,
-  AlertCircle, BarChart3, Users, Star
+  Plus, FolderOpen, 
+  FileText, Stethoscope, 
+  Zap, ChevronRight, Sparkles,
+  AlertCircle, Users, Star
 } from 'lucide-react';
 
 const QuickActions = ({ onNewEpisode, onViewAllRecords, stats = {} }) => {
@@ -45,38 +45,6 @@ const QuickActions = ({ onNewEpisode, onViewAllRecords, stats = {} }) => {
       color: 'orange',
       bgGradient: 'from-orange-500 to-red-600',
       onClick: () => console.log('Quick note'), // To be implemented
-    }
-  ];
-
-  const statsCards = [
-    {
-      label: 'Active Episodes',
-      value: stats.activeEpisodes || 0,
-      icon: Activity,
-      color: 'emerald',
-      trend: stats.episodeTrend,
-      urgent: stats.urgentEpisodes
-    },
-    {
-      label: 'Last Visit',
-      value: stats.lastVisit || 'N/A',
-      icon: Calendar,
-      color: 'blue',
-      subtext: stats.daysSinceLastVisit ? `${stats.daysSinceLastVisit} days ago` : null
-    },
-    {
-      label: 'Total Visits',
-      value: stats.totalVisits || 0,
-      icon: BarChart3,
-      color: 'purple',
-      trend: stats.visitTrend
-    },
-    {
-      label: 'Health Score',
-      value: stats.healthScore || 'Good',
-      icon: Heart,
-      color: 'red',
-      status: stats.healthStatus
     }
   ];
 
@@ -162,57 +130,7 @@ const QuickActions = ({ onNewEpisode, onViewAllRecords, stats = {} }) => {
         })}
       </div>
       
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {statsCards.map((stat, idx) => {
-          const Icon = stat.icon;
-          return (
-            <div 
-              key={idx}
-              className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className={`p-2 bg-${stat.color}-100 rounded-lg`}>
-                  <Icon className={`w-5 h-5 text-${stat.color}-600`} />
-                </div>
-                {stat.trend && (
-                  <div className={`flex items-center text-sm ${
-                    stat.trend > 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    <TrendingUp className={`w-4 h-4 mr-1 ${
-                      stat.trend < 0 ? 'rotate-180' : ''
-                    }`} />
-                    {Math.abs(stat.trend)}%
-                  </div>
-                )}
-                {stat.status && (
-                  <span className={`
-                    px-2 py-1 rounded-full text-xs font-medium
-                    ${stat.status === 'good' ? 'bg-green-100 text-green-700' :
-                      stat.status === 'warning' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-red-100 text-red-700'}
-                  `}>
-                    {stat.status}
-                  </span>
-                )}
-              </div>
-              
-              <p className="text-xs text-gray-600 mb-1">{stat.label}</p>
-              <p className={`text-2xl font-bold text-gray-900 ${
-                stat.urgent ? 'flex items-center' : ''
-              }`}>
-                {stat.value}
-                {stat.urgent && (
-                  <AlertCircle className="w-5 h-5 ml-2 text-red-500" />
-                )}
-              </p>
-              {stat.subtext && (
-                <p className="text-xs text-gray-500 mt-1">{stat.subtext}</p>
-              )}
-            </div>
-          );
-        })}
-      </div>
+
       
       {/* Quick Insights */}
       {(stats.pendingTasks || stats.criticalAlerts) && (

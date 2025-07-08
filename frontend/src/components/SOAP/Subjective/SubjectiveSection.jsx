@@ -1,35 +1,18 @@
 import React, { useState } from 'react';
 import { 
-  MessageSquare, Mic, History, Clock, AlertCircle, 
+  MessageSquare, History, Clock, AlertCircle, 
   Sparkles, ChevronRight, FileText, User, Calendar,
   Stethoscope, Pill, Heart, Brain, Shield, Info,
   Activity, X, Wind
 } from 'lucide-react';
-import VoiceTranscription from '../../common/VoiceTranscription';
 import AIAssistant from '../../common/AIAssistant';
 
 const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
   const [activeTab, setActiveTab] = useState('hpi');
-  const [showVoiceTranscription, setShowVoiceTranscription] = useState(false);
-  const [transcribingField, setTranscribingField] = useState('');
   const [rosExpanded, setRosExpanded] = useState(false);
   
   const handleFieldUpdate = (field, value) => {
     onUpdate({ [field]: value });
-  };
-  
-  const handleVoiceTranscription = (field) => {
-    setTranscribingField(field);
-    setShowVoiceTranscription(true);
-  };
-  
-  const handleTranscriptionSave = (text) => {
-    if (transcribingField && text) {
-      const currentValue = data[transcribingField] || '';
-      handleFieldUpdate(transcribingField, currentValue + (currentValue ? '\n' : '') + text);
-    }
-    setShowVoiceTranscription(false);
-    setTranscribingField('');
   };
   
   const handleAIInsight = (insight) => {
@@ -173,13 +156,6 @@ const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
                       Describe onset, location, duration, characteristics, aggravating/alleviating factors, radiation, and timing
                     </p>
                   </div>
-                  <button
-                    onClick={() => handleVoiceTranscription('hpi')}
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg"
-                  >
-                    <Mic className="w-4 h-4 mr-2" />
-                    Voice Input
-                  </button>
                 </div>
                 <div className="relative">
                   <textarea
@@ -491,30 +467,6 @@ const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
           )}
         </div>
       </div>
-      
-      {/* Voice Transcription Modal */}
-      {showVoiceTranscription && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900">Voice Transcription</h3>
-                <button
-                  onClick={() => setShowVoiceTranscription(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-              <VoiceTranscription
-                onSave={handleTranscriptionSave}
-                sectionName={transcribingField.toUpperCase()}
-                placeholder={`Start speaking to record ${transcribingField}...`}
-              />
-            </div>
-          </div>
-        </div>
-      )}
       
       {/* AI Assistant */}
       <AIAssistant

@@ -8,6 +8,7 @@ import PlanSection from './Plan/PlanSection';
 import SOAPProgress from './SOAPProgress';
 import CopyForward from '../common/CopyForward';
 import QuickTemplate from '../common/QuickTemplate';
+import UnifiedVoiceInput from './UnifiedVoice/UnifiedVoiceInput';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const SOAPContainer = ({ encounter, episode, patient, onUpdate }) => {
@@ -45,6 +46,37 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate }) => {
         }
       }
     });
+  };
+  
+  const handleUnifiedVoiceUpdate = (processedData) => {
+    // Update all sections at once with the processed voice data
+    const updates = {
+      soap: {
+        ...encounter.soap,
+        subjective: {
+          ...encounter.soap.subjective,
+          ...processedData.subjective,
+          lastUpdated: new Date().toISOString()
+        },
+        objective: {
+          ...encounter.soap.objective,
+          ...processedData.objective,
+          lastUpdated: new Date().toISOString()
+        },
+        assessment: {
+          ...encounter.soap.assessment,
+          ...processedData.assessment,
+          lastUpdated: new Date().toISOString()
+        },
+        plan: {
+          ...encounter.soap.plan,
+          ...processedData.plan,
+          lastUpdated: new Date().toISOString()
+        }
+      }
+    };
+    
+    onUpdate(updates);
   };
   
   const handleCopyForward = (sourceEncounterId, sections) => {
@@ -107,6 +139,16 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate }) => {
   
   return (
     <div className="h-full flex flex-col bg-gray-50">
+      {/* Unified Voice Input */}
+      <div className="px-6 py-4 bg-gray-100 border-b border-gray-200">
+        <div className="max-w-5xl mx-auto">
+          <UnifiedVoiceInput 
+            encounter={encounter}
+            onUpdateSections={handleUnifiedVoiceUpdate}
+          />
+        </div>
+      </div>
+      
       {/* SOAP Navigation Tabs */}
       <div className="bg-white border-b border-gray-200">
         <div className="px-6 py-0">
