@@ -6,7 +6,7 @@ import { EncounterProvider } from './contexts/EncounterContext';
 import { NavigationProvider } from './contexts/NavigationContext';
 
 // Import components
-import Home from './components/Home/Home';
+import DoctorDashboard from './components/Dashboard/DoctorDashboard';
 import PatientList from './components/PatientManagement/PatientList';
 import PatientDashboard from './components/Dashboard/PatientDashboard';
 import EpisodeWorkspace from './components/Episode/EpisodeWorkspace';
@@ -30,10 +30,10 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/landing" element={<LandingPage />} />
-        <Route path="/" element={
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/dashboard" element={
           <AppProviders>
-            <Home />
+            <DoctorDashboard />
           </AppProviders>
         } />
         <Route path="/patients" element={

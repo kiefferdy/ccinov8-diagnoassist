@@ -7,6 +7,7 @@ import PatientHeader from './PatientHeader';
 import EpisodeCard from './EpisodeCard';
 import QuickActions from './QuickActions';
 import NewEpisodeModal from '../Episode/NewEpisodeModal';
+import DashboardLayout from '../Layout/DashboardLayout';
 import './animations.css'; // Import animations
 import { 
   Activity, Archive, Filter, Search, Plus, Calendar, Clock, 
@@ -124,9 +125,10 @@ const PatientDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
-      {/* Animated Background Pattern */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+    <DashboardLayout>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+        {/* Animated Background Pattern */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob" />
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000" />
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-indigo-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000" />
@@ -360,7 +362,8 @@ const PatientDashboard = () => {
           }}
         />
       )}
-    </div>
+      </div>
+    </DashboardLayout>
   );
 };
 

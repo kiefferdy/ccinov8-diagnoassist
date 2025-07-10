@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePatient } from '../../contexts/PatientContext';
 import { useEpisode } from '../../contexts/EpisodeContext';
+import DashboardLayout from '../Layout/DashboardLayout';
 import { 
   Users, 
   Search, 
@@ -11,7 +12,6 @@ import {
   Mail,
   ChevronRight,
   Activity,
-  Home,
   Grid,
   List,
   Filter,
@@ -50,9 +50,6 @@ const PatientList = () => {
     console.log('New patient creation - to be implemented');
   };
   
-  const handleHomeClick = () => {
-    navigate('/');
-  };
   const PatientCard = ({ patient }) => {
     const episodes = getPatientEpisodes(patient.id);
     const activeEpisodes = episodes.filter(e => e.status === 'active');
@@ -147,18 +144,13 @@ const PatientList = () => {
     );
   };
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <DashboardLayout>
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center">
-              <button
-                onClick={handleHomeClick}
-                className="mr-4 p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <Home className="w-5 h-5 text-gray-600" />
-              </button>
+            <div>
               <h1 className="text-3xl font-bold text-gray-900">Patients</h1>
             </div>
             <button
@@ -271,6 +263,7 @@ const PatientList = () => {
         )}
       </div>
     </div>
+    </DashboardLayout>
   );
 };
 

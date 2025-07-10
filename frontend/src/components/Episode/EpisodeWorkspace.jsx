@@ -7,6 +7,7 @@ import { useNavigation } from '../../contexts/NavigationContext';
 import EncounterList from '../Encounter/EncounterList';
 import EncounterWorkspace from '../Encounter/EncounterWorkspace';
 import EpisodeHeader from './EpisodeHeader';
+import DashboardLayout from '../Layout/DashboardLayout';
 import { Activity, Plus, AlertCircle } from 'lucide-react';
 
 const EpisodeWorkspace = () => {
@@ -130,9 +131,10 @@ const EpisodeWorkspace = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Episode Header */}
-      <EpisodeHeader episode={episode} patient={patient} />
+    <DashboardLayout>
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        {/* Episode Header */}
+        <EpisodeHeader episode={episode} patient={patient} />
       
       {/* Main Content */}
       <div className="flex-1 flex">
@@ -209,7 +211,8 @@ const EpisodeWorkspace = () => {
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 };
 
