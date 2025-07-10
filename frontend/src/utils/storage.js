@@ -3,7 +3,10 @@ export const StorageKeys = {
   PATIENTS: 'diagnoassist_patients_v2',
   EPISODES: 'diagnoassist_episodes_v2',
   ENCOUNTERS: 'diagnoassist_encounters_v2',
-  SETTINGS: 'diagnoassist_settings_v2'
+  SETTINGS: 'diagnoassist_settings_v2',
+  APPOINTMENTS: 'diagnoassist_appointments_v2',
+  REPORTS: 'diagnoassist_reports_v2',
+  NOTIFICATIONS: 'diagnoassist_notifications_v2'
 };
 
 // Storage manager for all data operations
@@ -417,4 +420,77 @@ const generateSampleData = () => {
   ];
 
   return { patients, episodes, encounters };
+};
+
+// Add new storage methods for appointments, reports, and notifications
+// Appointment operations
+StorageManager.saveScheduledAppointments = (appointments) => {
+  try {
+    localStorage.setItem(StorageKeys.APPOINTMENTS, JSON.stringify(appointments));
+    return true;
+  } catch (error) {
+    console.error('Error saving appointments:', error);
+    return false;
+  }
+};
+
+StorageManager.getScheduledAppointments = () => {
+  try {
+    const data = localStorage.getItem(StorageKeys.APPOINTMENTS);
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error('Error loading appointments:', error);
+    return [];
+  }
+};
+
+// Report operations
+StorageManager.saveGeneratedReports = (reports) => {
+  try {
+    localStorage.setItem(StorageKeys.REPORTS, JSON.stringify(reports));
+    return true;
+  } catch (error) {
+    console.error('Error saving reports:', error);
+    return false;
+  }
+};
+
+StorageManager.getGeneratedReports = () => {
+  try {
+    const data = localStorage.getItem(StorageKeys.REPORTS);
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error('Error loading reports:', error);
+    return [];
+  }
+};
+
+// Notification operations
+StorageManager.saveNotifications = (notifications) => {
+  try {
+    localStorage.setItem(StorageKeys.NOTIFICATIONS, JSON.stringify(notifications));
+    return true;
+  } catch (error) {
+    console.error('Error saving notifications:', error);
+    return false;
+  }
+};
+
+StorageManager.getNotifications = () => {
+  try {
+    const data = localStorage.getItem(StorageKeys.NOTIFICATIONS);
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error('Error loading notifications:', error);
+    return [];
+  }
+};
+
+StorageManager.markNotificationAsRead = (notificationId) => {
+  const notifications = StorageManager.getNotifications();
+  const updated = notifications.map(notif => 
+    notif.id === notificationId ? { ...notif, read: true } : notif
+  );
+  StorageManager.saveNotifications(updated);
+  return updated;
 };

@@ -9,6 +9,7 @@ import {
 import { usePatient } from '../../contexts/PatientContext';
 import { useEpisode } from '../../contexts/EpisodeContext';
 import { useEncounter } from '../../contexts/EncounterContext';
+import { StorageManager } from '../../utils/storage';
 import DashboardLayout from '../Layout/DashboardLayout';
 import './dashboard-animations.css';
 
@@ -21,6 +22,13 @@ const DoctorDashboard = () => {
   const [timeOfDay, setTimeOfDay] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [selectedTimeFilter, setSelectedTimeFilter] = useState('today');
+  const [appointments, setAppointments] = useState([]);
+  
+  // Load appointments
+  useEffect(() => {
+    const storedAppointments = StorageManager.getScheduledAppointments();
+    setAppointments(storedAppointments);
+  }, []);
   
   // Mock doctor data - in real app would come from auth context
   const doctor = {
@@ -51,6 +59,8 @@ const DoctorDashboard = () => {
   // Calculate stats
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
   
   const todaysEncounters = encounters?.filter(e => 
     new Date(e.date) >= todayStart
@@ -61,6 +71,20 @@ const DoctorDashboard = () => {
   ).length || 0;
   
   const activeEpisodes = episodes?.filter(e => e.status === 'active').length || 0;
+  
+  // Calculate appointment stats
+  const todaysAppointments = appointments.filter(apt => {
+    const aptDate = new Date(apt.date);
+    return aptDate >= todayStart && aptDate <= todayEnd;
+  });
+  
+  const scheduledAppointments = todaysAppointments.filter(apt => 
+    apt.status === 'scheduled' || apt.status === 'confirmed'
+  ).length;
+  
+  const completedAppointments = todaysAppointments.filter(apt => 
+    apt.status === 'completed'
+  ).length;
   
   // Get recent patients (last 5 encounters)
   const recentPatients = (encounters || [])
@@ -134,15 +158,15 @@ const DoctorDashboard = () => {
           <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Patients Today</p>
+                <p className="text-sm font-medium text-gray-600">Appointments Today</p>
                 <div className="flex items-baseline space-x-2 mt-2">
-                  <p className="text-3xl font-bold text-gray-900">{doctor.completedToday}</p>
-                  <p className="text-lg text-gray-500">/ {doctor.patientsToday}</p>
+                  <p className="text-3xl font-bold text-gray-900">{completedAppointments}</p>
+                  <p className="text-lg text-gray-500">/ {todaysAppointments.length}</p>
                 </div>
                 <div className="mt-2 bg-gray-200 rounded-full h-2">
                   <div 
                     className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-500"
-                    style={{ width: `${(doctor.completedToday / doctor.patientsToday) * 100}%` }}
+                    style={{ width: `${todaysAppointments.length > 0 ? (completedAppointments / todaysAppointments.length) * 100 : 0}%` }}
                   />
                 </div>
               </div>
@@ -223,7 +247,9 @@ const DoctorDashboard = () => {
                   <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </button>
                 
-                <button className="w-full p-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all duration-300 flex items-center justify-between group">
+                <button 
+                  onClick={() => navigate('/schedule')}
+                  className="w-full p-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all duration-300 flex items-center justify-between group">
                   <div className="flex items-center space-x-3">
                     <Calendar className="w-5 h-5" />
                     <span className="font-medium">Today's Schedule</span>

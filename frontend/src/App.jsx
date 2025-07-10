@@ -11,6 +11,8 @@ import PatientList from './components/PatientManagement/PatientList';
 import PatientDashboard from './components/Dashboard/PatientDashboard';
 import EpisodeWorkspace from './components/Episode/EpisodeWorkspace';
 import LandingPage from './components/LandingPage/LandingPage';
+import Schedule from './components/Schedule/Schedule';
+import Reports from './components/Reports/Reports';
 
 function AppProviders({ children }) {
   return (
@@ -49,6 +51,16 @@ function App() {
         <Route path="/patient/:patientId/episode/:episodeId" element={
           <AppProviders>
             <EpisodeWorkspace />
+          </AppProviders>
+        } />
+        <Route path="/schedule" element={
+          <AppProviders>
+            <Schedule />
+          </AppProviders>
+        } />
+        <Route path="/reports" element={
+          <AppProviders>
+            <Reports />
           </AppProviders>
         } />
       </Routes>

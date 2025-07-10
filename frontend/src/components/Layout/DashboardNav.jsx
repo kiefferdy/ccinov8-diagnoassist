@@ -4,6 +4,7 @@ import {
   Activity, Users, Calendar, FileText, Settings, 
   LogOut, Home, Stethoscope, Bell
 } from 'lucide-react';
+import NotificationDropdown from '../Notifications/NotificationDropdown';
 
 const DashboardNav = () => {
   const navigate = useNavigate();
@@ -55,10 +56,7 @@ const DashboardNav = () => {
           
           {/* Right Side Actions */}
           <div className="flex items-center space-x-3">
-            <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-            </button>
+            <NotificationDropdown />
             
             <div className="h-8 w-px bg-gray-300" />
             
