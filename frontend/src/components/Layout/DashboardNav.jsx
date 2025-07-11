@@ -60,7 +60,10 @@ const DashboardNav = () => {
             
             <div className="h-8 w-px bg-gray-300" />
             
-            <div className="flex items-center space-x-3">
+            <button
+              onClick={() => navigate('/profile')}
+              className="flex items-center space-x-3 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
               <div className="text-right">
                 <p className="text-sm font-medium text-gray-900">Dr. Sarah Chen</p>
                 <p className="text-xs text-gray-600">Internal Medicine</p>
@@ -68,7 +71,7 @@ const DashboardNav = () => {
               <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold">
                 SC
               </div>
-            </div>
+            </button>
             
             <button
               onClick={() => navigate('/')}

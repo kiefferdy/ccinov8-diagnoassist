@@ -13,6 +13,7 @@ import EpisodeWorkspace from './components/Episode/EpisodeWorkspace';
 import LandingPage from './components/LandingPage/LandingPage';
 import Schedule from './components/Schedule/Schedule';
 import Reports from './components/Reports/Reports';
+import Profile from './components/Profile/Profile';
 
 function AppProviders({ children }) {
   return (
@@ -61,6 +62,11 @@ function App() {
         <Route path="/reports" element={
           <AppProviders>
             <Reports />
+          </AppProviders>
+        } />
+        <Route path="/profile" element={
+          <AppProviders>
+            <Profile />
           </AppProviders>
         } />
       </Routes>

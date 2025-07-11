@@ -4,7 +4,8 @@ import {
   Activity, Users, Clock, ChartBar, ArrowRight, Plus, Calendar,
   Bell, TrendingUp, FileText, AlertCircle, CheckCircle, 
   Stethoscope, Heart, Brain, Sparkles, ChevronRight, Sun,
-  Coffee, Moon, UserCheck, Timer, Target, Award, Filter
+  Coffee, Moon, UserCheck, Timer, Award, Filter,
+  StickyNote, X, Edit2, Trash2, Save
 } from 'lucide-react';
 import { usePatient } from '../../contexts/PatientContext';
 import { useEpisode } from '../../contexts/EpisodeContext';
@@ -21,13 +22,22 @@ const DoctorDashboard = () => {
   
   const [timeOfDay, setTimeOfDay] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [selectedTimeFilter, setSelectedTimeFilter] = useState('today');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState('all');
   const [appointments, setAppointments] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [newNoteText, setNewNoteText] = useState('');
+  const [showAddNote, setShowAddNote] = useState(false);
   
-  // Load appointments
+  // Load appointments and notes
   useEffect(() => {
     const storedAppointments = StorageManager.getScheduledAppointments();
     setAppointments(storedAppointments);
+    
+    // Load notes from localStorage
+    const storedNotes = localStorage.getItem('doctor_notes');
+    if (storedNotes) {
+      setNotes(JSON.parse(storedNotes));
+    }
   }, []);
   
   // Mock doctor data - in real app would come from auth context
@@ -86,16 +96,51 @@ const DoctorDashboard = () => {
     apt.status === 'completed'
   ).length;
   
-  // Get recent patients (last 5 encounters)
+  // Note management functions
+  const addNote = () => {
+    if (newNoteText.trim()) {
+      const newNote = {
+        id: Date.now(),
+        text: newNoteText.trim(),
+        color: ['yellow', 'blue', 'green', 'pink', 'purple'][Math.floor(Math.random() * 5)],
+        createdAt: new Date().toISOString()
+      };
+      const updatedNotes = [...notes, newNote];
+      setNotes(updatedNotes);
+      localStorage.setItem('doctor_notes', JSON.stringify(updatedNotes));
+      setNewNoteText('');
+      setShowAddNote(false);
+    }
+  };
+
+  const deleteNote = (id) => {
+    const updatedNotes = notes.filter(note => note.id !== id);
+    setNotes(updatedNotes);
+    localStorage.setItem('doctor_notes', JSON.stringify(updatedNotes));
+  };
+
+  const updateNote = (id, newText) => {
+    const updatedNotes = notes.map(note => 
+      note.id === id ? { ...note, text: newText } : note
+    );
+    setNotes(updatedNotes);
+    localStorage.setItem('doctor_notes', JSON.stringify(updatedNotes));
+  };
+  
+  // Get recent patients with filtering
   const recentPatients = (encounters || [])
     .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 5)
     .map(encounter => {
       const episode = episodes?.find(e => e.id === encounter.episodeId);
       const patient = patients?.find(p => p.id === (encounter.patientId || episode?.patientId));
       return { encounter, episode, patient };
     })
-    .filter(item => item.patient && item.episode);  
+    .filter(item => {
+      if (!item.patient || !item.episode) return false;
+      if (selectedStatusFilter === 'all') return true;
+      return item.encounter.status === selectedStatusFilter;
+    })
+    .slice(0, 10); // Show up to 10 patients  
   const getGreeting = () => {
     const greetings = {
       morning: { icon: Coffee, text: 'Good morning' },
@@ -110,7 +155,7 @@ const DoctorDashboard = () => {
   
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 animate-fadeIn">
         {/* Animated Background */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob" />
@@ -155,7 +200,7 @@ const DoctorDashboard = () => {
         </div>        
         {/* Today's Overview Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100">
+          <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 dashboard-card">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Appointments Today</p>
@@ -176,7 +221,7 @@ const DoctorDashboard = () => {
             </div>
           </div>
           
-          <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100">
+          <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 dashboard-card">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Pending Documentation</p>
@@ -189,7 +234,7 @@ const DoctorDashboard = () => {
             </div>
           </div>
           
-          <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100">
+          <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 dashboard-card">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Active Episodes</p>
@@ -202,7 +247,7 @@ const DoctorDashboard = () => {
             </div>
           </div>
           
-          <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100">
+          <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 dashboard-card">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Avg. Documentation Time</p>
@@ -216,8 +261,8 @@ const DoctorDashboard = () => {
           </div>
         </div>        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Quick Actions & Schedule */}
-          <div className="lg:col-span-1 space-y-6">
+          {/* Left Column - Quick Actions & Upcoming Appointments */}
+          <div className="lg:col-span-1 space-y-6 flex flex-col">
             {/* Quick Actions */}
             <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
               <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
@@ -259,81 +304,111 @@ const DoctorDashboard = () => {
               </div>
             </div>
             
-            {/* Today's Progress */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-lg p-6 text-white">
+            {/* Upcoming Appointments */}
+            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
               <h3 className="text-lg font-bold mb-4 flex items-center">
-                <Target className="w-5 h-5 mr-2" />
-                Today's Progress
+                <Calendar className="w-5 h-5 mr-2 text-blue-600" />
+                Upcoming Appointments
               </h3>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm">Patients Seen</span>
-                    <span className="text-sm font-bold">{doctor.completedToday}/{doctor.patientsToday}</span>
+              <div className="space-y-3 max-h-64 overflow-y-auto custom-scrollbar-light">
+                {appointments
+                  .filter(apt => {
+                    const aptDate = new Date(apt.date);
+                    const now = new Date();
+                    return aptDate >= now && (apt.status === 'scheduled' || apt.status === 'confirmed');
+                  })
+                  .sort((a, b) => new Date(a.date) - new Date(b.date))
+                  .slice(0, 5)
+                  .map((appointment, index) => {
+                    const patient = patients?.find(p => p.id === appointment.patientId);
+                    if (!patient) return null;
+                    const aptDate = new Date(appointment.date);
+                    const isToday = aptDate.toDateString() === new Date().toDateString();
+                    const isTomorrow = aptDate.toDateString() === new Date(Date.now() + 86400000).toDateString();
+                    
+                    return (
+                      <div 
+                        key={appointment.id}
+                        className="bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-colors cursor-pointer animate-slideInLeft border border-gray-200"
+                        style={{ animationDelay: `${index * 0.1}s` }}
+                        onClick={() => navigate('/schedule')}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <p className="font-medium text-sm text-gray-900">{patient.demographics.name}</p>
+                            <p className="text-xs text-gray-600">
+                              {isToday ? 'Today' : isTomorrow ? 'Tomorrow' : aptDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at {appointment.time}
+                            </p>
+                            <p className="text-xs text-gray-500 capitalize">{appointment.type}</p>
+                          </div>
+                          <div className={`px-2 py-1 rounded-full text-xs whitespace-nowrap ml-2 ${
+                            appointment.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                            'bg-blue-100 text-blue-700'
+                          }`}>
+                            {appointment.status}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                {appointments.filter(apt => {
+                  const aptDate = new Date(apt.date);
+                  const now = new Date();
+                  return aptDate >= now && (apt.status === 'scheduled' || apt.status === 'confirmed');
+                }).length === 0 && (
+                  <div className="text-center py-8">
+                    <Calendar className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm text-gray-500">No upcoming appointments</p>
                   </div>
-                  <div className="bg-white/20 rounded-full h-2">
-                    <div 
-                      className="bg-white h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${(doctor.completedToday / doctor.patientsToday) * 100}%` }}
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm">Documentation</span>
-                    <span className="text-sm font-bold">
-                      {todaysEncounters.length > 0 
-                        ? `${((todaysEncounters.length - pendingDocumentation) / todaysEncounters.length * 100).toFixed(0)}%`
-                        : '100%'
-                      }
-                    </span>
-                  </div>
-                  <div className="bg-white/20 rounded-full h-2">
-                    <div 
-                      className="bg-white h-2 rounded-full transition-all duration-500"
-                      style={{ 
-                        width: todaysEncounters.length > 0 
-                          ? `${((todaysEncounters.length - pendingDocumentation) / todaysEncounters.length * 100)}%`
-                          : '100%'
-                      }}
-                    />
-                  </div>
-                </div>
+                )}
               </div>
-              
-              <div className="mt-6 pt-4 border-t border-white/20">
-                <div className="flex items-center justify-center">
-                  <Award className="w-8 h-8 mr-2" />
-                  <span className="font-bold">Great work today!</span>
-                </div>
-              </div>
+              {appointments.filter(apt => {
+                const aptDate = new Date(apt.date);
+                const now = new Date();
+                return aptDate >= now && (apt.status === 'scheduled' || apt.status === 'confirmed');
+              }).length > 5 && (
+                <button 
+                  onClick={() => navigate('/schedule')}
+                  className="mt-4 w-full text-center text-sm text-blue-600 hover:text-blue-700 transition-colors font-medium"
+                >
+                  View all appointments →
+                </button>
+              )}
             </div>
           </div>          
           {/* Middle & Right Columns - Recent Patients */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
-              <div className="p-6 border-b border-gray-100">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 h-full flex flex-col">
+              <div className="p-6 border-b border-gray-100 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-bold text-gray-900 flex items-center">
-                    <Clock className="w-5 h-5 mr-2 text-blue-600" />
+                    <Users className="w-5 h-5 mr-2 text-blue-600" />
                     Recent Patients
+                    {recentPatients.length > 0 && (
+                      <span className="ml-2 text-sm font-normal text-gray-500">
+                        ({recentPatients.length})
+                      </span>
+                    )}
                   </h2>
                   <select
-                    value={selectedTimeFilter}
-                    onChange={(e) => setSelectedTimeFilter(e.target.value)}
+                    value={selectedStatusFilter}
+                    onChange={(e) => setSelectedStatusFilter(e.target.value)}
                     className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="today">Today</option>
-                    <option value="week">This Week</option>
-                    <option value="month">This Month</option>
+                    <option value="all">All Status</option>
+                    <option value="completed">Completed</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="pending">Pending</option>
+                    <option value="signed">Signed</option>
                   </select>
                 </div>
               </div>
               
-              <div className="divide-y divide-gray-100">
+              <div className="flex-1 overflow-y-auto custom-scrollbar-light" style={{ maxHeight: '420px' }}>
+                <div className="divide-y divide-gray-100">
                 {recentPatients.length > 0 ? (
-                  recentPatients.map(({ patient, episode, encounter }) => (
+                  <>
+                    {recentPatients.map(({ patient, episode, encounter }) => (
                     <div
                       key={encounter.id}
                       className="p-6 hover:bg-gray-50 transition-colors cursor-pointer group"
@@ -379,11 +454,32 @@ const DoctorDashboard = () => {
                         </div>
                       </div>
                     </div>
-                  ))
+                  ))}
+                    {/* Empty space filler when there are few patients */}
+                    {recentPatients.length <= 5 && (
+                      <div className="p-6 text-center border-t border-gray-100">
+                        <div className="text-gray-400 text-sm">
+                          <p className="mb-2">— End of list —</p>
+                          {selectedStatusFilter !== 'all' && (
+                            <button
+                              onClick={() => setSelectedStatusFilter('all')}
+                              className="text-blue-600 hover:text-blue-700 text-xs"
+                            >
+                              Show all status
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className="p-12 text-center">
                     <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500">No patient visits yet today</p>
+                    <p className="text-gray-500">
+                      {selectedStatusFilter === 'all' 
+                        ? 'No patient visits recorded yet' 
+                        : `No patients with "${selectedStatusFilter}" status`}
+                    </p>
                     <button
                       onClick={() => navigate('/patients')}
                       className="mt-4 text-blue-600 hover:text-blue-700 font-medium"
@@ -392,10 +488,11 @@ const DoctorDashboard = () => {
                     </button>
                   </div>
                 )}
+                </div>
               </div>
               
               {recentPatients.length > 0 && (
-                <div className="p-4 border-t border-gray-100">
+                <div className="p-4 border-t border-gray-100 flex-shrink-0">
                   <button
                     onClick={() => navigate('/patients')}
                     className="w-full text-center text-blue-600 hover:text-blue-700 font-medium transition-colors"
@@ -407,46 +504,90 @@ const DoctorDashboard = () => {
             </div>
           </div>
         </div>        
-        {/* Notifications/Alerts Section */}
+        {/* Notes Section */}
         <div className="mt-8">
           <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl shadow-lg p-6 border border-yellow-200">
-            <div className="flex items-start space-x-4">
-              <div className="p-3 bg-yellow-100 rounded-xl">
-                <Bell className="w-6 h-6 text-yellow-700" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-yellow-100 rounded-xl">
+                  <StickyNote className="w-6 h-6 text-yellow-700" />
+                </div>
+                <h3 className="font-bold text-gray-900">Quick Notes</h3>
               </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-gray-900 mb-2">Important Reminders</h3>
-                <div className="space-y-2">
-                  {pendingDocumentation > 0 && (
-                    <div className="flex items-center justify-between p-3 bg-white rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <AlertCircle className="w-5 h-5 text-orange-600" />
-                        <span className="text-sm text-gray-700">
-                          You have {pendingDocumentation} unsigned encounters that need documentation
-                        </span>
-                      </div>
-                      <button 
-                        onClick={() => navigate('/patients')}
-                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                      >
-                        Review
-                      </button>
-                    </div>
-                  )}
-                  
-                  <div className="flex items-center justify-between p-3 bg-white rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Activity className="w-5 h-5 text-blue-600" />
-                      <span className="text-sm text-gray-700">
-                        {activeEpisodes} active episodes require follow-up
-                      </span>
-                    </div>
-                    <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                      View
+              <button
+                onClick={() => setShowAddNote(true)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-all text-sm font-medium"
+              >
+                <Plus className="w-4 h-4" />
+                Add Note
+              </button>
+            </div>
+            
+            {/* Notes Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Add New Note Card */}
+              {showAddNote && (
+                <div className="bg-white rounded-lg shadow-md p-4 border-2 border-dashed border-yellow-300">
+                  <textarea
+                    value={newNoteText}
+                    onChange={(e) => setNewNoteText(e.target.value)}
+                    placeholder="Type your note here..."
+                    className="w-full h-32 p-2 text-sm resize-none border-none outline-none"
+                    autoFocus
+                  />
+                  <div className="flex justify-end gap-2 mt-2">
+                    <button
+                      onClick={() => {
+                        setShowAddNote(false);
+                        setNewNoteText('');
+                      }}
+                      className="px-3 py-1 text-gray-600 hover:text-gray-800 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={addNote}
+                      className="px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
+                    >
+                      Save
                     </button>
                   </div>
                 </div>
-              </div>
+              )}
+              
+              {/* Existing Notes */}
+              {notes.map((note) => (
+                <div
+                  key={note.id}
+                  className={`relative rounded-lg shadow-md p-4 transform hover:rotate-1 transition-all duration-200 sticky-note ${
+                    note.color === 'yellow' ? 'note-yellow' :
+                    note.color === 'blue' ? 'note-blue' :
+                    note.color === 'green' ? 'note-green' :
+                    note.color === 'pink' ? 'note-pink' :
+                    'note-purple'
+                  }`}
+                  style={{ minHeight: '150px' }}
+                >
+                  <button
+                    onClick={() => deleteNote(note.id)}
+                    className="absolute top-2 right-2 p-1 hover:bg-white/50 rounded transition-colors"
+                  >
+                    <X className="w-4 h-4 text-gray-600" />
+                  </button>
+                  <p className="text-sm text-gray-800 pr-6 whitespace-pre-wrap">{note.text}</p>
+                  <p className="text-xs text-gray-500 mt-3">
+                    {new Date(note.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+              ))}
+              
+              {/* Empty State */}
+              {notes.length === 0 && !showAddNote && (
+                <div className="col-span-full text-center py-8 text-gray-500">
+                  <StickyNote className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  <p>No notes yet. Click "Add Note" to create one.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

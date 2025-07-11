@@ -1,0 +1,132 @@
+/* Patient List Animations */
+
+/* Fade in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Stat card hover animation */
+@keyframes statCardFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.stat-card:hover {
+  animation: statCardFloat 1s ease-in-out infinite;
+}
+
+/* Patient card hover effects */
+.patient-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.patient-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Search input focus animation */
+input:focus {
+  animation: inputGlow 0.3s ease-out;
+}
+
+@keyframes inputGlow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+  }
+}
+
+/* Table row hover effect */
+tbody tr {
+  transition: all 0.2s ease;
+}
+
+tbody tr:hover {
+  transform: translateX(4px);
+  box-shadow: -4px 0 0 0 #3b82f6;
+}
+
+/* Badge pulse animation */
+@keyframes badgePulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+.badge-active {
+  animation: badgePulse 2s ease-in-out infinite;
+}
+
+/* Loading skeleton animation */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 25%,
+    #e0e0e0 50%,
+    #f0f0f0 75%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* View mode toggle animation */
+.view-mode-toggle {
+  transition: all 0.3s ease;
+}
+
+/* Stagger animation for grid items */
+.patient-card {
+  opacity: 0;
+  animation: fadeInUp 0.5s ease-out forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Add stagger delay for visual effect */
+.patient-card:nth-child(1) { animation-delay: 0.05s; }
+.patient-card:nth-child(2) { animation-delay: 0.1s; }
+.patient-card:nth-child(3) { animation-delay: 0.15s; }
+.patient-card:nth-child(4) { animation-delay: 0.2s; }
+.patient-card:nth-child(5) { animation-delay: 0.25s; }
+.patient-card:nth-child(6) { animation-delay: 0.3s; }
