@@ -46,7 +46,7 @@ app.post('/track-click', async (req, res) => {
   }
 
   
-  console.log(`[button click] ${type} ${plan?.name || ''}`);
+  // console.log(`[button click] ${type} ${plan?.name || ''}`);
   res.sendStatus(200);
 });
 
@@ -57,13 +57,17 @@ app.get('/stats', async (req, res) => {
       .from('button_clicks')
       .select('label, plan_type');
 
-    if (clickError) throw clickError;
+    const { data: visits, error: visitError } = await supabase
+      .from('sessions')
+      .select('session_id');
 
-    res.json({ clicks }); 
+    //console.log(visits[0]);
+    const uniqueSessions = [...new Set(visits)];
+
+    if (clickError) throw clickError;
 
     //ANALYTICS:
      let len = clicks.length;
-    console.log("Total button clicks: " + len);
 
     let sub = 0, pro = 0, start = 0, enterprise = 0, demo = 0;
     for(let i =0; i < len; i++){
@@ -84,11 +88,28 @@ app.get('/stats', async (req, res) => {
             demo++;
     };
     
-    console.log("Total subscribe clicks: " + sub);
+    console.log("============ ANALYTICS ============")
+    console.log("Total visits: " + uniqueSessions.length);
+
+    console.log("Total button clicks: " + len);
+    console.log(">Total subscribe clicks: " + sub);
     console.log("   Starter: " + start);
     console.log("   Professional: " + pro);
     console.log("   Enterprise: " + enterprise);
-    console.log("Total demo clicks: " + demo);
+    console.log(">Total demo clicks: " + demo);
+    console.log();
+
+    // inside /stats route after you finish counting
+    const analytics = {
+      totalClicks    : clicks.length,
+      totalSubscribe : sub,
+      starterClicks  : start,
+      proClicks      : pro,
+      enterpriseClicks: enterprise,
+      totalDemo      : demo,
+    };
+
+    res.json({ clicks, analytics });
 
   } catch (error) {
     console.error('Stats error:', error.message);

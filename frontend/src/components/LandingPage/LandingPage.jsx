@@ -3,23 +3,28 @@ import { Activity, Check, Star, Users, Zap, Shield, Clock, Brain, ChartBar, Arro
 import SubscriptionModal from './SubscriptionModal';
 import DemoDisclaimer from './DemoDisclaimer';
 import CountdownTimer from './CountdownTimer';
-import { trackVisit, trackClick } from '../../utils/analytics';
+import { trackVisit, trackClick, fetchStats } from '../../utils/analytics';
 
 const LandingPage = () => {
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [showDemoDisclaimer, setShowDemoDisclaimer] = useState(false);
+
+
   
   const handleSubscribe = (plan) => {
     setSelectedPlan(plan);
     setShowSubscriptionModal(true);
     trackClick('subscribe', plan);
-    console.log(plan)
+    console.log(plan);
+    // fetchStats();
+
   };
   
   const handleDemo = () => {
     setShowDemoDisclaimer(true);
     trackClick('demo');
+    // fetchStats();
   };
   
   const plans = [
@@ -163,6 +168,7 @@ const LandingPage = () => {
 
   useEffect(() => {
     trackVisit();
+    // fetchStats();
   }, []);
   
   return (

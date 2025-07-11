@@ -18,15 +18,27 @@ export const trackVisit = async () => {
     })
     .then(() => console.log('Visit tracked'))
     .catch(console.error);
+
+    await fetchStats();
+
+
 };
 
-export const trackClick = (type, plan = null) =>{
+export const trackClick = async (type, plan = null) => {
     let sessionId = Cookies.get('session_id');
 
     const planType = plan ? plan.name :  '';
 
-    axios.post(`${BACKEND}/track-click`, {type, plan, sessionId})
+    await axios.post(`${BACKEND}/track-click`, {type, plan, sessionId})
     .then(() => console.log(`Button Clicked: ${type} ${planType}`))
     .catch(console.error);
+
+    await fetchStats();
+}
+
+export async function fetchStats() {
+  const { data } = await axios.get(`${BACKEND}/stats`);
+  const { analytics } = data;
+  console.table(analytics);
 }
 
