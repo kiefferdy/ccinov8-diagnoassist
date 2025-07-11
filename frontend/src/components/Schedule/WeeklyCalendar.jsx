@@ -274,7 +274,7 @@ const WeeklyCalendar = ({
                         <div
                           key={appointment.id}
                           onClick={() => onAppointmentClick(appointment)}
-                          className={`absolute px-2 py-1.5 rounded-md cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:z-20 ${
+                          className={`absolute px-1.5 py-1 rounded-md cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:z-20 ${
                             getStatusColor(appointment.status)
                           } text-white group animate-slideIn overflow-hidden`}
                           style={{
@@ -284,26 +284,24 @@ const WeeklyCalendar = ({
                           }}
                         >
                           <div className="flex flex-col h-full">
-                            <div className="flex items-center justify-between mb-0.5">
-                              <div className="font-bold text-xs truncate">
-                                {appointment.time}
-                              </div>
-                              {appointment.episodeId && (
-                                <div className="w-2 h-2 bg-white/60 rounded-full flex-shrink-0 ml-1" />
-                              )}
+                            <div className="font-bold text-[10px] leading-tight truncate">
+                              {appointment.time}
                             </div>
-                            <div className="text-[11px] font-semibold truncate">
-                              {appointment.patientName.split(' ').slice(0, 2).join(' ')}
+                            <div className="text-[10px] font-semibold truncate leading-tight">
+                              {appointment.patientName.split(' ')[0]}
                             </div>
-                            {heightValue > 35 && (
-                              <div className="text-[10px] opacity-90 capitalize truncate mt-0.5">
+                            {heightValue > 40 && (
+                              <div className="text-[9px] opacity-90 capitalize truncate leading-tight">
                                 {appointment.type}
                               </div>
                             )}
-                            {heightValue > 70 && appointment.reason && (
-                              <div className="text-[9px] opacity-75 truncate mt-auto">
+                            {heightValue > 60 && appointment.reason && (
+                              <div className="text-[8px] opacity-75 truncate leading-tight mt-auto">
                                 {appointment.reason}
                               </div>
+                            )}
+                            {appointment.episodeId && (
+                              <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-white/60 rounded-full" />
                             )}
                           </div>
                           
@@ -312,9 +310,9 @@ const WeeklyCalendar = ({
                               e.stopPropagation();
                               onAppointmentClick(appointment);
                             }}
-                            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-white/20 rounded"
+                            className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-white/20 rounded"
                           >
-                            <MoreVertical className="w-3 h-3" />
+                            <MoreVertical className="w-2 h-2" />
                           </button>
                         </div>
                       );

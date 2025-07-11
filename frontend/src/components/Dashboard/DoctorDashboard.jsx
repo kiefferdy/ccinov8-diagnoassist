@@ -404,11 +404,10 @@ const DoctorDashboard = () => {
                 </div>
               </div>
               
-              <div className="flex-1 overflow-y-auto custom-scrollbar-light" style={{ maxHeight: '420px' }}>
+              <div className="overflow-y-auto custom-scrollbar-light min-h-0">
                 <div className="divide-y divide-gray-100">
                 {recentPatients.length > 0 ? (
-                  <>
-                    {recentPatients.map(({ patient, episode, encounter }) => (
+                  recentPatients.map(({ patient, episode, encounter }) => (
                     <div
                       key={encounter.id}
                       className="p-6 hover:bg-gray-50 transition-colors cursor-pointer group"
@@ -454,24 +453,7 @@ const DoctorDashboard = () => {
                         </div>
                       </div>
                     </div>
-                  ))}
-                    {/* Empty space filler when there are few patients */}
-                    {recentPatients.length <= 5 && (
-                      <div className="p-6 text-center border-t border-gray-100">
-                        <div className="text-gray-400 text-sm">
-                          <p className="mb-2">— End of list —</p>
-                          {selectedStatusFilter !== 'all' && (
-                            <button
-                              onClick={() => setSelectedStatusFilter('all')}
-                              className="text-blue-600 hover:text-blue-700 text-xs"
-                            >
-                              Show all status
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </>
+                  ))
                 ) : (
                   <div className="p-12 text-center">
                     <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
@@ -491,16 +473,30 @@ const DoctorDashboard = () => {
                 </div>
               </div>
               
-              {recentPatients.length > 0 && (
-                <div className="p-4 border-t border-gray-100 flex-shrink-0">
+              {/* Bottom section outside scroll area */}
+              <div className="flex-1 flex flex-col items-center justify-center p-4 border-t border-gray-100">
+                {recentPatients.length > 0 && recentPatients.length <= 5 && (
+                  <div className="text-gray-400 text-sm mb-3">
+                    — End of list —
+                  </div>
+                )}
+                {recentPatients.length > 0 && (
                   <button
                     onClick={() => navigate('/patients')}
-                    className="w-full text-center text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                    className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
                   >
                     View all patients →
                   </button>
-                </div>
-              )}
+                )}
+                {recentPatients.length <= 5 && selectedStatusFilter !== 'all' && (
+                  <button
+                    onClick={() => setSelectedStatusFilter('all')}
+                    className="text-blue-600 hover:text-blue-700 text-xs mt-2"
+                  >
+                    Show all status
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>        
