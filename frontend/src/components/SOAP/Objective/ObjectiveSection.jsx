@@ -4,11 +4,12 @@ import {
   Calendar, AlertCircle, Heart, Thermometer, Wind, Droplets,
   TrendingUp, TrendingDown, CheckCircle, Clock, Upload,
   Sparkles, BarChart3, Brain, Zap, FileSearch, ChevronRight,
-  Info, AlertTriangle
+  Info, AlertTriangle, Paperclip
 } from 'lucide-react';
 import { generateId } from '../../../utils/storage';
 import VoiceTranscription from '../../common/VoiceTranscription';
 import AIAssistant from '../../common/AIAssistant';
+import FileUploadDropbox from '../../common/FileUploadDropbox';
 
 const ObjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
   const [activeTab, setActiveTab] = useState('vitals');
@@ -17,6 +18,7 @@ const ObjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
   const [transcribingField, setTranscribingField] = useState('');
   const [newTest, setNewTest] = useState({ test: '', urgency: 'routine', notes: '' });
   const [examTemplateOpen, setExamTemplateOpen] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState(data.attachedFiles || []);
   
   const handleVitalsUpdate = (field, value) => {
     onUpdate({
@@ -83,6 +85,18 @@ const ObjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
     }
     setShowVoiceTranscription(false);
     setTranscribingField('');
+  };
+  
+  const handleFilesAdded = (newFiles) => {
+    const updatedFiles = [...attachedFiles, ...newFiles];
+    setAttachedFiles(updatedFiles);
+    onUpdate({ attachedFiles: updatedFiles });
+  };
+  
+  const handleFileRemove = (fileId) => {
+    const updatedFiles = attachedFiles.filter(f => f.id !== fileId);
+    setAttachedFiles(updatedFiles);
+    onUpdate({ attachedFiles: updatedFiles });
   };
   
   const handleAIInsight = (insight) => {
@@ -764,6 +778,30 @@ const ObjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
           </div>
         </div>
       )}
+      
+      {/* File Upload Section */}
+      <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <Paperclip className="w-5 h-5 mr-2 text-gray-600" />
+          Test Results & Images
+          {attachedFiles.length > 0 && (
+            <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+              {attachedFiles.length} file{attachedFiles.length !== 1 ? 's' : ''}
+            </span>
+          )}
+        </h3>
+        <p className="text-sm text-gray-600 mb-4">
+          Upload lab results, imaging studies, ECGs, or other diagnostic test results.
+        </p>
+        <FileUploadDropbox
+          onFilesAdded={handleFilesAdded}
+          existingFiles={attachedFiles}
+          onFileRemove={handleFileRemove}
+          acceptedTypes="image/*,.pdf,.doc,.docx,.txt,.dicom"
+          maxFileSize={50 * 1024 * 1024} // 50MB for medical images
+          maxFiles={20}
+        />
+      </div>
       
       {/* AI Assistant */}
       <AIAssistant

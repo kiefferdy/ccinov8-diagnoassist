@@ -8,9 +8,13 @@ import { useEpisode } from '../../contexts/EpisodeContext';
 
 const EpisodeHeader = ({ episode, patient }) => {
   const navigate = useNavigate();
-  const { resolveEpisode } = useEpisode();
+  const { resolveEpisode, updateEpisode } = useEpisode();
   const [showResolveDialog, setShowResolveDialog] = useState(false);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [showTagsModal, setShowTagsModal] = useState(false);
+  const [newTag, setNewTag] = useState('');
+  const [episodeTags, setEpisodeTags] = useState(episode.tags || []);
   
   const getStatusIcon = () => {
     switch (episode.status) {
@@ -65,6 +69,36 @@ const EpisodeHeader = ({ episode, patient }) => {
     resolveEpisode(episode.id);
     setShowResolveDialog(false);
     navigate(`/patient/${patient.id}`);
+  };
+  
+  const handleArchiveEpisode = () => {
+    updateEpisode(episode.id, { status: 'archived', archivedAt: new Date().toISOString() });
+    setShowArchiveDialog(false);
+    if (window.showNotification) {
+      window.showNotification('Episode archived successfully', 'success');
+    }
+    navigate(`/patient/${patient.id}`);
+  };
+  
+  const handleAddTag = () => {
+    if (newTag.trim() && !episodeTags.includes(newTag.trim())) {
+      const updatedTags = [...episodeTags, newTag.trim()];
+      setEpisodeTags(updatedTags);
+      updateEpisode(episode.id, { tags: updatedTags });
+      setNewTag('');
+      if (window.showNotification) {
+        window.showNotification(`Tag "${newTag.trim()}" added successfully`, 'success');
+      }
+    }
+  };
+  
+  const handleRemoveTag = (tagToRemove) => {
+    const updatedTags = episodeTags.filter(tag => tag !== tagToRemove);
+    setEpisodeTags(updatedTags);
+    updateEpisode(episode.id, { tags: updatedTags });
+    if (window.showNotification) {
+      window.showNotification(`Tag "${tagToRemove}" removed`, 'info');
+    }
   };  
   return (
     <>
@@ -101,11 +135,23 @@ const EpisodeHeader = ({ episode, patient }) => {
                 
                 {showMoreOptions && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-10">
-                    <button className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+                    <button 
+                      onClick={() => {
+                        setShowArchiveDialog(true);
+                        setShowMoreOptions(false);
+                      }}
+                      className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                    >
                       <Archive className="w-4 h-4" />
                       <span>Archive Episode</span>
                     </button>
-                    <button className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+                    <button 
+                      onClick={() => {
+                        setShowTagsModal(true);
+                        setShowMoreOptions(false);
+                      }}
+                      className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                    >
                       <Tag className="w-4 h-4" />
                       <span>Manage Tags</span>
                     </button>
@@ -213,6 +259,153 @@ const EpisodeHeader = ({ episode, patient }) => {
                 <span>Resolve Episode</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Archive Episode Dialog */}
+      {showArchiveDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-fadeIn">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Archive Episode</h3>
+              <button
+                onClick={() => setShowArchiveDialog(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <p className="text-gray-600 mb-6">
+              Archiving this episode will move it to the archived section. You can still view it but won't be able to add new encounters. The episode can be unarchived later if needed.
+            </p>
+            
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+              <div className="flex items-start space-x-3">
+                <Archive className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-amber-900 mb-1">Archive when:</p>
+                  <ul className="text-amber-800 space-y-1">
+                    <li>• Episode is no longer active but not resolved</li>
+                    <li>• Patient moved or transferred care</li>
+                    <li>• Need to declutter active episodes</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowArchiveDialog(false)}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleArchiveEpisode}
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-700 text-white rounded-lg hover:from-amber-700 hover:to-amber-800 transition-all duration-300 flex items-center justify-center space-x-2"
+              >
+                <Archive className="w-5 h-5" />
+                <span>Archive Episode</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Manage Tags Modal */}
+      {showTagsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-fadeIn">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Manage Episode Tags</h3>
+              <button
+                onClick={() => setShowTagsModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <p className="text-gray-600 mb-4">
+              Add tags to help categorize and find this episode easily.
+            </p>
+            
+            {/* Current Tags */}
+            {episodeTags.length > 0 && (
+              <div className="mb-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">Current tags:</p>
+                <div className="flex flex-wrap gap-2">
+                  {episodeTags.map((tag, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
+                    >
+                      #{tag}
+                      <button
+                        onClick={() => handleRemoveTag(tag)}
+                        className="ml-2 hover:text-blue-900"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Add New Tag */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Add new tag:
+              </label>
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
+                  placeholder="Enter tag name"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <button
+                  onClick={handleAddTag}
+                  disabled={!newTag.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+            
+            {/* Suggested Tags */}
+            <div className="mb-6">
+              <p className="text-sm font-medium text-gray-700 mb-2">Suggested tags:</p>
+              <div className="flex flex-wrap gap-2">
+                {['chronic', 'acute', 'follow-up', 'urgent', 'preventive', 'diagnostic'].map(tag => (
+                  !episodeTags.includes(tag) && (
+                    <button
+                      key={tag}
+                      onClick={() => {
+                        setNewTag(tag);
+                        handleAddTag();
+                      }}
+                      className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200 transition-colors"
+                    >
+                      + {tag}
+                    </button>
+                  )
+                ))}
+              </div>
+            </div>
+            
+            <button
+              onClick={() => setShowTagsModal(false)}
+              className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              Done
+            </button>
           </div>
         </div>
       )}

@@ -55,8 +55,14 @@ const EncounterWorkspace = ({ encounter, episode, patient }) => {
     setSaving(true);
     try {
       await saveCurrentEncounter();
+      if (window.showNotification) {
+        window.showNotification('Encounter saved successfully', 'success');
+      }
     } catch (error) {
       console.error('Failed to save encounter:', error);
+      if (window.showNotification) {
+        window.showNotification('Failed to save encounter', 'error');
+      }
     }
     setSaving(false);
   };
@@ -82,53 +88,13 @@ const EncounterWorkspace = ({ encounter, episode, patient }) => {
   const confirmSign = () => {
     signEncounter(encounter.id, patient.demographics.name);
     setShowSignDialog(false);
+    if (window.showNotification) {
+      window.showNotification('Encounter signed successfully', 'success');
+    }
   };
   
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Encounter Documentation
-            </h2>
-            <AutoSaveIndicator 
-              hasUnsavedChanges={hasUnsavedChanges}
-              lastSaved={lastSaved}
-            />
-          </div>
-          
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={handleSave}
-              disabled={!hasUnsavedChanges || saving}
-              className="inline-flex items-center px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <Save className="w-4 h-4 mr-1.5" />
-              {saving ? 'Saving...' : 'Save'}
-            </button>
-            
-            {encounter.status !== 'signed' && (
-              <button
-                onClick={handleSign}
-                className="inline-flex items-center px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                <CheckCircle className="w-4 h-4 mr-1.5" />
-                Sign Encounter
-              </button>
-            )}
-          </div>
-        </div>
-        
-        {encounter.status === 'signed' && (
-          <div className="mt-2 flex items-center text-sm text-green-700 bg-green-50 px-3 py-1 rounded-full w-fit">
-            <CheckCircle className="w-4 h-4 mr-1.5" />
-            Signed by {encounter.signedBy} on {new Date(encounter.signedAt).toLocaleString()}
-          </div>
-        )}
-      </div>
-      
       {/* SOAP Documentation */}
       <div className="flex-1 overflow-hidden">
         <SOAPContainer 
@@ -136,6 +102,11 @@ const EncounterWorkspace = ({ encounter, episode, patient }) => {
           episode={episode}
           patient={patient}
           onUpdate={updateCurrentEncounter}
+          onSave={handleSave}
+          onSign={handleSign}
+          saving={saving}
+          hasUnsavedChanges={hasUnsavedChanges}
+          lastSaved={lastSaved}
         />
       </div>
       

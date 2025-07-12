@@ -57,7 +57,7 @@ const WeeklyCalendar = ({
     const columns = [];
     sorted.forEach(apt => {
       const start = new Date(apt.date).getTime();
-      const end = start + apt.duration * 60 * 1000;
+      // const end = start + apt.duration * 60 * 1000;  // Not used currently
       
       let placed = false;
       for (let i = 0; i < columns.length; i++) {

@@ -4,6 +4,7 @@ import { PatientProvider } from './contexts/PatientContext';
 import { EpisodeProvider } from './contexts/EpisodeContext';
 import { EncounterProvider } from './contexts/EncounterContext';
 import { NavigationProvider } from './contexts/NavigationContext';
+import { NotificationProvider } from './components/common/Notification';
 
 // Import components
 import DoctorDashboard from './components/Dashboard/DoctorDashboard';
@@ -17,15 +18,17 @@ import Profile from './components/Profile/Profile';
 
 function AppProviders({ children }) {
   return (
-    <NavigationProvider>
-      <PatientProvider>
-        <EpisodeProvider>
-          <EncounterProvider>
-            {children}
-          </EncounterProvider>
-        </EpisodeProvider>
-      </PatientProvider>
-    </NavigationProvider>
+    <NotificationProvider>
+      <NavigationProvider>
+        <PatientProvider>
+          <EpisodeProvider>
+            <EncounterProvider>
+              {children}
+            </EncounterProvider>
+          </EpisodeProvider>
+        </PatientProvider>
+      </NavigationProvider>
+    </NotificationProvider>
   );
 }
 

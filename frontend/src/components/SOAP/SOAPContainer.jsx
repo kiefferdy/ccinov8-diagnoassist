@@ -9,14 +9,16 @@ import SOAPProgress from './SOAPProgress';
 import CopyForward from '../common/CopyForward';
 import QuickTemplate from '../common/QuickTemplate';
 import UnifiedVoiceInput from './UnifiedVoice/UnifiedVoiceInput';
+import AutoSaveIndicator from '../common/AutoSaveIndicator';
+import useKeyboardShortcuts from '../../hooks/useKeyboardShortcuts';
 import './animations.css';
 import { 
   ChevronLeft, ChevronRight, MessageSquare, Stethoscope, 
   Brain, FileText, Check, Clock, Sparkles, MoreVertical,
-  Copy, Layout, Zap
+  Copy, Layout, Zap, Save, CheckCircle, Keyboard, X
 } from 'lucide-react';
 
-const SOAPContainer = ({ encounter, episode, patient, onUpdate }) => {
+const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, saving, hasUnsavedChanges, lastSaved }) => {
   const { 
     currentSection, 
     navigateToSection, 
@@ -25,8 +27,9 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate }) => {
   } = useNavigation();
   
   const { getEpisodeEncounters, copyForwardFromEncounter } = useEncounter();
-  const [showMoreOptions, setShowMoreOptions] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   
+  // Define sections array first
   const sections = [
     { 
       id: 'subjective', 
@@ -63,6 +66,77 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate }) => {
   ];
   
   const currentSectionIndex = sections.findIndex(s => s.id === currentSection);
+  
+  // Define navigation functions before using them in keyboard shortcuts
+  const navigateToNextSection = () => {
+    const nextSection = getAdjacentSection('next');
+    if (nextSection) {
+      navigateToSection(nextSection);
+    }
+  };
+  
+  const navigateToPreviousSection = () => {
+    const prevSection = getAdjacentSection('previous');
+    if (prevSection) {
+      navigateToSection(prevSection);
+    }
+  };
+  
+  // Setup keyboard shortcuts
+  useKeyboardShortcuts([
+    {
+      key: 's',
+      ctrl: true,
+      callback: () => {
+        if (onSave && hasUnsavedChanges) {
+          onSave();
+        }
+      },
+      enabled: true
+    },
+    {
+      key: '1',
+      alt: true,
+      callback: () => navigateToSection('subjective'),
+      enabled: true
+    },
+    {
+      key: '2',
+      alt: true,
+      callback: () => navigateToSection('objective'),
+      enabled: true
+    },
+    {
+      key: '3',
+      alt: true,
+      callback: () => navigateToSection('assessment'),
+      enabled: true
+    },
+    {
+      key: '4',
+      alt: true,
+      callback: () => navigateToSection('plan'),
+      enabled: true
+    },
+    {
+      key: 'ArrowLeft',
+      alt: true,
+      callback: navigateToPreviousSection,
+      enabled: currentSectionIndex > 0
+    },
+    {
+      key: 'ArrowRight',
+      alt: true,
+      callback: navigateToNextSection,
+      enabled: currentSectionIndex < sections.length - 1
+    },
+    {
+      key: '?',
+      shift: true,
+      callback: () => setShowShortcuts(!showShortcuts),
+      enabled: true
+    }
+  ]);
   const CurrentComponent = sections[currentSectionIndex]?.component || 
     (currentSection === 'subjective' ? SubjectiveSection :
      currentSection === 'objective' ? ObjectiveSection :
@@ -159,19 +233,6 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate }) => {
     });
   };
   
-  const navigateToNextSection = () => {
-    const nextSection = getAdjacentSection('next');
-    if (nextSection) {
-      navigateToSection(nextSection);
-    }
-  };
-  
-  const navigateToPreviousSection = () => {
-    const prevSection = getAdjacentSection('previous');
-    if (prevSection) {
-      navigateToSection(prevSection);
-    }
-  };
   const getCompletionIcon = (status) => {
     if (status === 'complete') {
       return <Check className="w-3 h-3" />;
@@ -200,9 +261,20 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate }) => {
                   day: 'numeric' 
                 })}
               </p>
+              {encounter.status === 'signed' && (
+                <div className="mt-2 flex items-center text-sm text-green-700 bg-green-50 px-3 py-1 rounded-full w-fit">
+                  <CheckCircle className="w-4 h-4 mr-1.5" />
+                  Signed by {encounter.signedBy} on {new Date(encounter.signedAt).toLocaleString()}
+                </div>
+              )}
             </div>
             
             <div className="flex items-center space-x-3">
+              <AutoSaveIndicator 
+                hasUnsavedChanges={hasUnsavedChanges}
+                lastSaved={lastSaved}
+              />
+              
               {previousEncounters.length > 0 && encounter.status !== 'signed' && (
                 <CopyForward 
                   previousEncounters={previousEncounters}
@@ -217,27 +289,24 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate }) => {
                 />
               )}
               
-              <div className="relative">
+              <button
+                onClick={onSave}
+                disabled={!hasUnsavedChanges || saving}
+                className="inline-flex items-center px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Save className="w-4 h-4 mr-1.5" />
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+              
+              {encounter.status !== 'signed' && (
                 <button
-                  onClick={() => setShowMoreOptions(!showMoreOptions)}
-                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all"
+                  onClick={onSign}
+                  className="inline-flex items-center px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                 >
-                  <MoreVertical className="w-5 h-5" />
+                  <CheckCircle className="w-4 h-4 mr-1.5" />
+                  Sign Encounter
                 </button>
-                
-                {showMoreOptions && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-10">
-                    <button className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
-                      <Copy className="w-4 h-4" />
-                      <span>Copy to clipboard</span>
-                    </button>
-                    <button className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
-                      <Layout className="w-4 h-4" />
-                      <span>Change layout</span>
-                    </button>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           </div>
           
@@ -383,12 +452,64 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate }) => {
         </div>
       </div>
       
-      {/* Click outside to close more options */}
-      {showMoreOptions && (
-        <div 
-          className="fixed inset-0 z-0" 
-          onClick={() => setShowMoreOptions(false)}
-        />
+      {/* Keyboard Shortcuts Help */}
+      <button
+        onClick={() => setShowShortcuts(!showShortcuts)}
+        className="fixed bottom-6 left-6 p-3 bg-gray-800 text-white rounded-full shadow-lg hover:bg-gray-700 transition-all z-40"
+        title="Keyboard Shortcuts (Shift+?)"
+      >
+        <Keyboard className="w-5 h-5" />
+      </button>
+      
+      {showShortcuts && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Keyboard Shortcuts</h3>
+              <button
+                onClick={() => setShowShortcuts(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <span className="text-sm text-gray-700">Save Encounter</span>
+                <kbd className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-mono">Ctrl+S</kbd>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <span className="text-sm text-gray-700">Go to Subjective</span>
+                <kbd className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-mono">Alt+1</kbd>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <span className="text-sm text-gray-700">Go to Objective</span>
+                <kbd className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-mono">Alt+2</kbd>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <span className="text-sm text-gray-700">Go to Assessment</span>
+                <kbd className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-mono">Alt+3</kbd>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <span className="text-sm text-gray-700">Go to Plan</span>
+                <kbd className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-mono">Alt+4</kbd>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <span className="text-sm text-gray-700">Previous Section</span>
+                <kbd className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-mono">Alt+←</kbd>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <span className="text-sm text-gray-700">Next Section</span>
+                <kbd className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-mono">Alt+→</kbd>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-sm text-gray-700">Show/Hide Shortcuts</span>
+                <kbd className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-mono">Shift+?</kbd>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

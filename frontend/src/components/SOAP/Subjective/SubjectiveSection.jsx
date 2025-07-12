@@ -3,16 +3,30 @@ import {
   MessageSquare, History, Clock, AlertCircle, 
   Sparkles, ChevronRight, FileText, User, Calendar,
   Stethoscope, Pill, Heart, Brain, Shield, Info,
-  Activity, X, Wind
+  Activity, X, Wind, Paperclip
 } from 'lucide-react';
 import AIAssistant from '../../common/AIAssistant';
+import FileUploadDropbox from '../../common/FileUploadDropbox';
 
 const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
   const [activeTab, setActiveTab] = useState('hpi');
   const [rosExpanded, setRosExpanded] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState(data.attachedFiles || []);
   
   const handleFieldUpdate = (field, value) => {
     onUpdate({ [field]: value });
+  };
+  
+  const handleFilesAdded = (newFiles) => {
+    const updatedFiles = [...attachedFiles, ...newFiles];
+    setAttachedFiles(updatedFiles);
+    handleFieldUpdate('attachedFiles', updatedFiles);
+  };
+  
+  const handleFileRemove = (fileId) => {
+    const updatedFiles = attachedFiles.filter(f => f.id !== fileId);
+    setAttachedFiles(updatedFiles);
+    handleFieldUpdate('attachedFiles', updatedFiles);
   };
   
   const handleAIInsight = (insight) => {
@@ -46,6 +60,9 @@ const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
     { id: 'ros', label: 'Review of Systems', icon: Clock, color: 'purple' },
     { id: 'history', label: 'History', icon: History, color: 'green' }
   ];
+  
+  // Add file count badge to tabs if files are attached
+  const fileCount = attachedFiles.length;
   
   // Calculate completion status
   const calculateTabCompletion = (tabId) => {
@@ -466,6 +483,30 @@ const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
             </div>
           )}
         </div>
+      </div>
+      
+      {/* File Upload Section */}
+      <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <Paperclip className="w-5 h-5 mr-2 text-gray-600" />
+          Supporting Documents
+          {fileCount > 0 && (
+            <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+              {fileCount} file{fileCount !== 1 ? 's' : ''}
+            </span>
+          )}
+        </h3>
+        <p className="text-sm text-gray-600 mb-4">
+          Upload any relevant documents such as previous medical records, test results, or images that provide additional context.
+        </p>
+        <FileUploadDropbox
+          onFilesAdded={handleFilesAdded}
+          existingFiles={attachedFiles}
+          onFileRemove={handleFileRemove}
+          acceptedTypes="image/*,.pdf,.doc,.docx,.txt"
+          maxFileSize={20 * 1024 * 1024} // 20MB
+          maxFiles={10}
+        />
       </div>
       
       {/* AI Assistant */}

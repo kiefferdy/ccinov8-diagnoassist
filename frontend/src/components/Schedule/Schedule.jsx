@@ -57,6 +57,7 @@ const Schedule = () => {
     } else {
       setAppointments(storedAppointments);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Generate sample appointments
@@ -204,53 +205,53 @@ const Schedule = () => {
   };
 
   // Process appointments to handle overlaps
-  const processAppointmentsForDisplay = (appointments) => {
-    if (!appointments.length) return [];
-    
-    // Sort appointments by start time
-    const sorted = [...appointments].sort((a, b) => 
-      new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
-    
-    const processed = [];
-    const columns = [];
-    
-    sorted.forEach(appointment => {
-      const start = new Date(appointment.date).getTime();
-      const end = start + appointment.duration * 60 * 1000;
-      
-      // Find available column
-      let column = 0;
-      for (let i = 0; i < columns.length; i++) {
-        if (columns[i] <= start) {
-          column = i;
-          break;
-        }
-      }
-      
-      // If no available column, create new one
-      if (column === columns.length || (columns[column] && columns[column] > start)) {
-        columns.push(end);
-        column = columns.length - 1;
-      } else {
-        columns[column] = end;
-      }
-      
-      processed.push({
-        appointment,
-        column,
-        totalColumns: 1 // Will be updated after all appointments are processed
-      });
-    });
-    
-    // Update total columns for each appointment
-    const maxColumns = columns.length;
-    processed.forEach(item => {
-      item.totalColumns = maxColumns;
-    });
-    
-    return processed;
-  };
+  // const processAppointmentsForDisplay = (appointments) => {
+  //   if (!appointments.length) return [];
+  //   
+  //   // Sort appointments by start time
+  //   const sorted = [...appointments].sort((a, b) => 
+  //     new Date(a.date).getTime() - new Date(b.date).getTime()
+  //   );
+  //   
+  //   const processed = [];
+  //   const columns = [];
+  //   
+  //   sorted.forEach(appointment => {
+  //     const start = new Date(appointment.date).getTime();
+  //     const end = start + appointment.duration * 60 * 1000;
+  //     
+  //     // Find available column
+  //     let column = 0;
+  //     for (let i = 0; i < columns.length; i++) {
+  //       if (columns[i] <= start) {
+  //         column = i;
+  //         break;
+  //       }
+  //     }
+  //     
+  //     // If no available column, create new one
+  //     if (column === columns.length || (columns[column] && columns[column] > start)) {
+  //       columns.push(end);
+  //       column = columns.length - 1;
+  //     } else {
+  //       columns[column] = end;
+  //     }
+  //     
+  //     processed.push({
+  //       appointment,
+  //       column,
+  //       totalColumns: 1 // Will be updated after all appointments are processed
+  //     });
+  //   });
+  //   
+  //   // Update total columns for each appointment
+  //   const maxColumns = columns.length;
+  //   processed.forEach(item => {
+  //     item.totalColumns = maxColumns;
+  //   });
+  //   
+  //   return processed;
+  // };
 
   return (
     <DashboardLayout>
@@ -680,7 +681,7 @@ const MonthView = ({ selectedDate, appointments, onDateClick, onAppointmentClick
                   
                   {/* Appointment indicators */}
                   <div className="space-y-1">
-                    {dayAppointments.slice(0, 3).map((apt, idx) => (
+                    {dayAppointments.slice(0, 3).map((apt) => (
                       <div
                         key={apt.id}
                         onClick={(e) => {

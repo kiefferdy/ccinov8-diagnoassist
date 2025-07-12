@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 const UnifiedVoiceInput = ({ 
-  encounter,
+  // encounter,  // Not used currently
   onUpdateSections,
   className = "" 
 }) => {
@@ -82,6 +82,7 @@ const UnifiedVoiceInput = ({
         recognitionRef.current.stop();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRecording]);
 
   // Timer for recording duration

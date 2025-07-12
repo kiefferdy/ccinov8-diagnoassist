@@ -21,8 +21,8 @@ const Reports = () => {
   const [dateRange, setDateRange] = useState('last-30-days');
   const [searchTerm, setSearchTerm] = useState('');
   const [generatedReports, setGeneratedReports] = useState([]);
-  const [showPreview, setShowPreview] = useState(false);
-  const [selectedReport, setSelectedReport] = useState(null);
+  // const [showPreview, setShowPreview] = useState(false);
+  // const [selectedReport, setSelectedReport] = useState(null);
 
   // Report types
   const reportTypes = [
@@ -73,6 +73,7 @@ const Reports = () => {
     } else {
       setGeneratedReports(storedReports);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Generate sample reports
