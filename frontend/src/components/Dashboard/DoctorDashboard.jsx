@@ -72,10 +72,6 @@ const DoctorDashboard = () => {
   const todayEnd = new Date();
   todayEnd.setHours(23, 59, 59, 999);
   
-  // const todaysEncounters = encounters?.filter(e => 
-  //   new Date(e.date) >= todayStart
-  // ) || [];
-  
   const pendingDocumentation = encounters?.filter(e => 
     e.status !== 'signed' && new Date(e.date) >= todayStart
   ).length || 0;
@@ -87,10 +83,6 @@ const DoctorDashboard = () => {
     const aptDate = new Date(apt.date);
     return aptDate >= todayStart && aptDate <= todayEnd;
   });
-  
-  // const scheduledAppointments = todaysAppointments.filter(apt => 
-  //   apt.status === 'scheduled' || apt.status === 'confirmed'
-  // ).length;
   
   const completedAppointments = todaysAppointments.filter(apt => 
     apt.status === 'completed'
@@ -118,14 +110,6 @@ const DoctorDashboard = () => {
     setNotes(updatedNotes);
     localStorage.setItem('doctor_notes', JSON.stringify(updatedNotes));
   };
-
-  // const updateNote = (id, newText) => {
-  //   const updatedNotes = notes.map(note => 
-  //     note.id === id ? { ...note, text: newText } : note
-  //   );
-  //   setNotes(updatedNotes);
-  //   localStorage.setItem('doctor_notes', JSON.stringify(updatedNotes));
-  // };
   
   // Get recent patients with filtering
   const recentPatients = (encounters || [])

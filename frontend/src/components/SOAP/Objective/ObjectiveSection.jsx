@@ -1,21 +1,17 @@
 import React, { useState } from 'react';
 import { 
-  Activity, Stethoscope, FlaskConical, FileText, Mic, Plus, X, 
+  Activity, Stethoscope, FlaskConical, FileText, Plus, X, 
   Calendar, AlertCircle, Heart, Thermometer, Wind, Droplets,
   TrendingUp, TrendingDown, CheckCircle, Clock, Upload,
   Sparkles, BarChart3, Brain, Zap, FileSearch, ChevronRight,
   Info, AlertTriangle, Paperclip
 } from 'lucide-react';
 import { generateId } from '../../../utils/storage';
-import VoiceTranscription from '../../common/VoiceTranscription';
-import AIAssistant from '../../common/AIAssistant';
 import FileUploadDropbox from '../../common/FileUploadDropbox';
 
 const ObjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
   const [activeTab, setActiveTab] = useState('vitals');
   const [showAddTestModal, setShowAddTestModal] = useState(false);
-  const [showVoiceTranscription, setShowVoiceTranscription] = useState(false);
-  const [transcribingField, setTranscribingField] = useState('');
   const [newTest, setNewTest] = useState({ test: '', urgency: 'routine', notes: '' });
   const [examTemplateOpen, setExamTemplateOpen] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState(data.attachedFiles || []);
@@ -72,19 +68,6 @@ const ObjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
         ordered: updatedTests
       }
     });
-  };
-  
-  const handleVoiceTranscription = (field) => {
-    setTranscribingField(field);
-    setShowVoiceTranscription(true);
-  };
-  
-  const handleTranscriptionSave = (text) => {
-    if (transcribingField === 'general' || transcribingField === 'additionalFindings') {
-      handlePhysicalExamUpdate(transcribingField, text);
-    }
-    setShowVoiceTranscription(false);
-    setTranscribingField('');
   };
   
   const handleFilesAdded = (newFiles) => {
@@ -426,18 +409,9 @@ const ObjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
                 
                 <div className="space-y-4">
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-sm font-medium text-gray-700">
-                        General Appearance
-                      </label>
-                      <button
-                        onClick={() => handleVoiceTranscription('general')}
-                        className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
-                      >
-                        <Mic className="w-4 h-4 mr-1" />
-                        Voice Input
-                      </button>
-                    </div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                      General Appearance
+                    </label>
                     <textarea
                       value={data.physicalExam?.general || ''}
                       onChange={(e) => handlePhysicalExamUpdate('general', e.target.value)}
@@ -448,18 +422,9 @@ const ObjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
                   </div>
                   
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-sm font-medium text-gray-700">
-                        System-Specific Findings
-                      </label>
-                      <button
-                        onClick={() => handleVoiceTranscription('additionalFindings')}
-                        className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
-                      >
-                        <Mic className="w-4 h-4 mr-1" />
-                        Voice Input
-                      </button>
-                    </div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                      System-Specific Findings
+                    </label>
                     <textarea
                       value={data.physicalExam?.additionalFindings || ''}
                       onChange={(e) => handlePhysicalExamUpdate('additionalFindings', e.target.value)}
@@ -755,30 +720,6 @@ const ObjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
         </div>
       )}
       
-      {/* Voice Transcription Modal */}
-      {showVoiceTranscription && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900">Voice Input - Physical Exam</h3>
-                <button
-                  onClick={() => setShowVoiceTranscription(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-              <VoiceTranscription
-                onSave={handleTranscriptionSave}
-                sectionName={transcribingField === 'general' ? 'General Appearance' : 'Physical Exam Findings'}
-                placeholder="Start speaking to record examination findings..."
-              />
-            </div>
-          </div>
-        </div>
-      )}
-      
       {/* File Upload Section */}
       <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -802,15 +743,6 @@ const ObjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
           maxFiles={20}
         />
       </div>
-      
-      {/* AI Assistant */}
-      <AIAssistant
-        patient={patient}
-        episode={episode}
-        encounter={encounter}
-        currentSection="objective"
-        onInsightApply={handleAIInsight}
-      />
     </div>
   );
 };

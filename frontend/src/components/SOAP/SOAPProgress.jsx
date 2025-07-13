@@ -1,10 +1,59 @@
 import React from 'react';
 import { useNavigation } from '../../contexts/NavigationContext';
-import { CheckCircle, Circle, Loader } from 'lucide-react';
+import { useEncounter } from '../../contexts/EncounterContext';
+import { CheckCircle, Circle } from 'lucide-react';
 
 const SOAPProgress = () => {
-  const { getOverallProgress, sectionProgress } = useNavigation();
+  const { getOverallProgress, sectionProgress, currentSection } = useNavigation();
+  const { currentEncounter } = useEncounter();
   const progress = getOverallProgress();
+  
+  const getSectionDetails = (sectionId) => {
+    const encounter = currentEncounter?.soap || {};
+    
+    switch (sectionId) {
+      case 'subjective': {
+        const data = encounter.subjective || {};
+        const filled = [
+          data.hpi ? 1 : 0,
+          data.ros && Object.values(data.ros).some(v => v) ? 1 : 0,
+          (data.pmh || data.medications || data.allergies || data.socialHistory || data.familyHistory) ? 1 : 0
+        ].reduce((a, b) => a + b, 0);
+        return { filled, total: 3, subsections: ['HPI', 'Review of Systems', 'History'] };
+      }
+      case 'objective': {
+        const data = encounter.objective || {};
+        const filled = [
+          data.vitals && Object.values(data.vitals).some(v => v) ? 1 : 0,
+          (data.physicalExam?.general || data.physicalExam?.additionalFindings) ? 1 : 0,
+          data.diagnosticTests?.ordered?.length > 0 ? 1 : 0
+        ].reduce((a, b) => a + b, 0);
+        return { filled, total: 3, subsections: ['Vitals', 'Physical Exam', 'Diagnostic Tests'] };
+      }
+      case 'assessment': {
+        const data = encounter.assessment || {};
+        const filled = [
+          data.clinicalImpression ? 1 : 0,
+          data.differentialDiagnosis?.length > 0 ? 1 : 0
+        ].reduce((a, b) => a + b, 0);
+        return { filled, total: 2, subsections: ['Clinical Impression', 'Differential Diagnosis'] };
+      }
+      case 'plan': {
+        const data = encounter.plan || {};
+        const filled = [
+          data.medications?.length > 0 ? 1 : 0,
+          data.procedures?.length > 0 ? 1 : 0,
+          data.referrals?.length > 0 ? 1 : 0,
+          data.followUp?.timeframe ? 1 : 0,
+          data.patientEducation ? 1 : 0,
+          data.activityDiet ? 1 : 0
+        ].reduce((a, b) => a + b, 0);
+        return { filled, total: 6, subsections: ['Medications', 'Procedures', 'Referrals', 'Follow-up', 'Education', 'Activity & Diet'] };
+      }
+      default:
+        return { filled: 0, total: 0, subsections: [] };
+    }
+  };
   
   const sections = [
     { id: 'subjective', label: 'S', name: 'Subjective' },
@@ -21,13 +70,11 @@ const SOAPProgress = () => {
     return 'from-red-500 to-red-600';
   };
   
-  const getSectionIcon = (status) => {
-    if (status === 'complete') {
-      return <CheckCircle className="w-4 h-4 text-green-500" />;
-    } else if (status === 'partial') {
-      return <Loader className="w-4 h-4 text-yellow-500 animate-spin" />;
-    }
-    return <Circle className="w-4 h-4 text-gray-300" />;
+  const getSectionStatus = (sectionId) => {
+    const details = getSectionDetails(sectionId);
+    if (details.filled === 0) return 'empty';
+    if (details.filled === details.total) return 'complete';
+    return 'partial';
   };
   
   return (
@@ -45,27 +92,45 @@ const SOAPProgress = () => {
           
           {/* Section Icons */}
           <div className="flex items-center space-x-3 ml-6">
-            {sections.map((section) => (
-              <div 
-                key={section.id}
-                className="relative group"
-              >
-                <div className="flex items-center justify-center w-10 h-10 bg-white rounded-full shadow-sm border border-gray-200 transition-all duration-300 group-hover:shadow-md">
-                  <span className="text-xs font-bold text-gray-700">{section.label}</span>
-                </div>
-                <div className="absolute -top-1 -right-1">
-                  {getSectionIcon(sectionProgress[section.id])}
-                </div>
-                
-                {/* Tooltip */}
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-                  <div className="bg-gray-900 text-white text-xs rounded-lg px-2 py-1 whitespace-nowrap">
-                    {section.name}: {sectionProgress[section.id] || 'Not started'}
+            {sections.map((section) => {
+              const details = getSectionDetails(section.id);
+              const status = getSectionStatus(section.id);
+              const isActive = currentSection === section.id;
+              
+              return (
+                <div 
+                  key={section.id}
+                  className="relative group"
+                >
+                  <div className={`flex items-center justify-center w-10 h-10 bg-white rounded-full shadow-sm border-2 transition-all duration-300 group-hover:shadow-md ${
+                    isActive ? 'border-blue-500' : 'border-gray-200'
+                  }`}>
+                    <span className="text-xs font-bold text-gray-700">{section.label}</span>
                   </div>
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 -translate-y-1 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                  
+                  {/* Section Counter */}
+                  <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                    status === 'complete' ? 'bg-green-500 text-white' : 
+                    status === 'partial' ? 'bg-yellow-500 text-white' : 
+                    'bg-gray-300 text-gray-600'
+                  }`}>
+                    {status === 'complete' ? '✓' : details.total - details.filled}
+                  </div>
+                  
+                  {/* Tooltip */}
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                    <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap">
+                      <div className="font-semibold">{section.name}</div>
+                      <div>{details.filled}/{details.total} sections completed</div>
+                      {status !== 'complete' && (
+                        <div className="mt-1 text-[11px]">{details.total - details.filled} remaining</div>
+                      )}
+                    </div>
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 -translate-y-1 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
         

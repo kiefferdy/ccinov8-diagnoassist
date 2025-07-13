@@ -7,7 +7,6 @@ import {
   Phone, MapPin, Globe, MessageSquare, Video, User
 } from 'lucide-react';
 import { generateId } from '../../../utils/storage';
-import AIAssistant from '../../common/AIAssistant';
 
 const PlanSection = ({ data, patient, episode, encounter, onUpdate }) => {
   const [activeTab, setActiveTab] = useState('medications');
@@ -1137,15 +1136,6 @@ const PlanSection = ({ data, patient, episode, encounter, onUpdate }) => {
           </div>
         </div>
       )}
-      
-      {/* AI Assistant */}
-      <AIAssistant
-        patient={patient}
-        episode={episode}
-        encounter={encounter}
-        currentSection="plan"
-        onInsightApply={handleAIInsight}
-      />
     </div>
   );
 };

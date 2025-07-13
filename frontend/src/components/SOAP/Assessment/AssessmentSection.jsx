@@ -7,7 +7,6 @@ import {
   Microscope, FileText, Info, Zap
 } from 'lucide-react';
 import { generateId } from '../../../utils/storage';
-import AIAssistant from '../../common/AIAssistant';
 
 const AssessmentSection = ({ data, patient, episode, encounter, onUpdate }) => {
   const [showAddDiagnosis, setShowAddDiagnosis] = useState(false);
@@ -711,15 +710,6 @@ const AssessmentSection = ({ data, patient, episode, encounter, onUpdate }) => {
           </div>
         </div>
       )}
-      
-      {/* AI Assistant */}
-      <AIAssistant
-        patient={patient}
-        episode={episode}
-        encounter={encounter}
-        currentSection="assessment"
-        onInsightApply={handleAIInsight}
-      />
     </div>
   );
 };

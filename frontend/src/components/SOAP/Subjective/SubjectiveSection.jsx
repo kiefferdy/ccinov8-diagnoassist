@@ -3,15 +3,21 @@ import {
   MessageSquare, History, Clock, AlertCircle, 
   Sparkles, ChevronRight, FileText, User, Calendar,
   Stethoscope, Pill, Heart, Brain, Shield, Info,
-  Activity, X, Wind, Paperclip
+  Activity, X, Wind, Paperclip, Copy
 } from 'lucide-react';
-import AIAssistant from '../../common/AIAssistant';
+import { useEncounter } from '../../../contexts/EncounterContext';
 import FileUploadDropbox from '../../common/FileUploadDropbox';
 
 const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
+  const { getEpisodeEncounters } = useEncounter();
   const [activeTab, setActiveTab] = useState('hpi');
   const [rosExpanded, setRosExpanded] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState(data.attachedFiles || []);
+  
+  // Get previous encounters for copy functionality
+  const previousEncounters = episode ? getEpisodeEncounters(episode.id)
+    .filter(e => e.id !== encounter.id && e.status === 'signed')
+    .sort((a, b) => new Date(b.date) - new Date(a.date)) : [];
   
   const handleFieldUpdate = (field, value) => {
     onUpdate({ [field]: value });
@@ -27,6 +33,18 @@ const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
     const updatedFiles = attachedFiles.filter(f => f.id !== fileId);
     setAttachedFiles(updatedFiles);
     handleFieldUpdate('attachedFiles', updatedFiles);
+  };
+  
+  const copyFromPreviousEncounter = (field) => {
+    if (previousEncounters.length > 0) {
+      const previousData = previousEncounters[0].soap.subjective[field];
+      if (previousData) {
+        handleFieldUpdate(field, previousData);
+        if (window.showNotification) {
+          window.showNotification(`Copied ${field} from previous encounter`, 'success');
+        }
+      }
+    }
   };
   
   const handleAIInsight = (insight) => {
@@ -173,6 +191,16 @@ const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
                       Describe onset, location, duration, characteristics, aggravating/alleviating factors, radiation, and timing
                     </p>
                   </div>
+                  {previousEncounters.length > 0 && (
+                    <button
+                      onClick={() => copyFromPreviousEncounter('hpi')}
+                      className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
+                      title="Copy from previous encounter"
+                    >
+                      <Copy className="w-4 h-4 mr-1" />
+                      Copy Previous
+                    </button>
+                  )}
                 </div>
                 <div className="relative">
                   <textarea
@@ -223,12 +251,14 @@ const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
                     Document pertinent positives and negatives for each system
                   </p>
                 </div>
-                <button
-                  onClick={() => setRosExpanded(!rosExpanded)}
-                  className="text-sm text-blue-600 hover:text-blue-700"
-                >
-                  {rosExpanded ? 'Collapse All' : 'Expand All'}
-                </button>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setRosExpanded(!rosExpanded)}
+                    className="text-sm text-blue-600 hover:text-blue-700"
+                  >
+                    {rosExpanded ? 'Collapse All' : 'Expand All'}
+                  </button>
+                </div>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -508,15 +538,6 @@ const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
           maxFiles={10}
         />
       </div>
-      
-      {/* AI Assistant */}
-      <AIAssistant
-        patient={patient}
-        episode={episode}
-        encounter={encounter}
-        currentSection="subjective"
-        onInsightApply={handleAIInsight}
-      />
     </div>
   );
 };

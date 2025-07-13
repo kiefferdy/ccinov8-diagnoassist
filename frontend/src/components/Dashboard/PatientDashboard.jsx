@@ -25,6 +25,7 @@ const PatientDashboard = () => {
   const [episodes, setEpisodes] = useState([]);
   const [showNewEpisodeModal, setShowNewEpisodeModal] = useState(false);
   const [episodeFilter, setEpisodeFilter] = useState('active');
+  const [episodeTypeFilter, setEpisodeTypeFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedTimeRange, setSelectedTimeRange] = useState('all'); // all, month, year
@@ -72,8 +73,12 @@ const PatientDashboard = () => {
   // Filter episodes
   const filteredEpisodes = episodes.filter(episode => {
     // Apply status filter
-    if (episodeFilter === 'active' && episode.status === 'resolved') return false;
+    if (episodeFilter === 'active' && (episode.status === 'resolved' || episode.status === 'archived')) return false;
     if (episodeFilter === 'resolved' && episode.status !== 'resolved') return false;
+    if (episodeFilter === 'archived' && episode.status !== 'archived') return false;
+    
+    // Apply type filter
+    if (episodeTypeFilter !== 'all' && episode.type !== episodeTypeFilter) return false;
     
     // Apply time range filter
     if (selectedTimeRange !== 'all') {
@@ -258,7 +263,21 @@ const PatientDashboard = () => {
               >
                 <option value="active">Active Episodes</option>
                 <option value="resolved">Resolved Episodes</option>
+                <option value="archived">Archived Episodes</option>
                 <option value="all">All Episodes</option>
+              </select>
+              
+              {/* Type Filter */}
+              <select
+                value={episodeTypeFilter}
+                onChange={(e) => setEpisodeTypeFilter(e.target.value)}
+                className="px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              >
+                <option value="all">All Types</option>
+                <option value="acute">Acute</option>
+                <option value="chronic">Chronic</option>
+                <option value="preventive">Preventive</option>
+                <option value="follow-up">Follow-up</option>
               </select>
             </div>
           </div>

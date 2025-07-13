@@ -6,16 +6,15 @@ import ObjectiveSection from './Objective/ObjectiveSection';
 import AssessmentSection from './Assessment/AssessmentSection';
 import PlanSection from './Plan/PlanSection';
 import SOAPProgress from './SOAPProgress';
-import CopyForward from '../common/CopyForward';
-import QuickTemplate from '../common/QuickTemplate';
 import UnifiedVoiceInput from './UnifiedVoice/UnifiedVoiceInput';
 import AutoSaveIndicator from '../common/AutoSaveIndicator';
+import AIAssistant from '../common/AIAssistant';
 import useKeyboardShortcuts from '../../hooks/useKeyboardShortcuts';
 import './animations.css';
 import { 
   ChevronLeft, ChevronRight, MessageSquare, Stethoscope, 
-  Brain, FileText, Check, Clock, Sparkles, MoreVertical,
-  Copy, Layout, Zap, Save, CheckCircle, Keyboard, X
+  Brain, FileText, Check, Clock, Sparkles,
+  Save, CheckCircle, Keyboard, X
 } from 'lucide-react';
 
 const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, saving, hasUnsavedChanges, lastSaved }) => {
@@ -26,7 +25,7 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, 
     sectionProgress 
   } = useNavigation();
   
-  const { getEpisodeEncounters, copyForwardFromEncounter } = useEncounter();
+  const { getEpisodeEncounters } = useEncounter();
   const [showShortcuts, setShowShortcuts] = useState(false);
   
   // Define sections array first
@@ -142,9 +141,6 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, 
      currentSection === 'objective' ? ObjectiveSection :
      currentSection === 'assessment' ? AssessmentSection :
      PlanSection);  
-  // Get previous encounters for copy forward
-  const previousEncounters = getEpisodeEncounters(episode.id)
-    .filter(e => e.id !== encounter.id && e.status === 'signed');
   
   const handleSectionUpdate = (sectionData) => {
     onUpdate({
@@ -188,49 +184,6 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, 
     };
     
     onUpdate(updates);
-  };  
-  const handleCopyForward = (sourceEncounterId, sections) => {
-    copyForwardFromEncounter(sourceEncounterId, sections);
-  };
-  
-  const handleApplyTemplate = (template) => {
-    // Apply template data to current encounter
-    const updates = {};
-    
-    if (template.hpi) {
-      updates.subjective = { ...encounter.soap.subjective, hpi: template.hpi };
-    }
-    if (template.ros) {
-      updates.subjective = { ...updates.subjective || encounter.soap.subjective, ros: template.ros };
-    }
-    if (template.physicalExam) {
-      updates.objective = { 
-        ...encounter.soap.objective,
-        physicalExam: { 
-          ...encounter.soap.objective.physicalExam,
-          ...template.physicalExam 
-        }
-      };
-    }
-    if (template.assessment) {
-      updates.assessment = { 
-        ...encounter.soap.assessment, 
-        clinicalImpression: template.assessment 
-      };
-    }
-    if (template.plan) {
-      updates.plan = { ...encounter.soap.plan, ...template.plan };
-    }
-    
-    // Apply all updates at once
-    Object.keys(updates).forEach(section => {
-      onUpdate({
-        soap: {
-          ...encounter.soap,
-          [section]: updates[section]
-        }
-      });
-    });
   };
   
   const getCompletionIcon = (status) => {
@@ -275,20 +228,6 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, 
                 lastSaved={lastSaved}
               />
               
-              {previousEncounters.length > 0 && encounter.status !== 'signed' && (
-                <CopyForward 
-                  previousEncounters={previousEncounters}
-                  onCopyForward={handleCopyForward}
-                />
-              )}
-              
-              {encounter.status !== 'signed' && (
-                <QuickTemplate 
-                  onApplyTemplate={handleApplyTemplate}
-                  currentChiefComplaint={episode.chiefComplaint}
-                />
-              )}
-              
               <button
                 onClick={onSave}
                 disabled={!hasUnsavedChanges || saving}
@@ -318,7 +257,7 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, 
         </div>        
         {/* Modern SOAP Navigation Tabs */}
         <div className="px-6 pb-0">
-          <nav className="flex space-x-2">
+          <nav className="flex space-x-4 relative">
             {sections.map((section, idx) => {
               const Icon = section.icon;
               const isActive = currentSection === section.id;
@@ -354,11 +293,13 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, 
                   
                   {/* Progress Indicator */}
                   {idx < sections.length - 1 && (
-                    <ChevronRight className={`
-                      absolute -right-3 w-6 h-6 
-                      ${status === 'complete' ? 'text-green-500' : 'text-gray-300'}
-                      ${isActive ? 'animate-pulse' : ''}
-                    `} />
+                    <div className="absolute -right-4 top-1/2 -translate-y-1/2 z-10">
+                      <ChevronRight className={`
+                        w-5 h-5 
+                        ${status === 'complete' ? 'text-green-500' : 'text-gray-400'}
+                        ${isActive ? 'animate-pulse' : ''}
+                      `} />
+                    </div>
                   )}
                   
                   {/* Hover Effect */}
@@ -395,7 +336,7 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, 
       </div>
       
       {/* Modern Navigation Footer */}
-      <div className="bg-white border-t border-gray-200 shadow-lg">
+      <div className="bg-gradient-to-b from-white to-gray-50 border-t border-gray-200 shadow-lg">
         <div className="max-w-5xl mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
             <button
@@ -406,7 +347,7 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, 
                 transition-all duration-300 transform hover:scale-105
                 ${currentSectionIndex === 0
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300 hover:shadow-md'
+                  : 'bg-gradient-to-r from-gray-200 to-gray-300 text-gray-700 hover:from-gray-300 hover:to-gray-400 hover:shadow-md'
                 }
               `}
             >
@@ -419,14 +360,14 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, 
                 <div
                   key={section.id}
                   className={`
-                    w-2 h-2 rounded-full transition-all duration-300
+                    rounded-full transition-all duration-300 shadow-sm
                     ${idx === currentSectionIndex
-                      ? 'w-8 bg-gradient-to-r ' + section.bgGradient
+                      ? 'w-8 h-2 bg-gradient-to-r ' + section.bgGradient
                       : sectionProgress[section.id] === 'complete'
-                      ? 'bg-green-500'
+                      ? 'w-2 h-2 bg-green-500'
                       : sectionProgress[section.id] === 'partial'
-                      ? 'bg-yellow-500'
-                      : 'bg-gray-300'
+                      ? 'w-2 h-2 bg-yellow-500'
+                      : 'w-2 h-2 bg-gray-300'
                     }
                   `}
                 />
@@ -451,6 +392,21 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, 
           </div>
         </div>
       </div>
+      
+      {/* AI Assistant - Persistent across sections */}
+      <AIAssistant
+        patient={patient}
+        episode={episode}
+        encounter={encounter}
+        encounterId={encounter?.id}
+        currentSection={currentSection}
+        onInsightApply={(insight) => {
+          // Handle insights based on current section
+          if (insight.section && insight.section === currentSection) {
+            handleSectionUpdate({ [insight.field || 'content']: insight.content });
+          }
+        }}
+      />
       
       {/* Keyboard Shortcuts Help */}
       <button

@@ -21,8 +21,6 @@ const Reports = () => {
   const [dateRange, setDateRange] = useState('last-30-days');
   const [searchTerm, setSearchTerm] = useState('');
   const [generatedReports, setGeneratedReports] = useState([]);
-  // const [showPreview, setShowPreview] = useState(false);
-  // const [selectedReport, setSelectedReport] = useState(null);
 
   // Report types
   const reportTypes = [
