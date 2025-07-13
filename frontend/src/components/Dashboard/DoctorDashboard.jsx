@@ -362,7 +362,7 @@ const DoctorDashboard = () => {
           </div>          
           {/* Middle & Right Columns - Recent Patients */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 h-full flex flex-col">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 flex flex-col" style={{ height: '697px' }}>
               <div className="p-6 border-b border-gray-100 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-bold text-gray-900 flex items-center">
@@ -388,7 +388,7 @@ const DoctorDashboard = () => {
                 </div>
               </div>
               
-              <div className="overflow-y-auto custom-scrollbar-light min-h-0">
+              <div className="flex-1 overflow-y-auto custom-scrollbar-light">
                 <div className="divide-y divide-gray-100">
                 {recentPatients.length > 0 ? (
                   recentPatients.map(({ patient, episode, encounter }) => (
@@ -458,7 +458,7 @@ const DoctorDashboard = () => {
               </div>
               
               {/* Bottom section outside scroll area */}
-              <div className="flex-1 flex flex-col items-center justify-center p-4 border-t border-gray-100">
+              <div className="flex-shrink-0 flex flex-col items-center justify-center p-4 border-t border-gray-100">
                 {recentPatients.length > 0 && recentPatients.length <= 5 && (
                   <div className="text-gray-400 text-sm mb-3">
                     — End of list —
