@@ -6,7 +6,7 @@ import {
   AlertCircle, Users, Star
 } from 'lucide-react';
 
-const QuickActions = ({ onNewEpisode, onViewAllRecords, stats = {} }) => {
+const QuickActions = ({ onNewEpisode, onViewAllRecords, onContinueCare, onQuickNote, stats = {}, quickNotesCount = 0 }) => {
   const quickActions = [
     {
       id: 'new-episode',
@@ -25,8 +25,8 @@ const QuickActions = ({ onNewEpisode, onViewAllRecords, stats = {} }) => {
       icon: Stethoscope,
       color: 'purple',
       bgGradient: 'from-purple-500 to-pink-600',
-      onClick: () => console.log('Continue care'), // To be implemented
-      badge: stats.activeEpisodes > 0 ? stats.activeEpisodes : null
+      onClick: onContinueCare || (() => console.log('Continue care')),
+      badge: stats.active > 0 ? stats.active : null
     },
     {
       id: 'view-records',
@@ -44,7 +44,8 @@ const QuickActions = ({ onNewEpisode, onViewAllRecords, stats = {} }) => {
       icon: FileText,
       color: 'orange',
       bgGradient: 'from-orange-500 to-red-600',
-      onClick: () => console.log('Quick note'), // To be implemented
+      onClick: onQuickNote || (() => console.log('Quick note')),
+      badge: quickNotesCount > 0 ? quickNotesCount : null
     }
   ];
 

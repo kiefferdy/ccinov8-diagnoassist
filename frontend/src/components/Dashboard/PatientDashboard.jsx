@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { usePatient } from '../../contexts/PatientContext';
 import { useEpisode } from '../../contexts/EpisodeContext';
 import { useEncounter } from '../../contexts/EncounterContext';
@@ -7,6 +7,9 @@ import PatientHeader from './PatientHeader';
 import EpisodeCard from './EpisodeCard';
 import QuickActions from './QuickActions';
 import NewEpisodeModal from '../Episode/NewEpisodeModal';
+import AllRecordsView from '../AllRecords/AllRecordsView';
+import QuickNoteModal from '../QuickNote/QuickNoteModal';
+import QuickNotesView from '../QuickNote/QuickNotesView';
 import DashboardLayout from '../Layout/DashboardLayout';
 import './animations.css'; // Import animations
 import { 
@@ -17,6 +20,7 @@ import {
 
 const PatientDashboard = () => {
   const { patientId } = useParams();
+  const navigate = useNavigate();
   const { getPatientById } = usePatient();
   const { getPatientEpisodes, getEpisodeStats } = useEpisode();
   const { getEpisodeEncounters } = useEncounter();
@@ -24,11 +28,15 @@ const PatientDashboard = () => {
   const [patient, setPatient] = useState(null);
   const [episodes, setEpisodes] = useState([]);
   const [showNewEpisodeModal, setShowNewEpisodeModal] = useState(false);
+  const [showAllRecordsModal, setShowAllRecordsModal] = useState(false);
+  const [showQuickNoteModal, setShowQuickNoteModal] = useState(false);
+  const [showQuickNotesView, setShowQuickNotesView] = useState(false);
   const [episodeFilter, setEpisodeFilter] = useState('active');
   const [episodeTypeFilter, setEpisodeTypeFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedTimeRange, setSelectedTimeRange] = useState('all'); // all, month, year
+  const [quickNotesCount, setQuickNotesCount] = useState(0);
 
   // Load patient and episodes
   useEffect(() => {
@@ -43,6 +51,15 @@ const PatientDashboard = () => {
     };
     loadData();
   }, [patientId, getPatientById, getPatientEpisodes]);
+
+  // Calculate quick notes count
+  useEffect(() => {
+    if (patient) {
+      const allNotes = JSON.parse(localStorage.getItem('quickNotes') || '[]');
+      const patientNotes = allNotes.filter(note => note.patientId === patient.id);
+      setQuickNotesCount(patientNotes.length);
+    }
+  }, [patient]);
 
   if (loading) {
     return (
@@ -125,8 +142,55 @@ const PatientDashboard = () => {
   };
 
   const handleViewAllRecords = () => {
-    setEpisodeFilter('all');
-    setSelectedTimeRange('all');
+    setShowAllRecordsModal(true);
+  };
+
+  const handleContinueCare = () => {
+    // Find the most recent active episode
+    const activeEpisodes = episodes.filter(ep => ep.status === 'active');
+    if (activeEpisodes.length > 0) {
+      // Sort by most recent activity
+      const mostRecentEpisode = activeEpisodes.sort((a, b) => {
+        const aEncounters = getEpisodeEncounters(a.id);
+        const bEncounters = getEpisodeEncounters(b.id);
+        const aLastDate = aEncounters.length > 0 
+          ? new Date(aEncounters[aEncounters.length - 1].date)
+          : new Date(a.createdAt);
+        const bLastDate = bEncounters.length > 0
+          ? new Date(bEncounters[bEncounters.length - 1].date)
+          : new Date(b.createdAt);
+        return bLastDate - aLastDate;
+      })[0];
+      
+      // Navigate to episode workspace
+      navigate(`/patient/${patientId}/episode/${mostRecentEpisode.id}`);
+    } else {
+      // No active episodes, show new episode modal
+      setShowNewEpisodeModal(true);
+    }
+  };
+
+  const handleQuickNote = () => {
+    setShowQuickNoteModal(true);
+  };
+
+  const handleSaveQuickNote = (note) => {
+    // Save to localStorage
+    const existingNotes = JSON.parse(localStorage.getItem('quickNotes') || '[]');
+    const updatedNotes = [...existingNotes, note];
+    localStorage.setItem('quickNotes', JSON.stringify(updatedNotes));
+    
+    // Update count
+    const patientNotes = updatedNotes.filter(n => n.patientId === patient.id);
+    setQuickNotesCount(patientNotes.length);
+    
+    // Show success message
+    if (window.showNotification) {
+      window.showNotification('Quick note saved successfully', 'success');
+    }
+    
+    // In a real app, this would also save to the backend
+    console.log('Quick note saved:', note);
   };
 
   return (
@@ -215,6 +279,10 @@ const PatientDashboard = () => {
           <QuickActions 
             onNewEpisode={handleNewEpisode}
             onViewAllRecords={handleViewAllRecords}
+            onContinueCare={handleContinueCare}
+            onQuickNote={handleQuickNote}
+            stats={stats}
+            quickNotesCount={quickNotesCount}
           />
         </div>
 
@@ -366,6 +434,28 @@ const PatientDashboard = () => {
             </div>
           </div>
         )}
+
+        {/* Quick Notes Section */}
+        {quickNotesCount > 0 && (
+          <div className="mt-8 bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <FileText className="w-5 h-5 mr-2 text-orange-600" />
+                Quick Notes
+              </h3>
+              <button
+                onClick={() => setShowQuickNotesView(true)}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center"
+              >
+                View All ({quickNotesCount})
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600">
+              {quickNotesCount} clinical note{quickNotesCount !== 1 ? 's' : ''} recorded for this patient
+            </p>
+          </div>
+        )}
       </div>
 
       {/* New Episode Modal */}
@@ -379,6 +469,31 @@ const PatientDashboard = () => {
             const updatedEpisodes = getPatientEpisodes(patientId, true);
             setEpisodes(updatedEpisodes);
           }}
+        />
+      )}
+      
+      {/* All Records Modal */}
+      {showAllRecordsModal && (
+        <AllRecordsView
+          patient={patient}
+          onClose={() => setShowAllRecordsModal(false)}
+        />
+      )}
+      
+      {/* Quick Note Modal */}
+      {showQuickNoteModal && (
+        <QuickNoteModal
+          patient={patient}
+          onClose={() => setShowQuickNoteModal(false)}
+          onSave={handleSaveQuickNote}
+        />
+      )}
+      
+      {/* Quick Notes View */}
+      {showQuickNotesView && (
+        <QuickNotesView
+          patient={patient}
+          onClose={() => setShowQuickNotesView(false)}
         />
       )}
       </div>
