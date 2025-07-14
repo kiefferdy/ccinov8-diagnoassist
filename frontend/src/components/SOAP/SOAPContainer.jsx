@@ -268,10 +268,11 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, 
                   key={section.id}
                   onClick={() => navigateToSection(section.id)}
                   className={`
-                    relative group flex items-center px-4 py-3 rounded-t-xl transition-all duration-300
+                    relative group flex items-center px-4 rounded-t-xl transition-all duration-300
                     ${isActive
-                      ? 'bg-gradient-to-r ' + section.bgGradient + ' text-white shadow-lg transform -translate-y-1'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800'
+                      ? 'py-3 bg-gradient-to-r ' + section.bgGradient +
+                        ' text-white shadow-lg transform -translate-y-1 -mb-1'
+                      : 'py-3 bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800'
                     }
                   `}
                 >
