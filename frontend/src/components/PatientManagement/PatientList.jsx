@@ -1,433 +1,359 @@
 import React, { useState } from 'react';
-import { useAppData } from '../../contexts/AppDataContext';
+import { useNavigate } from 'react-router-dom';
 import { usePatient } from '../../contexts/PatientContext';
+import { useEpisode } from '../../contexts/EpisodeContext';
+import DashboardLayout from '../Layout/DashboardLayout';
+import NewPatientModal from './NewPatientModal';
 import { 
-  Users, 
-  Search, 
-  Plus, 
-  Calendar,
-  Phone,
-  Mail,
-  ChevronRight,
-  FileText,
-  AlertCircle,
-  Clock,
-  Activity,
-  Home,
-  Eye
+  Users, Search, Plus, Calendar, Phone, Mail,
+  ChevronRight, Activity, Grid, List, Filter,
+  User, AlertCircle, Heart, Stethoscope, Clock,
+  FileText, TrendingUp, CheckCircle
 } from 'lucide-react';
+import './patient-animations.css';
 
 const PatientList = () => {
-  const { patients, getPatientRecords, getPatientSessions } = useAppData();
-  const { setCurrentStep } = usePatient();
+  const navigate = useNavigate();
+  const { patients, searchPatients, calculateAge } = usePatient();
+  const { getPatientEpisodes, getActiveEpisodeCount } = useEpisode();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [filterOption, setFilterOption] = useState('all'); // 'all', 'active', 'recent'
+  const [showNewPatientModal, setShowNewPatientModal] = useState(false);
   
-  // Filter patients based on search
-  const filteredPatients = patients.filter(patient => 
-    patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    patient.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    patient.phone.includes(searchTerm)
-  );
+  // Filter patients
+  const filteredPatients = searchTerm 
+    ? searchPatients(searchTerm)
+    : patients;
+  
+  // Apply additional filters
+  const displayPatients = filteredPatients.filter(patient => {
+    if (filterOption === 'active') {
+      return getActiveEpisodeCount(patient.id) > 0;
+    }
+    return true;
+  });
+  
+  const handlePatientSelect = (patient) => {
+    navigate(`/patient/${patient.id}`);
+  };
   
   const handleNewPatient = () => {
-    setCurrentStep('patient-selection');
+    setShowNewPatientModal(true);
   };
-  
-  const handleHome = () => {
-    setCurrentStep('home');
+
+  // Calculate statistics
+  const stats = {
+    totalPatients: patients.length,
+    activePatients: patients.filter(p => getActiveEpisodeCount(p.id) > 0).length,
+    newThisMonth: patients.filter(p => {
+      const createdDate = new Date(p.createdAt || Date.now());
+      const monthAgo = new Date();
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+      return createdDate > monthAgo;
+    }).length,
+    withAllergies: patients.filter(p => p.medicalBackground?.allergies?.length > 0).length
   };
-  
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-  
-  const formatDateTime = (dateString) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-  
-  const calculateAge = (dob) => {
-    const today = new Date();
-    const birthDate = new Date(dob);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
-  
-  return (
-    <div className="max-w-7xl mx-auto p-8">
-      {/* Header with Home Button */}
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Patient Management</h1>
-          <p className="text-gray-600">View and manage patient records and diagnostic sessions</p>
-        </div>
-        <button
-          onClick={handleHome}
-          className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <Home className="w-5 h-5 mr-2" />
-          Back to Home
-        </button>
-      </div>
-      
-      {/* Search and Actions */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex-1 max-w-lg">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search patients by name, ID, or phone..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+  const PatientCard = ({ patient }) => {
+    const episodes = getPatientEpisodes(patient.id);
+    const activeEpisodes = episodes.filter(e => e.status === 'active');
+    const age = calculateAge(patient.demographics.dateOfBirth);
+    
+    return (
+      <div 
+        className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-105 patient-card"
+        onClick={() => handlePatientSelect(patient)}
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-md">
+              <User className="w-6 h-6 text-white" />
+            </div>
+            <div className="ml-4">
+              <h3 className="text-lg font-semibold text-gray-900">{patient.demographics.name}</h3>
+              <p className="text-sm text-gray-500">ID: {patient.id} • {age} years • {patient.demographics.gender}</p>
             </div>
           </div>
-          <button
-            onClick={handleNewPatient}
-            className="ml-4 flex items-center px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            New Patient
-          </button>
+          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:translate-x-1 transition-transform" />
         </div>
-      </div>
-      
-      {/* Patients List */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                <Users className="w-5 h-5 mr-2 text-blue-600" />
-                Patients ({filteredPatients.length})
-              </h2>
-            </div>
-            
-            <div className="divide-y divide-gray-200">
-              {filteredPatients.length === 0 ? (
-                <div className="p-12 text-center">
-                  <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">No patients found</p>
-                </div>
-              ) : (
-                filteredPatients.map(patient => {
-                  const records = getPatientRecords(patient.id);
-                  const sessions = getPatientSessions(patient.id);
-                  const isSelected = selectedPatient?.id === patient.id;
-                  
-                  return (
-                    <div
-                      key={patient.id}
-                      onClick={() => setSelectedPatient(patient)}
-                      className={`p-6 cursor-pointer transition-all ${
-                        isSelected ? 'bg-blue-50 border-l-4 border-blue-600' : 'hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center mb-2">
-                            <h3 className="text-lg font-medium text-gray-900">{patient.name}</h3>
-                            <span className="ml-2 px-2 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded">
-                              {patient.id}
-                            </span>
-                            {sessions.length > 0 && (
-                              <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-medium rounded flex items-center">
-                                <Clock className="w-3 h-3 mr-1" />
-                                {sessions.length} Incomplete
-                              </span>
-                            )}
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mb-2">
-                            <span>{calculateAge(patient.dateOfBirth)} years • {patient.gender}</span>
-                            <span className="flex items-center">
-                              <Calendar className="w-4 h-4 mr-1" />
-                              Last visit: {formatDate(patient.lastVisit)}
-                            </span>
-                          </div>
-                          
-                          <div className="flex items-center space-x-4 text-sm text-gray-500">
-                            <span className="flex items-center">
-                              <Phone className="w-4 h-4 mr-1" />
-                              {patient.phone}
-                            </span>
-                            <span className="flex items-center">
-                              <Mail className="w-4 h-4 mr-1" />
-                              {patient.email}
-                            </span>
-                          </div>
-                          
-                          <div className="mt-3 flex items-center text-sm">
-                            <FileText className="w-4 h-4 mr-1 text-gray-400" />
-                            <span className="text-gray-600">{records.length} medical records</span>
-                          </div>
-                        </div>
-                        
-                        <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${
-                          isSelected ? 'transform rotate-90' : ''
-                        }`} />
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+        
+        <div className="space-y-2 text-sm">
+          <div className="flex items-center text-gray-600">
+            <Phone className="w-4 h-4 mr-2 text-gray-400" />
+            {patient.demographics.phone}
+          </div>
+          <div className="flex items-center text-gray-600">
+            <Mail className="w-4 h-4 mr-2 text-gray-400" />
+            {patient.demographics.email}
           </div>
         </div>
         
-        {/* Patient Details Panel */}
-        <div className="lg:col-span-1">
-          {selectedPatient ? (
-            <PatientDetails patient={selectedPatient} />
-          ) : (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="text-center py-12">
-                <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">Select a patient to view details</p>
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Activity className="w-4 h-4 text-blue-500 mr-2" />
+              <span className="text-sm font-medium text-gray-700">
+                {activeEpisodes.length} active episode{activeEpisodes.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            {patient.medicalBackground?.allergies?.length > 0 && (
+              <div className="flex items-center bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
+                <AlertCircle className="w-3 h-3 mr-1" />
+                <span className="text-xs font-medium">Allergies</span>
+              </div>
+            )}
+          </div>
+          
+          {activeEpisodes.length > 0 && (
+            <div className="mt-3">
+              <div className="text-xs text-gray-500 mb-1">Current Episode:</div>
+              <div className="text-sm text-gray-700 font-medium truncate">
+                {activeEpisodes[0].chiefComplaint}
               </div>
             </div>
           )}
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
-const PatientDetails = ({ patient }) => {
-  const { getPatientRecords, getPatientSessions } = useAppData();
-  const { setCurrentStep, setPatientData, setSessionId } = usePatient();
-  const records = getPatientRecords(patient.id);
-  const sessions = getPatientSessions(patient.id);
-  
-  const calculateAge = (dob) => {
-    const today = new Date();
-    const birthDate = new Date(dob);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
-  
-  const handleNewSession = () => {
-    // Pre-fill patient data from latest record
-    const latestRecord = records[0]; // Already sorted by date
+  const PatientRow = ({ patient }) => {
+    const episodes = getPatientEpisodes(patient.id);
+    const activeEpisodes = episodes.filter(e => e.status === 'active');
+    const age = calculateAge(patient.demographics.dateOfBirth);
     
-    setPatientData({
-      id: patient.id,
-      name: patient.name,
-      age: calculateAge(patient.dateOfBirth),
-      gender: patient.gender,
-      dateOfBirth: patient.dateOfBirth,
-      chiefComplaint: '',
-      chiefComplaintDetails: [],
-      additionalClinicalNotes: '',
-      medicalHistory: latestRecord?.medicalHistory || [],
-      medications: latestRecord?.medications || [],
-      allergies: latestRecord?.allergies || [],
-      relatedDocuments: [],
-      assessmentDocuments: [],
-      physicalExam: {
-        bloodPressure: '',
-        heartRate: '',
-        temperature: '',
-        respiratoryRate: '',
-        oxygenSaturation: '',
-        height: '',
-        weight: '',
-        bmi: '',
-        additionalFindings: '',
-        examDocuments: []
-      },
-      differentialDiagnoses: [],
-      selectedDiagnosis: null,
-      finalDiagnosis: '',
-      diagnosticNotes: '',
-      recommendedTests: [],
-      selectedTests: [],
-      testResults: {},
-      treatmentPlan: '',
-      prescriptions: []
-    });
-    
-    setCurrentStep('clinical-assessment');
+    return (
+      <tr 
+        className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 cursor-pointer transition-all duration-200"
+        onClick={() => handlePatientSelect(patient)}
+      >
+        <td className="px-6 py-4 whitespace-nowrap">
+          <div className="flex items-center">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-md">
+              <User className="w-5 h-5 text-white" />
+            </div>
+            <div className="ml-4">
+              <div className="text-sm font-medium text-gray-900">{patient.demographics.name}</div>
+              <div className="text-sm text-gray-500">ID: {patient.id}</div>
+            </div>
+          </div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+          {age} years / {patient.demographics.gender}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+          {patient.demographics.phone}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+          {patient.demographics.email}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+          {activeEpisodes.length > 0 ? (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+              {activeEpisodes.length} active
+            </span>
+          ) : (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+              No active
+            </span>
+          )}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+          {patient.medicalBackground?.allergies?.length > 0 && (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+              <AlertCircle className="w-3 h-3 mr-1" />
+              Allergies
+            </span>
+          )}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+          <ChevronRight className="w-5 h-5 text-gray-400 ml-auto" />
+        </td>
+      </tr>
+    );
   };
-  
-  const handleViewDetails = () => {
-    // Store the patient ID we're viewing
-    setPatientData(prev => ({ ...prev, viewingPatientId: patient.id }));
-    setCurrentStep('patient-detail');
-  };
-  
-  const handleResumeSession = (session) => {
-    // Load session data
-    setPatientData(session.data);
-    setSessionId(session.id);
-    setCurrentStep(session.lastStep);
-  };
-  
-  const formatDateTime = (dateString) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-  
+
   return (
-    <div className="space-y-6">
-      {/* Patient Info Card */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Patient Information</h3>
-        
-        <div className="space-y-3">
-          <div>
-            <label className="text-sm text-gray-500">Full Name</label>
-            <p className="font-medium text-gray-900">{patient.name}</p>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm text-gray-500">Date of Birth</label>
-              <p className="font-medium text-gray-900">{new Date(patient.dateOfBirth).toLocaleDateString()}</p>
-            </div>
-            <div>
-              <label className="text-sm text-gray-500">Gender</label>
-              <p className="font-medium text-gray-900">{patient.gender}</p>
+    <DashboardLayout>
+      <div className="min-h-screen bg-gray-50 animate-fadeIn">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">Patient Management</h1>
+                <p className="text-gray-600">Manage and view all clinic patients</p>
+              </div>
+              <button
+                onClick={handleNewPatient}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-lg flex items-center hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                <span className="font-medium">New Patient</span>
+              </button>
             </div>
           </div>
-          
-          <div>
-            <label className="text-sm text-gray-500">Phone</label>
-            <p className="font-medium text-gray-900">{patient.phone}</p>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-sm border border-blue-200 p-6 transition-all hover:shadow-md stat-card">
+              <div className="flex items-center justify-between mb-2">
+                <Users className="w-10 h-10 text-blue-600" />
+                <span className="text-3xl font-bold text-gray-900">{stats.totalPatients}</span>
+              </div>
+              <p className="text-sm font-medium text-gray-700">Total Patients</p>
+              <p className="text-xs text-gray-600 mt-1">Registered in system</p>
+            </div>
+            
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl shadow-sm border border-green-200 p-6 transition-all hover:shadow-md stat-card">
+              <div className="flex items-center justify-between mb-2">
+                <Activity className="w-10 h-10 text-green-600" />
+                <span className="text-3xl font-bold text-gray-900">{stats.activePatients}</span>
+              </div>
+              <p className="text-sm font-medium text-gray-700">Active Patients</p>
+              <p className="text-xs text-gray-600 mt-1">With ongoing episodes</p>
+            </div>
+            
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl shadow-sm border border-purple-200 p-6 transition-all hover:shadow-md stat-card">
+              <div className="flex items-center justify-between mb-2">
+                <TrendingUp className="w-10 h-10 text-purple-600" />
+                <span className="text-3xl font-bold text-gray-900">{stats.newThisMonth}</span>
+              </div>
+              <p className="text-sm font-medium text-gray-700">New This Month</p>
+              <p className="text-xs text-gray-600 mt-1">Recently registered</p>
+            </div>
+            
+            <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl shadow-sm border border-orange-200 p-6 transition-all hover:shadow-md stat-card">
+              <div className="flex items-center justify-between mb-2">
+                <AlertCircle className="w-10 h-10 text-orange-600" />
+                <span className="text-3xl font-bold text-gray-900">{stats.withAllergies}</span>
+              </div>
+              <p className="text-sm font-medium text-gray-700">With Allergies</p>
+              <p className="text-xs text-gray-600 mt-1">Require special attention</p>
+            </div>
           </div>
           
-          <div>
-            <label className="text-sm text-gray-500">Email</label>
-            <p className="font-medium text-gray-900">{patient.email}</p>
-          </div>
-          
-          <div>
-            <label className="text-sm text-gray-500">Address</label>
-            <p className="font-medium text-gray-900">{patient.address}</p>
-          </div>
-          
-          <div>
-            <label className="text-sm text-gray-500">Emergency Contact</label>
-            <p className="font-medium text-gray-900">{patient.emergencyContact}</p>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-3 mt-6">
-          <button
-            onClick={handleViewDetails}
-            className="flex items-center justify-center px-4 py-2 border border-blue-600 text-blue-600 font-medium rounded-lg hover:bg-blue-50 transition-colors"
-          >
-            <Eye className="w-5 h-5 mr-2" />
-            View Full Details
-          </button>
-          <button
-            onClick={handleNewSession}
-            className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Activity className="w-5 h-5 mr-2" />
-            Start Assessment
-          </button>
-        </div>
-      </div>
-      
-      {/* Incomplete Sessions */}
-      {sessions.length > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <AlertCircle className="w-5 h-5 mr-2 text-yellow-600" />
-            Incomplete Sessions ({sessions.length})
-          </h3>
-          
-          <div className="space-y-3">
-            {sessions.map(session => (
-              <div key={session.id} className="bg-white rounded-lg p-4 border border-yellow-200">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <p className="font-medium text-gray-900">{session.data.chiefComplaint || 'No chief complaint'}</p>
-                    <p className="text-sm text-gray-600">
-                      Last updated: {formatDateTime(session.lastUpdated)}
-                    </p>
-                  </div>
-                </div>
+          {/* Search and Filters */}
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 mb-6 transition-all hover:shadow-xl">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search patients by name, ID, or phone..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                />
+              </div>
+              
+              <div className="flex gap-3">
+                <select
+                  value={filterOption}
+                  onChange={(e) => setFilterOption(e.target.value)}
+                  className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                >
+                  <option value="all">All Patients</option>
+                  <option value="active">With Active Episodes</option>
+                </select>
                 
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">
-                    Progress: {session.lastStep}
-                  </span>
+                <div className="flex bg-gray-100 rounded-lg p-1">
                   <button
-                    onClick={() => handleResumeSession(session)}
-                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                    onClick={() => setViewMode('grid')}
+                    className={`p-2 rounded-md transition-all ${
+                      viewMode === 'grid' 
+                        ? 'bg-white text-gray-900 shadow-sm' 
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
                   >
-                    Resume →
+                    <Grid className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`p-2 rounded-md transition-all ${
+                      viewMode === 'list' 
+                        ? 'bg-white text-gray-900 shadow-sm' 
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <List className="w-5 h-5" />
                   </button>
                 </div>
               </div>
-            ))}
+            </div>
+            
+            {/* Patient Count */}
+            <div className="mt-4 text-sm text-gray-600">
+              Showing <span className="font-medium text-gray-900">{displayPatients.length}</span> of{' '}
+              <span className="font-medium text-gray-900">{patients.length}</span> patients
+            </div>
           </div>
+          
+          {/* Patients Display */}
+          {displayPatients.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-12 text-center">
+              <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No patients found</h3>
+              <p className="text-gray-600">
+                {searchTerm ? 'Try adjusting your search criteria' : 'Add your first patient to get started'}
+              </p>
+            </div>
+          ) : viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {displayPatients.map(patient => (
+                <PatientCard key={patient.id} patient={patient} />
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Patient
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Age / Gender
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Phone
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Email
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Episodes
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Alerts
+                    </th>
+                    <th className="relative px-6 py-4">
+                      <span className="sr-only">Actions</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {displayPatients.map(patient => (
+                    <PatientRow key={patient.id} patient={patient} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      )}
-      
-      {/* Recent Records */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Medical Records</h3>
-        
-        {records.length === 0 ? (
-          <p className="text-gray-500 text-center py-4">No medical records found</p>
-        ) : (
-          <div className="space-y-3">
-            {records.slice(0, 5).map(record => (
-              <div key={record.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">{record.finalDiagnosis}</p>
-                    <p className="text-sm text-gray-600">{formatDateTime(record.date)}</p>
-                  </div>
-                  <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded">
-                    {record.icd10}
-                  </span>
-                </div>
-                
-                <p className="text-sm text-gray-600 mb-2">
-                  Chief Complaint: {record.chiefComplaint}
-                </p>
-                
-                {record.prescriptions.length > 0 && (
-                  <div className="text-sm text-gray-500">
-                    Prescriptions: {record.prescriptions.map(p => p.medication).join(', ')}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
-    </div>
+      
+      {/* New Patient Modal */}
+      {showNewPatientModal && (
+        <NewPatientModal
+          onClose={() => setShowNewPatientModal(false)}
+          onSuccess={(newPatient) => {
+            setShowNewPatientModal(false);
+            navigate(`/patient/${newPatient.id}`);
+          }}
+        />
+      )}
+    </DashboardLayout>
   );
 };
 

@@ -17,7 +17,7 @@ const DemoDisclaimer = ({ onClose }) => {
   }, [countdown]);
   
   const handleProceed = () => {
-    navigate('/');
+    navigate('/dashboard');
   };
   
   return (

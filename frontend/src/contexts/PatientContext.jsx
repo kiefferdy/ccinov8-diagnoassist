@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { appDataRef } from './AppDataContext';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { StorageManager, generateId } from '../utils/storage';
 
 const PatientContext = createContext(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const usePatient = () => {
   const context = useContext(PatientContext);
   if (!context) {
@@ -12,321 +13,249 @@ export const usePatient = () => {
 };
 
 export const PatientProvider = ({ children }) => {
-  const [patientData, setPatientData] = useState({
-    // Basic Information
-    id: null,
-    name: '',
-    age: '',
-    gender: '',
-    dateOfBirth: '',
-    
-    // Chief Complaint
-    chiefComplaint: '',
-    chiefComplaintDetails: [],
-    additionalClinicalNotes: '',
-    clinicalNotes: '', // For free-form notes
-    standardizedAssessments: {}, // For storing PHQ-9, GAD-7, etc. results
-    
-    // Medical History
-    medicalHistory: [],
-    medications: [],
-    allergies: [],
-    
-    // Documents
-    relatedDocuments: [],
-    assessmentDocuments: [],
-    
-    // Physical Exam
-    physicalExam: {
-      bloodPressure: '',
-      heartRate: '',
-      temperature: '',
-      respiratoryRate: '',
-      oxygenSaturation: '',
-      height: '',
-      weight: '',
-      bmi: '',
-      additionalFindings: '',
-      examDocuments: []
-    },
-    
-    // Diagnoses
-    differentialDiagnoses: [],
-    selectedDiagnosis: null,
-    finalDiagnosis: '',
-    diagnosticNotes: '',
-    
-    // Tests
-    recommendedTests: [],
-    selectedTests: [],
-    testResults: {},
-    
-    // Treatment
-    treatmentPlan: '',
-    prescriptions: [],
-    followUpRecommendations: '',
-    patientEducation: '',
-    clinicalSummary: '',
-    assessmentNote: ''
-  });
-  
-  const [currentStep, setCurrentStep] = useState('home');
-  const [sessionId, setSessionId] = useState(null);
-  const [lastSaved, setLastSaved] = useState(null);
-  const [savedData, setSavedData] = useState(null); // Track last saved state
-  const [dataByStep, setDataByStep] = useState({}); // Track data saved at each step
-  const [stepSnapshot, setStepSnapshot] = useState(null); // Snapshot when entering a step
-  const [highestStepReached, setHighestStepReached] = useState('home'); // Track progression
-  
-  // Auto-save functionality
+  const [patients, setPatients] = useState([]);
+  const [currentPatient, setCurrentPatient] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Load patients from storage on mount
   useEffect(() => {
-    // Only auto-save if we have a patient ID and we're in an active session
-    if (patientData.id && currentStep !== 'home' && currentStep !== 'patient-list') {
-      const saveTimer = setTimeout(() => {
-        // Get AppData context via ref
-        if (appDataRef.current) {
-          if (sessionId) {
-            // Update existing session
-            appDataRef.current.updateSession(sessionId, patientData, currentStep);
-          } else {
-            // Create new session
-            const newSession = appDataRef.current.createSession(patientData.id, {
-              ...patientData,
-              currentStep
-            });
-            setSessionId(newSession.id);
-          }
-          setLastSaved(new Date().toISOString());
-          setSavedData(JSON.parse(JSON.stringify(patientData))); // Deep copy
-          setDataByStep(prev => ({
-            ...prev,
-            [currentStep]: JSON.parse(JSON.stringify(patientData))
-          }));
-        }
-      }, 2000); // Auto-save after 2 seconds of inactivity
-      
-      return () => clearTimeout(saveTimer);
-    }
-  }, [patientData, currentStep, sessionId]);
-  
-  const updatePatientData = (field, value) => {
-    setPatientData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-  
-  const updatePhysicalExam = (field, value) => {
-    setPatientData(prev => ({
-      ...prev,
-      physicalExam: {
-        ...prev.physicalExam,
-        [field]: value
+    const loadPatients = () => {
+      try {
+        const storedPatients = StorageManager.getPatients();
+        setPatients(storedPatients);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error loading patients:', error);
+        setLoading(false);
       }
-    }));
-  };
-  
-  const resetPatient = () => {
-    setPatientData({
-      id: null,
-      name: '',
-      age: '',
-      gender: '',
-      dateOfBirth: '',
-      chiefComplaint: '',
-      chiefComplaintDetails: [],
-      additionalClinicalNotes: '',
-      clinicalNotes: '',
-      standardizedAssessments: {},
-      medicalHistory: [],
-      medications: [],
-      allergies: [],
-      relatedDocuments: [],
-      assessmentDocuments: [],
-      physicalExam: {
-        bloodPressure: '',
-        heartRate: '',
-        temperature: '',
-        respiratoryRate: '',
-        oxygenSaturation: '',
-        height: '',
-        weight: '',
-        bmi: '',
-        additionalFindings: '',
-        examDocuments: []
+    };
+    loadPatients();
+  }, []);
+  // Initialize with sample data if needed
+  useEffect(() => {
+    if (!loading && patients.length === 0) {
+      StorageManager.initializeWithSampleData();
+      const storedPatients = StorageManager.getPatients();
+      setPatients(storedPatients);
+    }
+  }, [loading, patients.length]);
+
+  // Create a new patient
+  const createPatient = useCallback((patientData) => {
+    const newPatient = {
+      id: generateId('P'),
+      demographics: {
+        name: patientData.name,
+        dateOfBirth: patientData.dateOfBirth,
+        gender: patientData.gender,
+        phone: patientData.phone || '',
+        email: patientData.email || '',
+        address: patientData.address || '',
+        emergencyContact: patientData.emergencyContact || '',
+        insuranceInfo: patientData.insuranceInfo || {}
       },
-      differentialDiagnoses: [],
-      selectedDiagnosis: null,
-      finalDiagnosis: '',
-      diagnosticNotes: '',
-      recommendedTests: [],
-      selectedTests: [],
-      testResults: {},
-      treatmentPlan: '',
-      prescriptions: [],
-      followUpRecommendations: '',
-      patientEducation: '',
-      clinicalSummary: '',
-      assessmentNote: ''
-    });
-    setCurrentStep('home');
-    setSessionId(null);
-    setSavedData(null);
-    setDataByStep({});
-    setStepSnapshot(null);
-    setHighestStepReached('home');
-  };
-  
-  // Check if current data has unsaved changes
-  const hasUnsavedChanges = () => {
-    if (!savedData) return false;
-    return JSON.stringify(patientData) !== JSON.stringify(savedData);
-  };
-  
-  // Get data relevant to a specific step
-  const getStepRelevantData = (step) => {
-    switch (step) {
-      case 'patient-info':
-        return {
-          name: patientData.name,
-          age: patientData.age,
-          gender: patientData.gender,
-          dateOfBirth: patientData.dateOfBirth,
-          chiefComplaint: patientData.chiefComplaint,
-          medicalHistory: patientData.medicalHistory,
-          medications: patientData.medications,
-          allergies: patientData.allergies
-        };
-      case 'clinical-assessment':
-        return {
-          chiefComplaintDetails: patientData.chiefComplaintDetails,
-          additionalClinicalNotes: patientData.additionalClinicalNotes,
-          clinicalNotes: patientData.clinicalNotes,
-          standardizedAssessments: patientData.standardizedAssessments,
-          assessmentDocuments: patientData.assessmentDocuments
-        };
-      case 'physical-exam':
-        return {
-          physicalExam: patientData.physicalExam
-        };
-      case 'diagnostic-analysis':
-        return {
-          differentialDiagnoses: patientData.differentialDiagnoses,
-          diagnosticNotes: patientData.diagnosticNotes
-        };
-      case 'recommended-tests':
-        return {
-          recommendedTests: patientData.recommendedTests,
-          selectedTests: patientData.selectedTests
-        };
-      case 'test-results':
-        return {
-          testResults: patientData.testResults
-        };
-      case 'final-diagnosis':
-        return {
-          selectedDiagnosis: patientData.selectedDiagnosis,
-          finalDiagnosis: patientData.finalDiagnosis
-        };
-      case 'treatment-plan':
-        return {
-          treatmentPlan: patientData.treatmentPlan,
-          prescriptions: patientData.prescriptions,
-          followUpRecommendations: patientData.followUpRecommendations,
-          patientEducation: patientData.patientEducation
-        };
-      case 'clinical-summary':
-        return {
-          clinicalSummary: patientData.clinicalSummary,
-          assessmentNote: patientData.assessmentNote
-        };
-      default:
-        return {};
+      medicalBackground: {
+        allergies: patientData.allergies || [],
+        medications: patientData.medications || [],
+        chronicConditions: patientData.chronicConditions || [],
+        pastMedicalHistory: patientData.pastMedicalHistory || '',
+        pastSurgicalHistory: patientData.pastSurgicalHistory || '',
+        familyHistory: patientData.familyHistory || '',
+        socialHistory: patientData.socialHistory || ''
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const updatedPatients = [...patients, newPatient];
+    setPatients(updatedPatients);
+    StorageManager.savePatients(updatedPatients);
+    
+    return newPatient;
+  }, [patients]);
+
+  // Update patient demographics
+  const updatePatientDemographics = useCallback((patientId, updates) => {
+    const updatedPatients = patients.map(p => 
+      p.id === patientId 
+        ? { 
+            ...p, 
+            demographics: { ...p.demographics, ...updates },
+            updatedAt: new Date().toISOString()
+          } 
+        : p
+    );
+    
+    setPatients(updatedPatients);
+    StorageManager.savePatients(updatedPatients);
+    
+    // Update current patient if it's the one being updated
+    if (currentPatient?.id === patientId) {
+      setCurrentPatient(prev => ({
+        ...prev,
+        demographics: { ...prev.demographics, ...updates },
+        updatedAt: new Date().toISOString()
+      }));
     }
-  };
-  
-  // Check if data for a specific step has changed from what was saved
-  const hasStepDataChanged = (step) => {
-    const savedStepData = dataByStep[step];
-    if (!savedStepData) return false;
+  }, [patients, currentPatient]);
+
+  // Update patient medical background
+  const updatePatientMedicalBackground = useCallback((patientId, updates) => {
+    const updatedPatients = patients.map(p => 
+      p.id === patientId 
+        ? { 
+            ...p, 
+            medicalBackground: { ...p.medicalBackground, ...updates },
+            updatedAt: new Date().toISOString()
+          } 
+        : p
+    );
     
-    const currentStepData = getStepRelevantData(step);
-    const savedRelevantData = {};
+    setPatients(updatedPatients);
+    StorageManager.savePatients(updatedPatients);
     
-    // Extract relevant data from saved step data
-    Object.keys(currentStepData).forEach(key => {
-      savedRelevantData[key] = savedStepData[key];
-    });
+    // Update current patient if it's the one being updated
+    if (currentPatient?.id === patientId) {
+      setCurrentPatient(prev => ({
+        ...prev,
+        medicalBackground: { ...prev.medicalBackground, ...updates },
+        updatedAt: new Date().toISOString()
+      }));
+    }
+  }, [patients, currentPatient]);
+
+  // Add allergy
+  const addAllergy = useCallback((patientId, allergy) => {
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient) return;
+
+    const newAllergy = {
+      id: generateId('A'),
+      ...allergy,
+      addedDate: new Date().toISOString()
+    };
+
+    const updatedAllergies = [...patient.medicalBackground.allergies, newAllergy];
+    updatePatientMedicalBackground(patientId, { allergies: updatedAllergies });
+  }, [patients, updatePatientMedicalBackground]);
+
+  // Add medication
+  const addMedication = useCallback((patientId, medication) => {
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient) return;
+
+    const newMedication = {
+      id: generateId('M'),
+      ...medication,
+      startDate: medication.startDate || new Date().toISOString(),
+      ongoing: medication.ongoing !== false
+    };
+
+    const updatedMedications = [...patient.medicalBackground.medications, newMedication];
+    updatePatientMedicalBackground(patientId, { medications: updatedMedications });
+  }, [patients, updatePatientMedicalBackground]);
+
+  // Add chronic condition
+  const addChronicCondition = useCallback((patientId, condition) => {
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient) return;
+
+    const newCondition = {
+      id: generateId('C'),
+      ...condition,
+      diagnosedDate: condition.diagnosedDate || new Date().toISOString(),
+      status: condition.status || 'active'
+    };
+
+    const updatedConditions = [...patient.medicalBackground.chronicConditions, newCondition];
+    updatePatientMedicalBackground(patientId, { chronicConditions: updatedConditions });
+  }, [patients, updatePatientMedicalBackground]);
+
+  // Get patient by ID
+  const getPatientById = useCallback((patientId) => {
+    return patients.find(p => p.id === patientId) || null;
+  }, [patients]);
+
+  // Search patients
+  const searchPatients = useCallback((query) => {
+    const lowerQuery = query.toLowerCase();
+    return patients.filter(p => 
+      p.demographics.name.toLowerCase().includes(lowerQuery) ||
+      p.demographics.phone.includes(query) ||
+      p.demographics.email.toLowerCase().includes(lowerQuery) ||
+      p.id.toLowerCase().includes(lowerQuery)
+    );
+  }, [patients]);
+
+  // Calculate age from date of birth
+  const calculateAge = useCallback((dateOfBirth) => {
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
     
-    return JSON.stringify(currentStepData) !== JSON.stringify(savedRelevantData);
-  };
-  
-  // Check if changes to a step would affect subsequent steps
-  const wouldChangesAffectSubsequentSteps = (step) => {
-    const steps = ['patient-info', 'clinical-assessment', 'physical-exam', 
-                  'diagnostic-analysis', 'recommended-tests', 'test-results', 
-                  'final-diagnosis', 'treatment-plan', 'clinical-summary'];
-    const stepIndex = steps.indexOf(step);
-    
-    // Check if any subsequent steps have data
-    for (let i = stepIndex + 1; i < steps.length; i++) {
-      const futureStep = steps[i];
-      const futureData = getStepRelevantData(futureStep);
-      
-      // Check if future step has meaningful data
-      if (futureStep === 'diagnostic-analysis' && patientData.differentialDiagnoses.length > 0) return true;
-      if (futureStep === 'recommended-tests' && patientData.recommendedTests.length > 0) return true;
-      if (futureStep === 'test-results' && Object.keys(patientData.testResults).length > 0) return true;
-      if (futureStep === 'final-diagnosis' && (patientData.selectedDiagnosis || patientData.finalDiagnosis)) return true;
-      if (futureStep === 'treatment-plan' && (patientData.treatmentPlan || patientData.prescriptions.length > 0)) return true;
-      if (futureStep === 'clinical-summary' && patientData.clinicalSummary) return true;
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
     }
     
-    return false;
-  };
-  
-  // Enhanced navigation with proper step tracking
-  const setCurrentStepAndTrack = (newStep) => {
-    const steps = ['patient-info', 'clinical-assessment', 'physical-exam', 
-                  'diagnostic-analysis', 'recommended-tests', 'test-results', 
-                  'final-diagnosis', 'treatment-plan', 'clinical-summary'];
-    const newStepIndex = steps.indexOf(newStep);
-    const highestIndex = steps.indexOf(highestStepReached);
+    return age;
+  }, []);
+
+  // Delete patient
+  const deletePatient = useCallback((patientId) => {
+    const updatedPatients = patients.filter(p => p.id !== patientId);
+    setPatients(updatedPatients);
+    StorageManager.savePatients(updatedPatients);
     
-    // Update highest step reached if moving forward
-    if (newStepIndex > highestIndex) {
-      setHighestStepReached(newStep);
+    // Clear current patient if it's the one being deleted
+    if (currentPatient?.id === patientId) {
+      setCurrentPatient(null);
     }
+  }, [patients, currentPatient]);
+
+  // Update entire patient data
+  const updatePatient = useCallback((patientId, updates) => {
+    const updatedPatients = patients.map(p => 
+      p.id === patientId 
+        ? { 
+            ...p, 
+            ...updates,
+            updatedAt: new Date().toISOString()
+          } 
+        : p
+    );
     
-    setCurrentStep(newStep);
-  };
-  
-  // Check if current step data has changed from snapshot
-  const hasChangedSinceNavigation = () => {
-    if (!stepSnapshot) return false;
-    const currentData = getStepRelevantData(currentStep);
-    return JSON.stringify(currentData) !== JSON.stringify(stepSnapshot);
-  };
-  
+    setPatients(updatedPatients);
+    StorageManager.savePatients(updatedPatients);
+    
+    // Update current patient if it's the one being updated
+    if (currentPatient?.id === patientId) {
+      setCurrentPatient(prev => ({
+        ...prev,
+        ...updates,
+        updatedAt: new Date().toISOString()
+      }));
+    }
+  }, [patients, currentPatient]);
+
   const value = {
-    patientData,
-    setPatientData,
-    updatePatientData,
-    updatePhysicalExam,
-    currentStep,
-    setCurrentStep: setCurrentStepAndTrack,
-    sessionId,
-    setSessionId,
-    lastSaved,
-    resetPatient,
-    hasUnsavedChanges,
-    hasStepDataChanged,
-    navigateToStep: setCurrentStepAndTrack,
-    wouldChangesAffectSubsequentSteps,
-    hasChangedSinceNavigation,
-    highestStepReached
+    patients,
+    currentPatient,
+    setCurrentPatient,
+    loading,
+    createPatient,
+    updatePatient,
+    updatePatientDemographics,
+    updatePatientMedicalBackground,
+    deletePatient,
+    addAllergy,
+    addMedication,
+    addChronicCondition,
+    getPatientById,
+    searchPatients,
+    calculateAge
   };
-  
+
   return (
     <PatientContext.Provider value={value}>
       {children}
