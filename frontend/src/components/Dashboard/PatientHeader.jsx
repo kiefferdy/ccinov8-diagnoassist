@@ -6,11 +6,13 @@ import {
   FileText, Clock, Star, AlertTriangle, Droplets, 
   Stethoscope, CreditCard, UserCheck, Home, ChevronDown, ChevronUp
 } from 'lucide-react';
+import EditPatientModal from '../PatientManagement/EditPatientModal';
 
 const PatientHeader = ({ patient }) => {
   const navigate = useNavigate();
   const [showFullInfo, setShowFullInfo] = useState(false);
   const [activeInfoTab, setActiveInfoTab] = useState('overview');
+  const [showEditModal, setShowEditModal] = useState(false);
   
   const calculateAge = (dateOfBirth) => {
     const today = new Date();
@@ -126,7 +128,11 @@ const PatientHeader = ({ patient }) => {
           
           {/* Actions */}
           <div className="flex items-center space-x-3">
-            <button className="p-2 hover:bg-white/20 rounded-lg transition-colors">
+            <button 
+              onClick={() => setShowEditModal(true)}
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              title="Edit patient information"
+            >
               <Edit className="w-5 h-5" />
             </button>
             <button
@@ -341,6 +347,14 @@ const PatientHeader = ({ patient }) => {
           </div>
         )}
       </div>
+      
+      {/* Edit Patient Modal */}
+      {showEditModal && (
+        <EditPatientModal
+          patient={patient}
+          onClose={() => setShowEditModal(false)}
+        />
+      )}
     </div>
   );
 };

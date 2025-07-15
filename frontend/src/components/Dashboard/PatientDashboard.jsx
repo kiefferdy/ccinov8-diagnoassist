@@ -21,7 +21,7 @@ import {
 const PatientDashboard = () => {
   const { patientId } = useParams();
   const navigate = useNavigate();
-  const { getPatientById } = usePatient();
+  const { getPatientById, patients } = usePatient();
   const { getPatientEpisodes, getEpisodeStats } = useEpisode();
   const { getEpisodeEncounters } = useEncounter();
   
@@ -50,7 +50,7 @@ const PatientDashboard = () => {
       setLoading(false);
     };
     loadData();
-  }, [patientId, getPatientById, getPatientEpisodes]);
+  }, [patientId, getPatientById, getPatientEpisodes, patients]); // Added patients to dependency array
 
   // Calculate quick notes count
   useEffect(() => {
@@ -206,7 +206,10 @@ const PatientDashboard = () => {
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Patient Header with enhanced design */}
         <div className="mb-8">
-          <PatientHeader patient={patient} />
+          <PatientHeader 
+            patient={patient} 
+            key={patient.updatedAt} // Force re-render when patient is updated
+          />
         </div>
 
         {/* Stats Cards */}

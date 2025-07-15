@@ -355,19 +355,30 @@ const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
           {/* History Tab */}
           {activeTab === 'history' && (
             <div className="space-y-6">
+              {/* Info Banner */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <Info className="w-5 h-5 text-blue-600 mr-2 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm text-blue-800">
+                      <strong>Note:</strong> Patient history information is automatically populated from the patient's profile. 
+                      To update or edit this information, please go to the <span className="font-semibold">Patient Dashboard</span> and click the edit button.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
               {/* Past Medical History */}
               <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
                 <label className="flex items-center text-lg font-semibold text-gray-900 mb-3">
                   <Clock className="w-5 h-5 mr-2 text-green-600" />
                   Past Medical History
                 </label>
-                <textarea
-                  value={data.pmh || ''}
-                  onChange={(e) => handleFieldUpdate('pmh', e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                  placeholder="Document significant past medical history, surgeries, hospitalizations..."
-                />
+                <div className="bg-white rounded-lg p-4 border border-gray-200">
+                  <p className="text-gray-800 whitespace-pre-wrap">
+                    {data.pmh || 'No past medical history documented'}
+                  </p>
+                </div>
                 {patient.medicalBackground?.chronicConditions?.length > 0 && (
                   <div className="mt-3 p-4 bg-white rounded-lg border border-green-200">
                     <p className="text-sm font-medium text-green-800 mb-2 flex items-center">
@@ -391,13 +402,11 @@ const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
                   <Pill className="w-5 h-5 mr-2 text-blue-600" />
                   Current Medications
                 </label>
-                <textarea
-                  value={data.medications || ''}
-                  onChange={(e) => handleFieldUpdate('medications', e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  placeholder="List all current medications with dosages and frequencies..."
-                />
+                <div className="bg-white rounded-lg p-4 border border-gray-200">
+                  <p className="text-gray-800 whitespace-pre-wrap">
+                    {data.medications || 'No current medications documented'}
+                  </p>
+                </div>
                 {patient.medicalBackground?.medications?.filter(m => m.ongoing).length > 0 && (
                   <div className="mt-3 p-4 bg-white rounded-lg border border-blue-200">
                     <p className="text-sm font-medium text-blue-800 mb-2 flex items-center">
@@ -424,13 +433,11 @@ const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
                   <AlertCircle className="w-5 h-5 mr-2 text-red-600" />
                   Allergies
                 </label>
-                <textarea
-                  value={data.allergies || ''}
-                  onChange={(e) => handleFieldUpdate('allergies', e.target.value)}
-                  rows={2}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
-                  placeholder="Document all known allergies and reactions..."
-                />
+                <div className="bg-white rounded-lg p-4 border border-gray-200">
+                  <p className="text-gray-800 whitespace-pre-wrap">
+                    {data.allergies || 'No known allergies'}
+                  </p>
+                </div>
                 {patient.medicalBackground?.allergies?.length > 0 && (
                   <div className="mt-3 p-4 bg-white rounded-lg border border-red-300">
                     <div className="flex items-start">
@@ -459,26 +466,10 @@ const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
                   <User className="w-5 h-5 mr-2 text-purple-600" />
                   Social History
                 </label>
-                <textarea
-                  value={data.socialHistory || ''}
-                  onChange={(e) => handleFieldUpdate('socialHistory', e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-                  placeholder="Document tobacco use, alcohol use, drug use, occupation, living situation..."
-                />
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {['Never smoker', 'Former smoker', 'Current smoker', 'Social drinker', 'No alcohol', 'No illicit drugs'].map(template => (
-                    <button
-                      key={template}
-                      onClick={() => {
-                        const current = data.socialHistory || '';
-                        handleFieldUpdate('socialHistory', current ? `${current}, ${template}` : template);
-                      }}
-                      className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-sm"
-                    >
-                      + {template}
-                    </button>
-                  ))}
+                <div className="bg-white rounded-lg p-4 border border-gray-200">
+                  <p className="text-gray-800 whitespace-pre-wrap">
+                    {data.socialHistory || 'No social history documented'}
+                  </p>
                 </div>
               </div>
               
@@ -488,26 +479,10 @@ const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
                   <Heart className="w-5 h-5 mr-2 text-indigo-600" />
                   Family History
                 </label>
-                <textarea
-                  value={data.familyHistory || ''}
-                  onChange={(e) => handleFieldUpdate('familyHistory', e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
-                  placeholder="Document significant family medical history..."
-                />
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {['HTN', 'DM', 'CAD', 'Cancer', 'Stroke', 'Mental illness'].map(condition => (
-                    <button
-                      key={condition}
-                      onClick={() => {
-                        const current = data.familyHistory || '';
-                        handleFieldUpdate('familyHistory', current ? `${current}, ${condition}` : condition);
-                      }}
-                      className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors text-sm"
-                    >
-                      + {condition}
-                    </button>
-                  ))}
+                <div className="bg-white rounded-lg p-4 border border-gray-200">
+                  <p className="text-gray-800 whitespace-pre-wrap">
+                    {data.familyHistory || 'No family history documented'}
+                  </p>
                 </div>
               </div>
             </div>

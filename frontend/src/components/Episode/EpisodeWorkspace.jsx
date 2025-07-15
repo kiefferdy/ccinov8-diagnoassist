@@ -35,20 +35,41 @@ const EpisodeWorkspace = () => {
       
       // If patient has medical background, pre-populate relevant fields
       if (patient.medicalBackground) {
-        const { allergies, medications, pastMedicalHistory, socialHistory, familyHistory } = patient.medicalBackground;
+        const { allergies, medications, pastMedicalHistory, pastSurgicalHistory, socialHistory, familyHistory, chronicConditions } = patient.medicalBackground;
         
-        newEncounter.soap.subjective.allergies = allergies.map(a => 
-          `${a.allergen} - ${a.reaction} (${a.severity})`
-        ).join(', ');
+        // Format allergies
+        if (allergies && allergies.length > 0) {
+          newEncounter.soap.subjective.allergies = allergies.map(a => 
+            `${a.allergen} - ${a.reaction} (${a.severity})`
+          ).join(', ');
+        }
         
-        newEncounter.soap.subjective.medications = medications
-          .filter(m => m.ongoing)
-          .map(m => `${m.name} ${m.dosage} ${m.frequency}`)
-          .join(', ');
-          
-        newEncounter.soap.subjective.pmh = pastMedicalHistory;
-        newEncounter.soap.subjective.socialHistory = socialHistory;
-        newEncounter.soap.subjective.familyHistory = familyHistory;
+        // Format current medications
+        if (medications && medications.length > 0) {
+          newEncounter.soap.subjective.medications = medications
+            .filter(m => m.ongoing)
+            .map(m => `${m.name} ${m.dosage} ${m.frequency}`)
+            .join(', ');
+        }
+        
+        // Combine past medical and surgical history
+        let pmhText = '';
+        if (pastMedicalHistory) {
+          pmhText = pastMedicalHistory;
+        }
+        if (pastSurgicalHistory) {
+          pmhText = pmhText ? `${pmhText}\n\nPast Surgical History:\n${pastSurgicalHistory}` : `Past Surgical History:\n${pastSurgicalHistory}`;
+        }
+        
+        // Add chronic conditions to PMH
+        if (chronicConditions && chronicConditions.length > 0) {
+          const conditionsList = chronicConditions.map(c => `- ${c.condition} (${c.icd10})`).join('\n');
+          pmhText = pmhText ? `${pmhText}\n\nChronic Conditions:\n${conditionsList}` : `Chronic Conditions:\n${conditionsList}`;
+        }
+        
+        newEncounter.soap.subjective.pmh = pmhText;
+        newEncounter.soap.subjective.socialHistory = socialHistory || '';
+        newEncounter.soap.subjective.familyHistory = familyHistory || '';
       }
       
       setCurrentEncounter(newEncounter);

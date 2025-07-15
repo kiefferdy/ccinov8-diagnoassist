@@ -201,12 +201,38 @@ export const PatientProvider = ({ children }) => {
     return age;
   }, []);
 
+  // Update entire patient data
+  const updatePatient = useCallback((patientId, updates) => {
+    const updatedPatients = patients.map(p => 
+      p.id === patientId 
+        ? { 
+            ...p, 
+            ...updates,
+            updatedAt: new Date().toISOString()
+          } 
+        : p
+    );
+    
+    setPatients(updatedPatients);
+    StorageManager.savePatients(updatedPatients);
+    
+    // Update current patient if it's the one being updated
+    if (currentPatient?.id === patientId) {
+      setCurrentPatient(prev => ({
+        ...prev,
+        ...updates,
+        updatedAt: new Date().toISOString()
+      }));
+    }
+  }, [patients, currentPatient]);
+
   const value = {
     patients,
     currentPatient,
     setCurrentPatient,
     loading,
     createPatient,
+    updatePatient,
     updatePatientDemographics,
     updatePatientMedicalBackground,
     addAllergy,
