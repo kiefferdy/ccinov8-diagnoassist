@@ -299,6 +299,13 @@ export const EncounterProvider = ({ children }) => {
     };
   }, [getEpisodeEncounters]);
 
+  // Delete all encounters for a patient
+  const deletePatientEncounters = useCallback((patientId) => {
+    const updatedEncounters = encounters.filter(e => e.patientId !== patientId);
+    setEncounters(updatedEncounters);
+    StorageManager.saveEncounters(updatedEncounters);
+  }, [encounters]);
+
   const value = {
     encounters,
     currentEncounter,
@@ -315,7 +322,8 @@ export const EncounterProvider = ({ children }) => {
     saveCurrentEncounter,
     signEncounter,
     copyForwardFromEncounter,
-    getEncounterStats
+    getEncounterStats,
+    deletePatientEncounters
   };
 
   return (

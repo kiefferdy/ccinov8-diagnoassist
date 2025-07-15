@@ -137,6 +137,13 @@ export const EpisodeProvider = ({ children }) => {
     };
   }, [getPatientEpisodes]);
 
+  // Delete all episodes for a patient
+  const deletePatientEpisodes = useCallback((patientId) => {
+    const updatedEpisodes = episodes.filter(e => e.patientId !== patientId);
+    setEpisodes(updatedEpisodes);
+    StorageManager.saveEpisodes(updatedEpisodes);
+  }, [episodes]);
+
   const value = {
     episodes,
     currentEpisode,
@@ -149,7 +156,8 @@ export const EpisodeProvider = ({ children }) => {
     linkEpisodes,
     getEpisodeById,
     getActiveEpisodeCount,
-    getEpisodeStats
+    getEpisodeStats,
+    deletePatientEpisodes
   };
 
   return (

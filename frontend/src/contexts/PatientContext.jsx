@@ -201,6 +201,18 @@ export const PatientProvider = ({ children }) => {
     return age;
   }, []);
 
+  // Delete patient
+  const deletePatient = useCallback((patientId) => {
+    const updatedPatients = patients.filter(p => p.id !== patientId);
+    setPatients(updatedPatients);
+    StorageManager.savePatients(updatedPatients);
+    
+    // Clear current patient if it's the one being deleted
+    if (currentPatient?.id === patientId) {
+      setCurrentPatient(null);
+    }
+  }, [patients, currentPatient]);
+
   // Update entire patient data
   const updatePatient = useCallback((patientId, updates) => {
     const updatedPatients = patients.map(p => 
@@ -235,6 +247,7 @@ export const PatientProvider = ({ children }) => {
     updatePatient,
     updatePatientDemographics,
     updatePatientMedicalBackground,
+    deletePatient,
     addAllergy,
     addMedication,
     addChronicCondition,

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { usePatient } from '../../contexts/PatientContext';
 import { useEpisode } from '../../contexts/EpisodeContext';
 import DashboardLayout from '../Layout/DashboardLayout';
+import NewPatientModal from './NewPatientModal';
 import { 
   Users, Search, Plus, Calendar, Phone, Mail,
   ChevronRight, Activity, Grid, List, Filter,
@@ -18,6 +19,7 @@ const PatientList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [filterOption, setFilterOption] = useState('all'); // 'all', 'active', 'recent'
+  const [showNewPatientModal, setShowNewPatientModal] = useState(false);
   
   // Filter patients
   const filteredPatients = searchTerm 
@@ -37,8 +39,7 @@ const PatientList = () => {
   };
   
   const handleNewPatient = () => {
-    // TODO: Implement new patient modal
-    console.log('New patient creation - to be implemented');
+    setShowNewPatientModal(true);
   };
 
   // Calculate statistics
@@ -341,6 +342,17 @@ const PatientList = () => {
           )}
         </div>
       </div>
+      
+      {/* New Patient Modal */}
+      {showNewPatientModal && (
+        <NewPatientModal
+          onClose={() => setShowNewPatientModal(false)}
+          onSuccess={(newPatient) => {
+            setShowNewPatientModal(false);
+            navigate(`/patient/${newPatient.id}`);
+          }}
+        />
+      )}
     </DashboardLayout>
   );
 };

@@ -4,15 +4,18 @@ import {
   User, Phone, Mail, AlertCircle, Calendar, ChevronLeft,
   MapPin, Heart, Pill, Activity, Edit, Shield, Info,
   FileText, Clock, Star, AlertTriangle, Droplets, 
-  Stethoscope, CreditCard, UserCheck, Home, ChevronDown, ChevronUp
+  Stethoscope, CreditCard, UserCheck, Home, ChevronDown, ChevronUp,
+  Trash2
 } from 'lucide-react';
 import EditPatientModal from '../PatientManagement/EditPatientModal';
+import DeletePatientModal from '../PatientManagement/DeletePatientModal';
 
 const PatientHeader = ({ patient }) => {
   const navigate = useNavigate();
   const [showFullInfo, setShowFullInfo] = useState(false);
   const [activeInfoTab, setActiveInfoTab] = useState('overview');
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   
   const calculateAge = (dateOfBirth) => {
     const today = new Date();
@@ -135,6 +138,13 @@ const PatientHeader = ({ patient }) => {
             >
               <Edit className="w-5 h-5" />
             </button>
+            <button 
+              onClick={() => setShowDeleteModal(true)}
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              title="Delete patient"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
             <button
               onClick={() => navigate('/patients')}
               className="flex items-center px-4 py-2 bg-white/20 backdrop-blur-sm rounded-lg hover:bg-white/30 transition-colors"
@@ -219,10 +229,34 @@ const PatientHeader = ({ patient }) => {
                   
                   <div className="bg-gray-50 rounded-lg p-4">
                     <div className="flex items-center mb-2">
+                      <User className="w-4 h-4 text-gray-500 mr-2" />
+                      <span className="text-sm font-medium text-gray-700">Gender</span>
+                    </div>
+                    <p className="text-gray-900">{patient.demographics.gender}</p>
+                  </div>
+                  
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center mb-2">
                       <UserCheck className="w-4 h-4 text-gray-500 mr-2" />
                       <span className="text-sm font-medium text-gray-700">Patient Since</span>
                     </div>
                     <p className="text-gray-900">{new Date(patient.createdAt).toLocaleDateString()}</p>
+                  </div>
+                  
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center mb-2">
+                      <Shield className="w-4 h-4 text-gray-500 mr-2" />
+                      <span className="text-sm font-medium text-gray-700">Marital Status</span>
+                    </div>
+                    <p className="text-gray-900">{patient.demographics.maritalStatus || 'Not specified'}</p>
+                  </div>
+                  
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center mb-2">
+                      <Activity className="w-4 h-4 text-gray-500 mr-2" />
+                      <span className="text-sm font-medium text-gray-700">Occupation</span>
+                    </div>
+                    <p className="text-gray-900">{patient.demographics.occupation || 'Not specified'}</p>
                   </div>
                   
                   <div className="bg-gray-50 rounded-lg p-4">
@@ -237,6 +271,26 @@ const PatientHeader = ({ patient }) => {
               
               {activeInfoTab === 'medical' && (
                 <div className="space-y-4">
+                  {/* Vital Signs & Basic Info */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h5 className="font-medium text-gray-700 mb-1">Height</h5>
+                      <p className="text-sm text-gray-900">{patient.medicalBackground?.vitalSigns?.height || 'Not recorded'} cm</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h5 className="font-medium text-gray-700 mb-1">Weight</h5>
+                      <p className="text-sm text-gray-900">{patient.medicalBackground?.vitalSigns?.weight || 'Not recorded'} kg</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h5 className="font-medium text-gray-700 mb-1">BMI</h5>
+                      <p className="text-sm text-gray-900">{patient.medicalBackground?.vitalSigns?.bmi || 'Not calculated'}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h5 className="font-medium text-gray-700 mb-1">Blood Type</h5>
+                      <p className="text-sm text-gray-900">{patient.medicalBackground?.bloodType || 'Unknown'}</p>
+                    </div>
+                  </div>
+                  
                   {/* Chronic Conditions */}
                   <div>
                     <h4 className="font-medium text-gray-900 mb-2 flex items-center">
@@ -281,14 +335,26 @@ const PatientHeader = ({ patient }) => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-gray-50 rounded-lg p-4">
                       <h5 className="font-medium text-gray-700 mb-2">Past Medical History</h5>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-600 whitespace-pre-wrap">
                         {patient.medicalBackground?.pastMedicalHistory || 'Not documented'}
                       </p>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-4">
+                      <h5 className="font-medium text-gray-700 mb-2">Past Surgical History</h5>
+                      <p className="text-sm text-gray-600 whitespace-pre-wrap">
+                        {patient.medicalBackground?.pastSurgicalHistory || 'Not documented'}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
                       <h5 className="font-medium text-gray-700 mb-2">Family History</h5>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-600 whitespace-pre-wrap">
                         {patient.medicalBackground?.familyHistory || 'Not documented'}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h5 className="font-medium text-gray-700 mb-2">Social History</h5>
+                      <p className="text-sm text-gray-600 whitespace-pre-wrap">
+                        {patient.medicalBackground?.socialHistory || 'Not documented'}
                       </p>
                     </div>
                   </div>
@@ -329,6 +395,12 @@ const PatientHeader = ({ patient }) => {
                       <div>
                         <p className="text-sm font-medium text-gray-700">Emergency Contact</p>
                         <p className="text-gray-900">{patient.demographics.emergencyContact || 'Not provided'}</p>
+                        {patient.demographics.emergencyContactPhone && (
+                          <p className="text-sm text-gray-600">Phone: {patient.demographics.emergencyContactPhone}</p>
+                        )}
+                        {patient.demographics.emergencyContactRelation && (
+                          <p className="text-sm text-gray-600">Relationship: {patient.demographics.emergencyContactRelation}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -352,7 +424,20 @@ const PatientHeader = ({ patient }) => {
       {showEditModal && (
         <EditPatientModal
           patient={patient}
-          onClose={() => setShowEditModal(false)}
+          onClose={() => {
+            setShowEditModal(false);
+            // Reload the page to refresh patient data
+            window.location.reload();
+          }}
+        />
+      )}
+      
+      {/* Delete Patient Modal */}
+      {showDeleteModal && (
+        <DeletePatientModal
+          patient={patient}
+          onClose={() => setShowDeleteModal(false)}
+          onDeleted={() => navigate('/patients')}
         />
       )}
     </div>

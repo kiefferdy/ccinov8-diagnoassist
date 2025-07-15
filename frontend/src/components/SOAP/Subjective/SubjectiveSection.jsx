@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   MessageSquare, History, Clock, AlertCircle, 
   Sparkles, ChevronRight, FileText, User, Calendar,
   Stethoscope, Pill, Heart, Brain, Shield, Info,
-  Activity, X, Wind, Paperclip, Copy
+  Activity, X, Wind, Paperclip, Copy, ExternalLink
 } from 'lucide-react';
 import { useEncounter } from '../../../contexts/EncounterContext';
 import FileUploadDropbox from '../../common/FileUploadDropbox';
 
 const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
+  const navigate = useNavigate();
   const { getEpisodeEncounters } = useEncounter();
   const [activeTab, setActiveTab] = useState('hpi');
   const [rosExpanded, setRosExpanded] = useState(false);
@@ -362,7 +364,15 @@ const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
                   <div className="flex-1">
                     <p className="text-sm text-blue-800">
                       <strong>Note:</strong> Patient history information is automatically populated from the patient's profile. 
-                      To update or edit this information, please go to the <span className="font-semibold">Patient Dashboard</span> and click the edit button.
+                      To update or edit this information, please go to the{' '}
+                      <button
+                        onClick={() => navigate(`/patient/${patient.id}`)}
+                        className="font-semibold text-blue-700 hover:text-blue-900 underline inline-flex items-center"
+                      >
+                        Patient Dashboard
+                        <ExternalLink className="w-3 h-3 ml-1" />
+                      </button>
+                      {' '}and click the edit button.
                     </p>
                   </div>
                 </div>
