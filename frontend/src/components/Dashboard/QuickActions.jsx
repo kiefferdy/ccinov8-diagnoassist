@@ -154,24 +154,6 @@ const QuickActions = ({ onNewEpisode, onViewAllRecords, onContinueCare, onQuickN
           </div>
         </div>
       )}
-      
-      {/* Favorites/Shortcuts */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-gray-700 flex items-center">
-          <Star className="w-4 h-4 mr-1 text-yellow-500" />
-          Quick Templates
-        </h3>
-        <div className="flex gap-2">
-          {['URI', 'HTN Follow-up', 'Diabetes Check', 'Wellness'].map(template => (
-            <button
-              key={template}
-              className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-xs font-medium"
-            >
-              {template}
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 };
