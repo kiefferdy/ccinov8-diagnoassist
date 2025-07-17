@@ -5,7 +5,7 @@ import {
   X, AlertCircle, ChevronDown, Search, Sparkles, 
   Clock, TrendingUp, Heart, Brain, Stethoscope, 
   Tag, Plus, AlertTriangle, Activity, Calendar,
-  Shield, Zap, Info, CheckCircle, ChevronRight, Wind
+  Shield, Zap, Info, CheckCircle, ChevronRight, Cloud
 } from 'lucide-react';
 
 const NewEpisodeModal = ({ patientId, onClose, onSuccess }) => {
@@ -33,7 +33,7 @@ const NewEpisodeModal = ({ patientId, onClose, onSuccess }) => {
       complaints: ['Chest pain', 'Shortness of breath', 'Severe headache', 'Abdominal pain (severe)']
     },
     'Respiratory': {
-      icon: Wind,
+      icon: Cloud,
       color: 'blue',
       complaints: ['Cough', 'Sore throat', 'Nasal congestion', 'Wheezing']
     },
@@ -99,7 +99,7 @@ const NewEpisodeModal = ({ patientId, onClose, onSuccess }) => {
   const systemTags = {
     'Body Systems': [
       { value: 'cardiovascular', icon: Heart, color: 'red' },
-      { value: 'respiratory', icon: Wind, color: 'blue' },
+      { value: 'respiratory', icon: Cloud, color: 'blue' },
       { value: 'neurological', icon: Brain, color: 'purple' },
       { value: 'gastrointestinal', icon: Shield, color: 'orange' },
       { value: 'musculoskeletal', icon: Activity, color: 'green' },

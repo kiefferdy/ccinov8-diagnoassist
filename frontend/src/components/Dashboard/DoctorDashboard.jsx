@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Activity, Users, Clock, ChartBar, ArrowRight, Plus, Calendar,
   Bell, TrendingUp, FileText, AlertCircle, CheckCircle, 
@@ -17,6 +17,7 @@ import './dashboard-animations.css';
 
 const DoctorDashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { patients } = usePatient();
   const { episodes } = useEpisode();
   const { encounters } = useEncounter();
@@ -28,7 +29,11 @@ const DoctorDashboard = () => {
   const [notes, setNotes] = useState([]);
   const [newNoteText, setNewNoteText] = useState('');
   const [showAddNote, setShowAddNote] = useState(false);
-  const [hoveredCard, setHoveredCard] = useState(null);
+  
+  // Refs for height synchronization
+  const leftColumnRef = useRef(null);
+  const rightColumnRef = useRef(null);
+  const [leftColumnHeight, setLeftColumnHeight] = useState('auto');
   
   // Load appointments and notes
   useEffect(() => {
@@ -42,6 +47,39 @@ const DoctorDashboard = () => {
     }
   }, []);
   
+  // Sync heights between left and right columns
+  useEffect(() => {
+    const syncHeights = () => {
+      if (leftColumnRef.current && rightColumnRef.current && window.innerWidth >= 1024) {
+        const leftHeight = leftColumnRef.current.offsetHeight;
+        setLeftColumnHeight(leftHeight);
+      } else {
+        setLeftColumnHeight('auto');
+      }
+    };
+    
+    // Initial sync with delay to ensure DOM is ready
+    const timeoutId = setTimeout(syncHeights, 100);
+    
+    // Sync on window resize
+    window.addEventListener('resize', syncHeights);
+    
+    // Use ResizeObserver to watch for content changes
+    const resizeObserver = new ResizeObserver(() => {
+      syncHeights();
+    });
+    
+    if (leftColumnRef.current) {
+      resizeObserver.observe(leftColumnRef.current);
+    }
+    
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('resize', syncHeights);
+      resizeObserver.disconnect();
+    };
+  }, [appointments, notes, patients, episodes, encounters]);
+  
   // Mock doctor data - in real app would come from auth context
   const doctor = {
     name: 'Dr. Sarah Chen',
@@ -49,7 +87,6 @@ const DoctorDashboard = () => {
     yearsOfExperience: 12,
     patientsToday: 8,
     completedToday: 5,
-    rating: 4.8,
     totalPatients: 1247
   };
   
@@ -91,6 +128,69 @@ const DoctorDashboard = () => {
   const completedAppointments = todaysAppointments.filter(apt => 
     apt.status === 'completed'
   ).length;
+  
+  // Calculate weekly stats
+  const weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week (Sunday)
+  weekStart.setHours(0, 0, 0, 0);
+  
+  const completedEncountersThisWeek = encounters?.filter(e => {
+    const encounterDate = new Date(e.date);
+    return encounterDate >= weekStart && e.status === 'signed';
+  }).length || 0;
+  
+  // Force height sync on component mount/navigation
+  useEffect(() => {
+    const forceSync = () => {
+      if (leftColumnRef.current && rightColumnRef.current && window.innerWidth >= 1024) {
+        const leftHeight = leftColumnRef.current.offsetHeight;
+        setLeftColumnHeight(leftHeight);
+      } else {
+        setLeftColumnHeight('auto');
+      }
+    };
+    
+    // Multiple attempts to ensure proper sync after navigation
+    const timers = [
+      setTimeout(forceSync, 0),
+      setTimeout(forceSync, 50),
+      setTimeout(forceSync, 150),
+      setTimeout(forceSync, 300)
+    ];
+    
+    return () => {
+      timers.forEach(timer => clearTimeout(timer));
+    };
+  }, []); // Run only on mount
+  
+  // Force height sync on route change to dashboard
+  useEffect(() => {
+    const syncOnRouteChange = () => {
+      if (location.pathname === '/dashboard' && leftColumnRef.current && rightColumnRef.current && window.innerWidth >= 1024) {
+        // Force multiple sync attempts to ensure proper height after navigation
+        const syncHeights = () => {
+          const leftHeight = leftColumnRef.current?.offsetHeight;
+          if (leftHeight) {
+            setLeftColumnHeight(leftHeight);
+          }
+        };
+        
+        const timers = [
+          setTimeout(syncHeights, 0),
+          setTimeout(syncHeights, 100),
+          setTimeout(syncHeights, 250),
+          setTimeout(syncHeights, 500),
+          setTimeout(syncHeights, 750)
+        ];
+        
+        return () => {
+          timers.forEach(timer => clearTimeout(timer));
+        };
+      }
+    };
+    
+    syncOnRouteChange();
+  }, [location.pathname]); // Re-run when pathname changes
   
   // Note management functions
   const addNote = () => {
@@ -141,10 +241,6 @@ const DoctorDashboard = () => {
   const greeting = getGreeting();
   const GreetingIcon = greeting.icon;
   
-  // Performance metrics
-  const avgConsultTime = 15.3; // minutes
-  const patientSatisfaction = 94; // percentage
-  
   return (
     <DashboardLayout>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/50 to-violet-50/50 animate-fadeIn">
@@ -187,14 +283,6 @@ const DoctorDashboard = () => {
               <div className="flex items-center gap-4">
                 <div className="hidden lg:flex items-center gap-6 mr-6">
                   <div className="text-center">
-                    <div className="flex items-center gap-1">
-                      <Star className="w-5 h-5 text-yellow-500 fill-current" />
-                      <span className="text-2xl font-bold text-gray-900">{doctor.rating}</span>
-                    </div>
-                    <p className="text-xs text-gray-600">Rating</p>
-                  </div>
-                  <div className="h-12 w-px bg-gray-300" />
-                  <div className="text-center">
                     <p className="text-2xl font-bold text-gray-900">{doctor.totalPatients.toLocaleString()}</p>
                     <p className="text-xs text-gray-600">Total Patients</p>
                   </div>
@@ -212,11 +300,7 @@ const DoctorDashboard = () => {
         </div>        
         {/* Enhanced Today's Overview Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div 
-            className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 p-6 border border-white/20 dashboard-card hover-lift group"
-            onMouseEnter={() => setHoveredCard('appointments')}
-            onMouseLeave={() => setHoveredCard(null)}
-          >
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 p-6 border border-white/20 dashboard-card hover-lift group">
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-600 flex items-center gap-2">
@@ -231,54 +315,16 @@ const DoctorDashboard = () => {
                 </div>
                 <div className="mt-3 bg-gray-200 rounded-full h-3 overflow-hidden">
                   <div 
-                    className="bg-gradient-to-r from-green-500 to-emerald-600 h-3 rounded-full transition-all duration-1000 shimmer"
+                    className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-1000"
                     style={{ width: `${todaysAppointments.length > 0 ? (completedAppointments / todaysAppointments.length) * 100 : 0}%` }}
                   />
                 </div>
-                {hoveredCard === 'appointments' && (
-                  <p className="text-xs text-gray-500 mt-2 animate-fadeIn">
-                    {todaysAppointments.length - completedAppointments} remaining today
-                  </p>
-                )}
               </div>
               <div className="p-4 bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl group-hover:scale-110 transition-transform duration-300">
                 <UserCheck className="w-8 h-8 text-green-600" />
               </div>
             </div>
-          </div>          
-          <div 
-            className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 p-6 border border-white/20 dashboard-card hover-lift group"
-            onMouseEnter={() => setHoveredCard('documentation')}
-            onMouseLeave={() => setHoveredCard(null)}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4" />
-                  Pending Documentation
-                </p>
-                <p className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mt-3">
-                  {pendingDocumentation}
-                </p>
-                <p className="text-xs text-gray-500 mt-2">Requires attention</p>
-                {hoveredCard === 'documentation' && pendingDocumentation > 0 && (
-                  <div className="mt-3 animate-fadeIn">
-                    <div className="h-1 bg-orange-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full animate-pulse" style={{width: '60%'}} />
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="p-4 bg-gradient-to-br from-orange-100 to-red-100 rounded-2xl group-hover:scale-110 transition-transform duration-300">
-                <FileText className="w-8 h-8 text-orange-600" />
-              </div>
-            </div>
-          </div>          
-          <div 
-            className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 p-6 border border-white/20 dashboard-card hover-lift group"
-            onMouseEnter={() => setHoveredCard('episodes')}
-            onMouseLeave={() => setHoveredCard(null)}
-          >
+          </div>          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 p-6 border border-white/20 dashboard-card hover-lift group">
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-600 flex items-center gap-2">
@@ -289,86 +335,50 @@ const DoctorDashboard = () => {
                   {activeEpisodes}
                 </p>
                 <p className="text-xs text-gray-500 mt-2">Ongoing care</p>
-                {hoveredCard === 'episodes' && (
-                  <div className="mt-3 flex items-center gap-2 animate-fadeIn">
-                    <Activity className="w-3 h-3 text-blue-500 animate-pulse" />
-                    <span className="text-xs text-blue-600">Active monitoring</span>
-                  </div>
-                )}
               </div>
               <div className="p-4 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl group-hover:scale-110 transition-transform duration-300">
                 <Activity className="w-8 h-8 text-blue-600" />
               </div>
             </div>
-          </div>          
-          <div 
-            className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 p-6 border border-white/20 dashboard-card hover-lift group"
-            onMouseEnter={() => setHoveredCard('performance')}
-            onMouseLeave={() => setHoveredCard(null)}
-          >
+          </div>          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 p-6 border border-white/20 dashboard-card hover-lift group">
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                  <Timer className="w-4 h-4" />
-                  Avg. Documentation Time
+                  <AlertCircle className="w-4 h-4" />
+                  Pending Encounters
+                </p>
+                <p className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mt-3">
+                  {pendingDocumentation}
+                </p>
+                <p className="text-xs text-gray-500 mt-2">Requires attention</p>
+              </div>
+              <div className="p-4 bg-gradient-to-br from-orange-100 to-red-100 rounded-2xl group-hover:scale-110 transition-transform duration-300">
+                <FileText className="w-8 h-8 text-orange-600" />
+              </div>
+            </div>
+          </div>          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 p-6 border border-white/20 dashboard-card hover-lift group">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" />
+                  Completed Encounters
                 </p>
                 <div className="flex items-baseline gap-1 mt-3">
                   <p className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                    6.2
+                    {completedEncountersThisWeek}
                   </p>
-                  <p className="text-lg text-gray-500">min</p>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">per encounter</p>
-                {hoveredCard === 'performance' && (
-                  <div className="mt-3 animate-fadeIn">
-                    <div className="flex items-center gap-1 text-xs">
-                      <TrendingDown className="w-3 h-3 text-green-500" />
-                      <span className="text-green-600">15% faster than average</span>
-                    </div>
-                  </div>
-                )}
+                <p className="text-xs text-gray-500 mt-2">Since Sunday</p>
               </div>
               <div className="p-4 bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl group-hover:scale-110 transition-transform duration-300">
-                <Timer className="w-8 h-8 text-purple-600" />
-              </div>
-            </div>
-          </div>
-        </div>        
-        {/* Performance Metrics Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <div className="lg:col-span-3 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-2xl p-1 shadow-xl">
-            <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-6">
-              <div className="flex items-center justify-between flex-wrap gap-6">
-                <div className="flex items-center gap-3">
-                  <BarChart3 className="w-6 h-6 text-indigo-600" />
-                  <h3 className="text-lg font-bold text-gray-900">Today's Performance</h3>
-                </div>
-                <div className="flex items-center gap-8">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-indigo-600">{avgConsultTime}</p>
-                    <p className="text-xs text-gray-600">Avg. Consult (min)</p>
-                  </div>
-                  <div className="h-12 w-px bg-gray-300" />
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-green-600">{patientSatisfaction}%</p>
-                    <p className="text-xs text-gray-600">Satisfaction</p>
-                  </div>
-                  <div className="h-12 w-px bg-gray-300" />
-                  <div className="text-center">
-                    <div className="flex items-center gap-1 justify-center">
-                      <Briefcase className="w-5 h-5 text-purple-600" />
-                      <p className="text-2xl font-bold text-purple-600">{completedAppointments + 3}</p>
-                    </div>
-                    <p className="text-xs text-gray-600">Total Consultations</p>
-                  </div>
-                </div>
+                <Award className="w-8 h-8 text-purple-600" />
               </div>
             </div>
           </div>
         </div>        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Quick Actions & Upcoming Appointments */}
-          <div className="lg:col-span-1 space-y-6 flex flex-col">
+          <div ref={leftColumnRef} className="lg:col-span-1 space-y-6 flex flex-col">
             {/* Enhanced Quick Actions */}
             <div className="glass bg-white/90 rounded-3xl shadow-xl p-6 border border-white/20 hover-lift">
               <h2 className="text-lg font-bold text-gray-900 mb-5 flex items-center">
@@ -422,7 +432,6 @@ const DoctorDashboard = () => {
                   <Calendar className="w-5 h-5 mr-2 text-blue-600" />
                   Upcoming Appointments
                 </span>
-                <span className="text-sm font-normal text-gray-500">Next 5</span>
               </h3>
               <div className="space-y-3 max-h-72 overflow-y-auto custom-scrollbar-light">
                 {appointments
@@ -506,10 +515,18 @@ const DoctorDashboard = () => {
                 </button>
               )}
             </div>
-          </div>          
+          </div>
+          
           {/* Middle & Right Columns - Enhanced Recent Patients */}
           <div className="lg:col-span-2">
-            <div className="glass bg-white/90 rounded-3xl shadow-xl border border-white/20 flex flex-col hover-lift" style={{ height: '730px' }}>
+            <div 
+              ref={rightColumnRef}
+              className="glass bg-white/90 rounded-3xl shadow-xl border border-white/20 flex flex-col hover-lift" 
+              style={{ 
+                height: leftColumnHeight === 'auto' ? 'auto' : `${leftColumnHeight}px`,
+                minHeight: '400px'
+              }}
+            >
               <div className="p-6 border-b border-gray-200 flex-shrink-0 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-3xl">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-bold text-gray-900 flex items-center">
@@ -527,10 +544,10 @@ const DoctorDashboard = () => {
                     className="px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/80 backdrop-blur-sm hover:border-gray-400 transition-colors"
                   >
                     <option value="all">All Status</option>
-                    <option value="completed">✓ Completed</option>
-                    <option value="in-progress">⏳ In Progress</option>
-                    <option value="pending">⚡ Pending</option>
-                    <option value="signed">📝 Signed</option>
+                    <option value="completed">Completed</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="pending">Pending</option>
+                    <option value="signed">Signed</option>
                   </select>
                 </div>
               </div>              
