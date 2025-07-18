@@ -297,7 +297,7 @@ const DoctorDashboard = () => {
           
           <div className="lg:flex lg:gap-8">
             {/* Left Column - Quick Actions & Upcoming Appointments */}
-            <aside ref={leftRef} className="lg:w-80 flex-shrink-0 flex flex-col space-y-6 lg:self-start">
+            <aside ref={leftRef} className="lg:w-[23rem] flex-shrink-0 flex flex-col space-y-6 lg:self-start">
               {/* Enhanced Quick Actions */}
               <div className="glass bg-white/90 rounded-3xl shadow-xl p-6 border border-white/20 hover-lift">
                 <h2 className="text-lg font-bold text-gray-900 mb-5 flex items-center">
