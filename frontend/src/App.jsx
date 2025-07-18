@@ -15,6 +15,7 @@ import LandingPage from './components/LandingPage/LandingPage';
 import Schedule from './components/Schedule/Schedule';
 import Reports from './components/Reports/Reports';
 import Profile from './components/Profile/Profile';
+import NotificationsPage from './components/Notifications/NotificationsPage';
 
 function AppProviders({ children }) {
   return (
@@ -70,6 +71,11 @@ function App() {
         <Route path="/profile" element={
           <AppProviders>
             <Profile />
+          </AppProviders>
+        } />
+        <Route path="/notifications" element={
+          <AppProviders>
+            <NotificationsPage />
           </AppProviders>
         } />
       </Routes>

@@ -5,7 +5,7 @@ import {
   X, AlertCircle, ChevronDown, Search, Sparkles, 
   Clock, TrendingUp, Heart, Brain, Stethoscope, 
   Tag, Plus, AlertTriangle, Activity, Calendar,
-  Shield, Zap, Info, CheckCircle, ChevronRight
+  Shield, Zap, Info, CheckCircle, ChevronRight, Cloud
 } from 'lucide-react';
 
 const NewEpisodeModal = ({ patientId, onClose, onSuccess }) => {
@@ -24,7 +24,6 @@ const NewEpisodeModal = ({ patientId, onClose, onSuccess }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showAISuggestions, setShowAISuggestions] = useState(false);
 
   // Categorized common complaints
   const complaintCategories = {
@@ -34,7 +33,7 @@ const NewEpisodeModal = ({ patientId, onClose, onSuccess }) => {
       complaints: ['Chest pain', 'Shortness of breath', 'Severe headache', 'Abdominal pain (severe)']
     },
     'Respiratory': {
-      icon: Wind,
+      icon: Cloud,
       color: 'blue',
       complaints: ['Cough', 'Sore throat', 'Nasal congestion', 'Wheezing']
     },
@@ -100,7 +99,7 @@ const NewEpisodeModal = ({ patientId, onClose, onSuccess }) => {
   const systemTags = {
     'Body Systems': [
       { value: 'cardiovascular', icon: Heart, color: 'red' },
-      { value: 'respiratory', icon: Wind, color: 'blue' },
+      { value: 'respiratory', icon: Cloud, color: 'blue' },
       { value: 'neurological', icon: Brain, color: 'purple' },
       { value: 'gastrointestinal', icon: Shield, color: 'orange' },
       { value: 'musculoskeletal', icon: Activity, color: 'green' },
@@ -180,20 +179,6 @@ const NewEpisodeModal = ({ patientId, onClose, onSuccess }) => {
       handleAddTag(customTag.trim().toLowerCase());
       setCustomTag('');
     }
-  };
-
-  const generateAISuggestions = () => {
-    // Simulate AI suggestions based on chief complaint
-    const complaint = formData.chiefComplaint.toLowerCase();
-    const suggestions = [];
-    
-    if (complaint.includes('chest')) {
-      suggestions.push('Consider cardiac workup', 'Rule out PE', 'Check for GERD');
-    } else if (complaint.includes('headache')) {
-      suggestions.push('Assess for migraine features', 'Check blood pressure', 'Neurological exam');
-    }
-    
-    return suggestions;
   };
 
   return (
@@ -411,35 +396,6 @@ const NewEpisodeModal = ({ patientId, onClose, onSuccess }) => {
             </div>
           </div>
 
-          {/* AI Suggestions */}
-          {formData.chiefComplaint && (
-            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-4 border border-purple-200">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-medium text-purple-900 flex items-center">
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  AI Clinical Suggestions
-                </h4>
-                <button
-                  type="button"
-                  onClick={() => setShowAISuggestions(!showAISuggestions)}
-                  className="text-sm text-purple-600 hover:text-purple-700"
-                >
-                  {showAISuggestions ? 'Hide' : 'Show'}
-                </button>
-              </div>
-              {showAISuggestions && (
-                <div className="space-y-2 mt-3">
-                  {generateAISuggestions().map((suggestion, idx) => (
-                    <div key={idx} className="flex items-start">
-                      <ChevronRight className="w-4 h-4 text-purple-500 mt-0.5 mr-2 flex-shrink-0" />
-                      <p className="text-sm text-purple-800">{suggestion}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Create Encounter Option */}
           <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
             <label className="flex items-start cursor-pointer">
@@ -510,19 +466,5 @@ const NewEpisodeModal = ({ patientId, onClose, onSuccess }) => {
     </div>
   );
 };
-
-// Add missing icon import
-const Wind = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14H5a2 2 0 110-4h5m9-4h1a2 2 0 110 4h-1m-9 8h10a2 2 0 110 4H10" />
-  </svg>
-);
-
-const Loader2 = ({ className }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24">
-    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-  </svg>
-);
 
 export default NewEpisodeModal;

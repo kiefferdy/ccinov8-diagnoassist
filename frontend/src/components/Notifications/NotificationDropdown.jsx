@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Bell, X, Calendar, AlertCircle, CheckCircle, 
   FileText, Users, Activity, Clock
@@ -6,6 +7,7 @@ import {
 import { StorageManager } from '../../utils/storage';
 
 const NotificationDropdown = () => {
+  const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const dropdownRef = useRef(null);
@@ -272,7 +274,13 @@ const NotificationDropdown = () => {
           {/* Footer */}
           {notifications.length > 0 && (
             <div className="p-3 border-t border-gray-200 text-center">
-              <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+              <button 
+                onClick={() => {
+                  setShowDropdown(false);
+                  navigate('/notifications');
+                }}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
                 View all notifications
               </button>
             </div>
