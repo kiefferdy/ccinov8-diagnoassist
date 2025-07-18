@@ -1,41 +1,75 @@
 # DiagnoAssist
 
-An AI-powered medical diagnosis assistant that enhances doctors' workflows and helps them diagnose patients more effectively.
+An AI-powered medical diagnosis assistant that enhances doctors' workflows with episode-based care management, voice documentation, and clinical decision support.
 
-## Getting Started
+## Architecture
 
-This project consists of two main components:
+```
+Frontend (React) → FastAPI Backend → MongoDB + HAPI FHIR (R4)
+                      ↓
+                 Gemini 2.5 Pro (AI)
+```
 
-- **Frontend** (`frontend/`) - React-based user interface
-- **Backend** (`backend/`) - FastAPI server (to be implemented)
+## Key Features
 
-To set up each component, refer to the respective README files in their directories:
-- [Frontend Setup](./frontend/README.md)
-- Backend Setup (coming soon)
+- **AI Voice Documentation** - Convert clinical speech to structured SOAP notes
+- **Clinical Decision Support** - AI-powered differential diagnosis and treatment recommendations  
+- **Episode-Based Care** - Track patient problems across multiple encounters
+- **FHIR R4 Compliance** - Interoperability with Philippine healthcare standards
+- **Real-time Collaboration** - Auto-save and live updates via WebSocket
+- **Secure & Compliant** - JWT authentication with medical data protection
 
-## Features
+## Tech Stack
 
-- **Patient Information Management** - Comprehensive data collection with medical history tracking
-- **Dynamic Clinical Assessment** - AI-powered adaptive questioning based on chief complaint
-- **Physical Examination** - Vital signs recording and physical measurements
-- **AI Diagnostic Analysis** - Differential diagnosis generation with probability scoring
-- **Laboratory Tests & Results** - Test ordering, result entry, and interpretation
-- **Final Diagnosis & Treatment** - Refined diagnosis with AI-generated treatment recommendations
+**Frontend**: React, Tailwind CSS, React Router, React Hook Form  
+**Backend**: FastAPI, Python 3.11+, Pydantic, Motor (MongoDB), HTTPX  
+**AI**: Google Gemini 2.5 Pro, Speech-to-text, Clinical NLP  
+**Data**: MongoDB, HAPI FHIR Server, Redis (caching)  
+**Infrastructure**: Docker, Docker Compose
 
-## TODO
+## Quick Start
 
-- Backend implementation
-- Real AI model integration for diagnosis
-- PDF export and EHR system integration
-- Patient history database
+### Frontend (Development)
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-## Notes for Backend Integration
+### Backend (Coming Soon)
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
 
-The frontend is designed to work with a FastAPI backend. Key API endpoints needed:
+## Project Structure
 
-- `POST /api/patients` - Create new patient
-- `POST /api/clinical-assessment/questions` - Get dynamic questions
-- `POST /api/diagnosis/analyze` - Generate differential diagnoses
-- `POST /api/diagnosis/refine` - Refine diagnosis with test results
-- `POST /api/treatment/plan` - Generate treatment recommendations
-- `GET/POST /api/patients/{id}/records` - Patient record management
+```
+├── frontend/           # React application
+├── backend/           # FastAPI application (in development)
+├── BACKEND_DESIGN.md      # Detailed architecture design
+├── BACKEND_IMPLEMENTATION.md # 8-phase implementation plan
+└── README.md          # This file
+```
+
+## Documentation
+
+- **[Backend Design](./BACKEND_DESIGN.md)** - Comprehensive architecture and design decisions
+- **[Implementation Plan](./BACKEND_IMPLEMENTATION.md)** - 8-phase development roadmap
+- **[Frontend Setup](./frontend/README.md)** - React application setup guide
+
+## Development Status
+
+- **Frontend Prototype** - Complete with demo data
+- **Backend Development** - In progress (see implementation plan)
+- **Database Design** - FHIR R4 + MongoDB hybrid approach
+- **AI Integration** - Gemini 2.5 Pro integration planned
+
+## Philippine Healthcare Compliance
+
+This project follows Philippine healthcare standards:
+- **FHIR R4** implementation for interoperability
+- **PHCDI** (Philippine Core Data for Interoperability) compliance
+- Integration with existing **CHITS** systems
+- **Universal Health Care (UHC) Act** alignment
