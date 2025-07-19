@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import ICD10Autocomplete from './ICD10';
+
 import { 
   Brain, Plus, X, AlertTriangle, CheckCircle, HelpCircle, 
   Sparkles, ChevronDown, ChevronUp, Target, Search, 
@@ -19,6 +21,9 @@ const AssessmentSection = ({ data, patient, episode, encounter, onUpdate }) => {
   });
   const [expandedDiagnosis, setExpandedDiagnosis] = useState(null);
   const [showRiskAssessment, setShowRiskAssessment] = useState(false);
+
+  const [primaryDiagnosis, setPrimaryDiagnosis] = useState('');
+  const [secondaryDiagnosis, setSecondaryDiagnosis] = useState('');
   
   // Common diagnoses based on chief complaint
   const getCommonDiagnoses = () => {
@@ -128,6 +133,36 @@ const AssessmentSection = ({ data, patient, episode, encounter, onUpdate }) => {
       }
     });
   };
+
+const handlePrimaryDiagnosisSelect = (code) => {
+  try {
+    console.log('Primary diagnosis selected:', code);
+    setPrimaryDiagnosis(code.code + ' - ' + code.description); // Update local state
+    onUpdate({ 
+      primaryDiagnosis: {
+        ...code,
+        isPrimary: true
+      }
+    });
+  } catch (error) {
+    console.error('Error in handlePrimaryDiagnosisSelect:', error);
+  }
+};
+
+const handleSecondaryDiagnosisSelect = (code) => {
+  try {
+    console.log('Secondary diagnosis selected:', code);
+    setSecondaryDiagnosis(code.code + ' - ' + code.description); // Update local state
+    onUpdate({ 
+      secondaryDiagnosis: {
+        ...code,
+        isPrimary: false
+      }
+    });
+  } catch (error) {
+    console.error('Error in handleSecondaryDiagnosisSelect:', error);
+  }
+};
   
   const handleRiskAssessmentUpdate = (value) => {
     onUpdate({ riskAssessment: value });
@@ -201,6 +236,20 @@ const AssessmentSection = ({ data, patient, episode, encounter, onUpdate }) => {
     };
     return configs[confidence] || configs.possible;
   };
+  const handleUpdateICD10 = (id, newCode) => {
+    const updated = data.differentialDiagnoses.map((d) =>
+      d.id === id ? { ...d, icd10: newCode } : d
+    );
+    onUpdate({ ...data, differentialDiagnoses: updated });
+  };
+
+  const handleSelectICD10 = (id, selected) => {
+    const updated = data.differentialDiagnoses.map((d) =>
+      d.id === id ? { ...d, icd10: selected.code, description: selected.description } : d
+    );
+    onUpdate({ ...data, differentialDiagnoses: updated });
+  };
+
   
   // Sort differential diagnoses by probability
   const sortedDifferentialDiagnosis = [...(data.differentialDiagnosis || [])].sort((a, b) => {
@@ -253,11 +302,12 @@ const AssessmentSection = ({ data, patient, episode, encounter, onUpdate }) => {
       </div>
       
       {/* Clinical Impression */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
           <Lightbulb className="w-5 h-5 mr-2 text-yellow-500" />
           Clinical Impression
         </h3>
+
         <textarea
           value={data.clinicalImpression || ''}
           onChange={(e) => handleClinicalImpressionUpdate(e.target.value)}
@@ -265,6 +315,7 @@ const AssessmentSection = ({ data, patient, episode, encounter, onUpdate }) => {
           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
           placeholder="Summarize your clinical impression based on the history and examination findings..."
         />
+
         <div className="mt-3 flex items-center justify-between">
           <p className="text-xs text-gray-500">
             {data.clinicalImpression?.length || 0} characters
@@ -275,160 +326,240 @@ const AssessmentSection = ({ data, patient, episode, encounter, onUpdate }) => {
           </button>
         </div>
       </div>
-      
-      {/* Differential Diagnosis */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-              <Microscope className="w-5 h-5 mr-2 text-purple-600" />
-              Differential Diagnosis
-            </h3>
-            <p className="text-sm text-gray-600 mt-1">
-              List possible diagnoses in order of probability
-            </p>
+{/* Combined Primary, Secondary & Differential Diagnoses */}
+<div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+  <div className="flex items-center justify-between mb-6">
+    <div>
+      <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+        <Stethoscope className="w-5 h-5 mr-2 text-blue-600" />
+        Diagnoses
+      </h3>
+      <p className="text-sm text-gray-600 mt-1">
+        Primary, secondary, and differential diagnoses
+      </p>
+    </div>
+    <button
+      onClick={() => setShowAddDiagnosis(true)}
+      className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-md hover:shadow-lg"
+    >
+      <Plus className="w-4 h-4 mr-2" />
+      Add Diagnosis
+    </button>
+  </div>
+
+  <div className="space-y-6">
+    {/* Primary Diagnosis */}
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Primary Diagnosis <span className="text-red-500">*</span>
+      </label>
+      <ICD10Autocomplete
+        value={primaryDiagnosis}
+        onChange={setPrimaryDiagnosis}
+        onSelect={handlePrimaryDiagnosisSelect}
+        placeholder="Search for primary diagnosis..."
+      />
+      {data.primaryDiagnosis && (
+        <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-blue-900">
+                {data.primaryDiagnosis.description}
+              </p>
+              <p className="text-sm text-blue-700">
+                Code: {data.primaryDiagnosis.code}
+              </p>
+            </div>
+            <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+              <Target className="w-3 h-3 mr-1" />
+              Primary
+            </div>
           </div>
-          <button
-            onClick={() => setShowAddDiagnosis(true)}
-            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-md hover:shadow-lg"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Diagnosis
-          </button>
         </div>
-        
-        {sortedDifferentialDiagnosis.length > 0 ? (
-          <div className="space-y-3">
-            {sortedDifferentialDiagnosis.map((diagnosis) => {
-              const probabilityConfig = getProbabilityConfig(diagnosis.probability);
-              const ProbabilityIcon = probabilityConfig.icon;
-              
-              return (
-                <div 
-                  key={diagnosis.id} 
-                  className={`border-2 rounded-xl p-4 transition-all hover:shadow-md ${
-                    expandedDiagnosis === diagnosis.id ? 'border-purple-300 bg-purple-50' : 'border-gray-200 bg-white'
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <h4 className="font-semibold text-gray-900 text-lg">{diagnosis.diagnosis}</h4>
-                        {diagnosis.icd10 && (
-                          <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">
-                            ICD-10: {diagnosis.icd10}
-                          </span>
-                        )}
-                        <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${probabilityConfig.color}`}>
-                          <ProbabilityIcon className="w-3 h-3 mr-1" />
-                          {probabilityConfig.label}
-                        </div>
-                      </div>
-                      
-                      <button
-                        onClick={() => setExpandedDiagnosis(expandedDiagnosis === diagnosis.id ? null : diagnosis.id)}
-                        className="text-sm text-purple-600 hover:text-purple-700 mt-3 flex items-center font-medium"
-                      >
-                        {expandedDiagnosis === diagnosis.id ? (
-                          <>
-                            <ChevronUp className="w-4 h-4 mr-1" />
-                            Hide Clinical Evidence
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown className="w-4 h-4 mr-1" />
-                            Show Clinical Evidence
-                          </>
-                        )}
-                      </button>
-                      
-                      {expandedDiagnosis === diagnosis.id && (
-                        <div className="mt-4 grid md:grid-cols-2 gap-4">
-                          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                            <p className="font-medium text-green-800 mb-2 flex items-center">
-                              <CheckCircle className="w-4 h-4 mr-1" />
-                              Supporting Evidence
-                            </p>
-                            {diagnosis.supportingEvidence.length > 0 ? (
-                              <ul className="space-y-1">
-                                {diagnosis.supportingEvidence.map((evidence, idx) => (
-                                  <li key={idx} className="text-sm text-green-700 flex items-start">
-                                    <span className="text-green-500 mr-2">•</span>
-                                    {evidence}
-                                  </li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <p className="text-sm text-gray-500 italic">No evidence added</p>
-                            )}
-                          </div>
-                          
-                          <div className="bg-red-50 rounded-lg p-4 border border-red-200">
-                            <p className="font-medium text-red-800 mb-2 flex items-center">
-                              <X className="w-4 h-4 mr-1" />
-                              Contradicting Evidence
-                            </p>
-                            {diagnosis.contradictingEvidence.length > 0 ? (
-                              <ul className="space-y-1">
-                                {diagnosis.contradictingEvidence.map((evidence, idx) => (
-                                  <li key={idx} className="text-sm text-red-700 flex items-start">
-                                    <span className="text-red-500 mr-2">•</span>
-                                    {evidence}
-                                  </li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <p className="text-sm text-gray-500 italic">No contradictions noted</p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-start gap-2 ml-4">
-                      <select
-                        value={diagnosis.probability}
-                        onChange={(e) => handleUpdateProbability(diagnosis.id, e.target.value)}
-                        className="text-sm border border-gray-300 rounded-lg px-2 py-1 bg-white"
-                      >
-                        <option value="high">High</option>
-                        <option value="medium">Medium</option>
-                        <option value="low">Low</option>
-                      </select>
-                      <button
-                        onClick={() => handleSetWorkingDiagnosis(diagnosis)}
-                        className="p-1.5 text-purple-600 hover:text-purple-700 hover:bg-purple-100 rounded-lg transition-colors"
-                        title="Set as working diagnosis"
-                      >
-                        <Target className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleRemoveDiagnosis(diagnosis.id)}
-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+      )}
+    </div>
+
+    {/* Secondary Diagnosis */}
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Secondary Diagnosis (Optional)
+      </label>
+      <ICD10Autocomplete
+        value={secondaryDiagnosis}
+        onChange={setSecondaryDiagnosis}
+        onSelect={handleSecondaryDiagnosisSelect}
+        placeholder="Search for secondary diagnosis..."
+      />
+      {data.secondaryDiagnosis && (
+        <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-green-900">
+                {data.secondaryDiagnosis.description}
+              </p>
+              <p className="text-sm text-green-700">
+                Code: {data.secondaryDiagnosis.code}
+              </p>
+            </div>
+            <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+              <CheckCircle className="w-3 h-3 mr-1" />
+              Secondary
+            </div>
           </div>
-        ) : (
-          <div className="text-center py-12 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border-2 border-dashed border-purple-300">
-            <Microscope className="w-16 h-16 mx-auto mb-4 text-purple-400" />
-            <p className="text-gray-600 font-medium mb-4">No differential diagnoses added yet</p>
-            <button
-              onClick={() => setShowAddDiagnosis(true)}
-              className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add First Diagnosis
-            </button>
-          </div>
-        )}
+        </div>
+      )}
+    </div>
+
+    {/* Differential Diagnoses */}
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Differential Diagnoses
+          </label>
+          <p className="text-xs text-gray-500 mt-1">
+            List possible diagnoses in order of probability
+          </p>
+        </div>
+        <Microscope className="w-5 h-5 text-purple-600" />
       </div>
       
+      {sortedDifferentialDiagnosis.length > 0 ? (
+        <div className="space-y-3">
+          {sortedDifferentialDiagnosis.map((diagnosis) => {
+            const probabilityConfig = getProbabilityConfig(diagnosis.probability);
+            const ProbabilityIcon = probabilityConfig.icon;
+            
+            return (
+              <div 
+                key={diagnosis.id} 
+                className={`border-2 rounded-xl p-4 transition-all hover:shadow-md ${
+                  expandedDiagnosis === diagnosis.id ? 'border-purple-300 bg-purple-50' : 'border-gray-200 bg-white'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <h4 className="font-semibold text-gray-900 text-lg">{diagnosis.diagnosis}</h4>
+                      <div className="w-full max-w-sm">
+                        <ICD10Autocomplete
+                          value={diagnosis.icd10}
+                          onChange={(newValue) => handleUpdateICD10(diagnosis.id, newValue)}
+                          onSelect={(selected) => handleSelectICD10(diagnosis.id, selected)}
+                          placeholder="Search ICD-10 code..."
+                        />
+                      </div>
+                      <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${probabilityConfig.color}`}>
+                        <ProbabilityIcon className="w-3 h-3 mr-1" />
+                        {probabilityConfig.label}
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={() => setExpandedDiagnosis(expandedDiagnosis === diagnosis.id ? null : diagnosis.id)}
+                      className="text-sm text-purple-600 hover:text-purple-700 mt-3 flex items-center font-medium"
+                    >
+                      {expandedDiagnosis === diagnosis.id ? (
+                        <>
+                          <ChevronUp className="w-4 h-4 mr-1" />
+                          Hide Clinical Evidence
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="w-4 h-4 mr-1" />
+                          Show Clinical Evidence
+                        </>
+                      )}
+                    </button>
+                    
+                    {expandedDiagnosis === diagnosis.id && (
+                      <div className="mt-4 grid md:grid-cols-2 gap-4">
+                        <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                          <p className="font-medium text-green-800 mb-2 flex items-center">
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Supporting Evidence
+                          </p>
+                          {diagnosis.supportingEvidence.length > 0 ? (
+                            <ul className="space-y-1">
+                              {diagnosis.supportingEvidence.map((evidence, idx) => (
+                                <li key={idx} className="text-sm text-green-700 flex items-start">
+                                  <span className="text-green-500 mr-2">•</span>
+                                  {evidence}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-sm text-gray-500 italic">No evidence added</p>
+                          )}
+                        </div>
+                        
+                        <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+                          <p className="font-medium text-red-800 mb-2 flex items-center">
+                            <X className="w-4 h-4 mr-1" />
+                            Contradicting Evidence
+                          </p>
+                          {diagnosis.contradictingEvidence.length > 0 ? (
+                            <ul className="space-y-1">
+                              {diagnosis.contradictingEvidence.map((evidence, idx) => (
+                                <li key={idx} className="text-sm text-red-700 flex items-start">
+                                  <span className="text-red-500 mr-2">•</span>
+                                  {evidence}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-sm text-gray-500 italic">No contradictions noted</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-start gap-2 ml-4">
+                    <select
+                      value={diagnosis.probability}
+                      onChange={(e) => handleUpdateProbability(diagnosis.id, e.target.value)}
+                      className="text-sm border border-gray-300 rounded-lg px-2 py-1 bg-white"
+                    >
+                      <option value="high">High</option>
+                      <option value="medium">Medium</option>
+                      <option value="low">Low</option>
+                    </select>
+                    <button
+                      onClick={() => handleSetWorkingDiagnosis(diagnosis)}
+                      className="p-1.5 text-purple-600 hover:text-purple-700 hover:bg-purple-100 rounded-lg transition-colors"
+                      title="Set as working diagnosis"
+                    >
+                      <Target className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleRemoveDiagnosis(diagnosis.id)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-center py-8 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border-2 border-dashed border-purple-300">
+          <Microscope className="w-12 h-12 mx-auto mb-3 text-purple-400" />
+          <p className="text-gray-600 font-medium mb-3">No differential diagnoses added yet</p>
+          <button
+            onClick={() => setShowAddDiagnosis(true)}
+            className="inline-flex items-center px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add First Diagnosis
+          </button>
+        </div>
+      )}
+    </div>
+  </div>
+</div>
       {/* Working Diagnosis */}
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -595,37 +726,25 @@ const AssessmentSection = ({ data, patient, episode, encounter, onUpdate }) => {
                   </div>
                 )}
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Diagnosis Name <span className="text-red-500">*</span>
+                      Diagnosis/ICD-10 <span className="text-red-500">*</span>
                     </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={newDiagnosis.diagnosis}
-                        onChange={(e) => setNewDiagnosis({ ...newDiagnosis, diagnosis: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        placeholder="e.g., Acute Myocardial Infarction"
-                      />
-                      <Search className="absolute right-3 top-3.5 w-4 h-4 text-gray-400" />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      ICD-10 Code
-                    </label>
-                    <input
-                      type="text"
+                    <ICD10Autocomplete
                       value={newDiagnosis.icd10}
-                      onChange={(e) => setNewDiagnosis({ ...newDiagnosis, icd10: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="e.g., I21.9"
+                      onChange={(newValue) =>
+                        setNewDiagnosis({ ...newDiagnosis, icd10: newValue })
+                      }
+                      onSelect={(selected) =>
+                        setNewDiagnosis({
+                          ...newDiagnosis,
+                          diagnosis: selected.description,
+                          icd10: selected.code
+                        })
+                      }
+                      placeholder="Type to search diagnosis or ICD-10 code..."
                     />
-                  </div>
-                </div>
-                
+                  </div>       
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Initial Probability Assessment
