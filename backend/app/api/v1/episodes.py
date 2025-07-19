@@ -24,17 +24,8 @@ from app.core.exceptions import NotFoundError, ValidationException
 
 router = APIRouter()
 
-# In-memory storage for Phase 1 (will be replaced with database in Phase 3)
-episodes_storage: List[EpisodeModel] = []
-episode_counter = 1
-
-
-def generate_episode_id() -> str:
-    """Generate a unique episode ID"""
-    global episode_counter
-    episode_id = f"E{episode_counter:03d}"
-    episode_counter += 1
-    return episode_id
+# Import repository
+from app.repositories.episode_repository import episode_repository
 
 
 @router.get("/", response_model=EpisodeListResponse)
@@ -48,38 +39,27 @@ async def get_episodes(
 ):
     """Get list of episodes with optional filtering and pagination"""
     
-    # Apply filters
-    filtered_episodes = episodes_storage
+    # Calculate skip for pagination
+    skip = (page - 1) * per_page
     
-    if patient_id:
-        filtered_episodes = [
-            e for e in filtered_episodes 
-            if e.patient_id == patient_id
-        ]
+    # Get filtered episodes from repository
+    episodes = await episode_repository.get_by_filters(
+        patient_id=patient_id,
+        status=status,
+        category=category,
+        skip=skip,
+        limit=per_page
+    )
     
-    if status:
-        filtered_episodes = [
-            e for e in filtered_episodes 
-            if e.status == status
-        ]
-    
-    if category:
-        filtered_episodes = [
-            e for e in filtered_episodes 
-            if e.category == category
-        ]
-    
-    # Sort by created_at descending
-    filtered_episodes.sort(key=lambda x: x.created_at or datetime.min, reverse=True)
-    
-    # Apply pagination
-    total = len(filtered_episodes)
-    start_idx = (page - 1) * per_page
-    end_idx = start_idx + per_page
-    paginated_episodes = filtered_episodes[start_idx:end_idx]
+    # Get total count for pagination
+    total = await episode_repository.count_by_filters(
+        patient_id=patient_id,
+        status=status,
+        category=category
+    )
     
     return EpisodeListResponse(
-        data=paginated_episodes,
+        data=episodes,
         total=total,
         page=page,
         per_page=per_page
@@ -93,35 +73,26 @@ async def create_episode(
 ):
     """Create a new episode"""
     
-    # TODO: Validate that patient_id exists (will be added in Phase 3 with database)
-    
     # Create new episode
-    now = datetime.utcnow()
     new_episode = EpisodeModel(
-        id=generate_episode_id(),
         patient_id=request.patient_id,
         chief_complaint=request.chief_complaint,
         category=request.category,
         tags=request.tags or [],
-        notes=request.notes,
-        created_at=now,
-        updated_at=now
+        notes=request.notes
     )
     
-    # Store episode
-    episodes_storage.append(new_episode)
+    # Store episode in database
+    created_episode = await episode_repository.create(new_episode)
     
-    return EpisodeResponse(data=new_episode)
+    return EpisodeResponse(data=created_episode)
 
 
 @router.get("/{episode_id}", response_model=EpisodeResponse)
 async def get_episode(episode_id: str):
     """Get an episode by ID"""
     
-    episode = next(
-        (e for e in episodes_storage if e.id == episode_id),
-        None
-    )
+    episode = await episode_repository.get_by_id(episode_id)
     
     if not episode:
         raise NotFoundError("Episode", episode_id)
@@ -133,16 +104,11 @@ async def get_episode(episode_id: str):
 async def update_episode(episode_id: str, request: EpisodeUpdateRequest):
     """Update an existing episode"""
     
-    # Find episode
-    episode_index = next(
-        (i for i, e in enumerate(episodes_storage) if e.id == episode_id),
-        None
-    )
+    # Get episode
+    episode = await episode_repository.get_by_id(episode_id)
     
-    if episode_index is None:
+    if not episode:
         raise NotFoundError("Episode", episode_id)
-    
-    episode = episodes_storage[episode_index]
     
     # Update episode data
     if request.chief_complaint is not None:
@@ -175,26 +141,21 @@ async def update_episode(episode_id: str, request: EpisodeUpdateRequest):
     
     episode.updated_at = datetime.utcnow()
     
-    # Update in storage
-    episodes_storage[episode_index] = episode
+    # Update in database
+    updated_episode = await episode_repository.update(episode_id, episode)
     
-    return EpisodeResponse(data=episode)
+    return EpisodeResponse(data=updated_episode)
 
 
 @router.patch("/{episode_id}/status", response_model=EpisodeResponse)
 async def update_episode_status(episode_id: str, request: EpisodeStatusUpdateRequest):
     """Update episode status"""
     
-    # Find episode
-    episode_index = next(
-        (i for i, e in enumerate(episodes_storage) if e.id == episode_id),
-        None
-    )
+    # Get episode
+    episode = await episode_repository.get_by_id(episode_id)
     
-    if episode_index is None:
+    if not episode:
         raise NotFoundError("Episode", episode_id)
-    
-    episode = episodes_storage[episode_index]
     
     # Update status
     episode.status = request.status
@@ -208,10 +169,10 @@ async def update_episode_status(episode_id: str, request: EpisodeStatusUpdateReq
     if request.notes:
         episode.notes = request.notes
     
-    # Update in storage
-    episodes_storage[episode_index] = episode
+    # Update in database
+    updated_episode = await episode_repository.update(episode_id, episode)
     
-    return EpisodeResponse(data=episode)
+    return EpisodeResponse(data=updated_episode)
 
 
 @router.get("/patients/{patient_id}/episodes", response_model=EpisodeListResponse)
@@ -223,30 +184,25 @@ async def get_patient_episodes(
 ):
     """Get all episodes for a specific patient"""
     
-    # Filter episodes by patient
-    patient_episodes = [
-        e for e in episodes_storage 
-        if e.patient_id == patient_id
-    ]
+    # Calculate skip for pagination
+    skip = (page - 1) * per_page
     
-    # Apply status filter if provided
-    if status:
-        patient_episodes = [
-            e for e in patient_episodes 
-            if e.status == status
-        ]
+    # Get patient episodes from repository
+    episodes = await episode_repository.get_by_patient(
+        patient_id=patient_id,
+        status=status,
+        skip=skip,
+        limit=per_page
+    )
     
-    # Sort by created_at descending
-    patient_episodes.sort(key=lambda x: x.created_at or datetime.min, reverse=True)
-    
-    # Apply pagination
-    total = len(patient_episodes)
-    start_idx = (page - 1) * per_page
-    end_idx = start_idx + per_page
-    paginated_episodes = patient_episodes[start_idx:end_idx]
+    # Get total count for pagination
+    total = await episode_repository.count_by_patient(
+        patient_id=patient_id,
+        status=status
+    )
     
     return EpisodeListResponse(
-        data=paginated_episodes,
+        data=episodes,
         total=total,
         page=page,
         per_page=per_page
@@ -257,20 +213,17 @@ async def get_patient_episodes(
 async def delete_episode(episode_id: str):
     """Delete an episode"""
     
-    # Find episode
-    episode_index = next(
-        (i for i, e in enumerate(episodes_storage) if e.id == episode_id),
-        None
-    )
+    # Get episode first to verify it exists
+    episode = await episode_repository.get_by_id(episode_id)
     
-    if episode_index is None:
+    if not episode:
         raise NotFoundError("Episode", episode_id)
     
-    # Remove episode
-    deleted_episode = episodes_storage.pop(episode_index)
+    # Delete episode
+    await episode_repository.delete(episode_id)
     
     return {
         "success": True,
-        "message": f"Episode {deleted_episode.id} deleted successfully",
+        "message": f"Episode {episode.id} deleted successfully",
         "timestamp": datetime.utcnow()
     }

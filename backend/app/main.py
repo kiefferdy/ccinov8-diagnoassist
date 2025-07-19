@@ -23,11 +23,28 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager"""
     # Startup
     logger.info("DiagnoAssist Backend starting up...")
-    # TODO: Initialize database connections, AI clients, etc.
+    
+    # Initialize database connection
+    try:
+        from app.core.database import init_database
+        await init_database()
+        logger.info("Database connection initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        raise
+    
     yield
+    
     # Shutdown
     logger.info("DiagnoAssist Backend shutting down...")
-    # TODO: Close database connections, cleanup resources, etc.
+    
+    # Close database connections
+    try:
+        from app.core.database import close_database
+        await close_database()
+        logger.info("Database connection closed successfully")
+    except Exception as e:
+        logger.error(f"Error closing database connection: {e}")
 
 
 # Create FastAPI application

@@ -206,7 +206,9 @@ async def validate_token(current_user: CurrentUser = Depends(get_current_user)):
 @router.get("/users", response_model=Dict[str, Any])
 async def list_users(admin_user: CurrentUser = Depends(require_admin)):
     """List all users (admin only, for development)"""
-    users = auth_service.users_storage
+    from app.repositories.user_repository import user_repository
+    
+    users = await user_repository.get_all(limit=100)
     
     # Remove password hashes from response
     safe_users = []
@@ -229,17 +231,28 @@ async def delete_user(
     admin_user: CurrentUser = Depends(require_admin)
 ):
     """Delete user (admin only, for development)"""
-    # Find and remove user
-    for i, user in enumerate(auth_service.users_storage):
-        if user.id == user_id:
-            deleted_user = auth_service.users_storage.pop(i)
-            return {
-                "success": True,
-                "message": f"User {deleted_user.email} deleted successfully",
-                "timestamp": datetime.utcnow()
-            }
+    from app.repositories.user_repository import user_repository
     
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail=f"User {user_id} not found"
-    )
+    try:
+        # Get user first to get email for response
+        user = await user_repository.get_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User {user_id} not found"
+            )
+        
+        # Delete user
+        await user_repository.delete(user_id)
+        
+        return {
+            "success": True,
+            "message": f"User {user.email} deleted successfully",
+            "timestamp": datetime.utcnow()
+        }
+        
+    except NotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User {user_id} not found"
+        )

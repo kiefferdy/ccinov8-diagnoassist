@@ -26,17 +26,8 @@ from app.core.exceptions import NotFoundError, ValidationException
 
 router = APIRouter()
 
-# In-memory storage for Phase 1 (will be replaced with database in Phase 3)
-encounters_storage: List[EncounterModel] = []
-encounter_counter = 1
-
-
-def generate_encounter_id() -> str:
-    """Generate a unique encounter ID"""
-    global encounter_counter
-    encounter_id = f"ENC{encounter_counter:03d}"
-    encounter_counter += 1
-    return encounter_id
+# Import repository
+from app.repositories.encounter_repository import encounter_repository
 
 
 @router.get("/", response_model=EncounterListResponse)
@@ -51,44 +42,29 @@ async def get_encounters(
 ):
     """Get list of encounters with optional filtering and pagination"""
     
-    # Apply filters
-    filtered_encounters = encounters_storage
+    # Calculate skip for pagination
+    skip = (page - 1) * per_page
     
-    if patient_id:
-        filtered_encounters = [
-            e for e in filtered_encounters 
-            if e.patient_id == patient_id
-        ]
+    # Get filtered encounters from repository
+    encounters = await encounter_repository.get_by_filters(
+        patient_id=patient_id,
+        episode_id=episode_id,
+        status=status,
+        encounter_type=type,
+        skip=skip,
+        limit=per_page
+    )
     
-    if episode_id:
-        filtered_encounters = [
-            e for e in filtered_encounters 
-            if e.episode_id == episode_id
-        ]
-    
-    if status:
-        filtered_encounters = [
-            e for e in filtered_encounters 
-            if e.status == status
-        ]
-    
-    if type:
-        filtered_encounters = [
-            e for e in filtered_encounters 
-            if e.type == type
-        ]
-    
-    # Sort by created_at descending
-    filtered_encounters.sort(key=lambda x: x.created_at or datetime.min, reverse=True)
-    
-    # Apply pagination
-    total = len(filtered_encounters)
-    start_idx = (page - 1) * per_page
-    end_idx = start_idx + per_page
-    paginated_encounters = filtered_encounters[start_idx:end_idx]
+    # Get total count for pagination
+    total = await encounter_repository.count_by_filters(
+        patient_id=patient_id,
+        episode_id=episode_id,
+        status=status,
+        encounter_type=type
+    )
     
     return EncounterListResponse(
-        data=paginated_encounters,
+        data=encounters,
         total=total,
         page=page,
         per_page=per_page
@@ -99,36 +75,27 @@ async def get_encounters(
 async def create_encounter(request: EncounterCreateRequest):
     """Create a new encounter"""
     
-    # TODO: Validate that patient_id and episode_id exist (will be added in Phase 3 with database)
-    
     # Create new encounter
-    now = datetime.utcnow()
     new_encounter = EncounterModel(
-        id=generate_encounter_id(),
         episode_id=request.episode_id,
         patient_id=request.patient_id,
         type=request.type,
         provider=request.provider,
         soap=SOAPModel(),  # Initialize empty SOAP
-        workflow=WorkflowInfo(last_saved=now),
-        created_at=now,
-        updated_at=now
+        workflow=WorkflowInfo(last_saved=datetime.utcnow())
     )
     
-    # Store encounter
-    encounters_storage.append(new_encounter)
+    # Store encounter in database
+    created_encounter = await encounter_repository.create(new_encounter)
     
-    return EncounterResponse(data=new_encounter)
+    return EncounterResponse(data=created_encounter)
 
 
 @router.get("/{encounter_id}", response_model=EncounterResponse)
 async def get_encounter(encounter_id: str):
     """Get an encounter by ID"""
     
-    encounter = next(
-        (e for e in encounters_storage if e.id == encounter_id),
-        None
-    )
+    encounter = await encounter_repository.get_by_id(encounter_id)
     
     if not encounter:
         raise NotFoundError("Encounter", encounter_id)
@@ -140,16 +107,11 @@ async def get_encounter(encounter_id: str):
 async def update_encounter(encounter_id: str, request: EncounterUpdateRequest):
     """Update an existing encounter"""
     
-    # Find encounter
-    encounter_index = next(
-        (i for i, e in enumerate(encounters_storage) if e.id == encounter_id),
-        None
-    )
+    # Get encounter
+    encounter = await encounter_repository.get_by_id(encounter_id)
     
-    if encounter_index is None:
+    if not encounter:
         raise NotFoundError("Encounter", encounter_id)
-    
-    encounter = encounters_storage[encounter_index]
     
     # Check if encounter is signed (prevent modifications)
     if encounter.status == EncounterStatusEnum.SIGNED:
@@ -171,10 +133,10 @@ async def update_encounter(encounter_id: str, request: EncounterUpdateRequest):
     encounter.updated_at = datetime.utcnow()
     encounter.workflow.last_saved = datetime.utcnow()
     
-    # Update in storage
-    encounters_storage[encounter_index] = encounter
+    # Update in database
+    updated_encounter = await encounter_repository.update(encounter_id, encounter)
     
-    return EncounterResponse(data=encounter)
+    return EncounterResponse(data=updated_encounter)
 
 
 @router.post("/{encounter_id}/sign", response_model=EncounterResponse)
@@ -185,16 +147,11 @@ async def sign_encounter(
 ):
     """Sign an encounter"""
     
-    # Find encounter
-    encounter_index = next(
-        (i for i, e in enumerate(encounters_storage) if e.id == encounter_id),
-        None
-    )
+    # Get encounter
+    encounter = await encounter_repository.get_by_id(encounter_id)
     
-    if encounter_index is None:
+    if not encounter:
         raise NotFoundError("Encounter", encounter_id)
-    
-    encounter = encounters_storage[encounter_index]
     
     # Validate encounter can be signed
     if encounter.status == EncounterStatusEnum.SIGNED:
@@ -218,10 +175,10 @@ async def sign_encounter(
     encounter.workflow.last_saved = now
     encounter.workflow.signed_version = encounter.workflow.version
     
-    # Update in storage
-    encounters_storage[encounter_index] = encounter
+    # Update in database
+    updated_encounter = await encounter_repository.update(encounter_id, encounter)
     
-    return EncounterResponse(data=encounter)
+    return EncounterResponse(data=updated_encounter)
 
 
 @router.get("/episodes/{episode_id}/encounters", response_model=EncounterListResponse)
@@ -233,30 +190,25 @@ async def get_episode_encounters(
 ):
     """Get all encounters for a specific episode"""
     
-    # Filter encounters by episode
-    episode_encounters = [
-        e for e in encounters_storage 
-        if e.episode_id == episode_id
-    ]
+    # Calculate skip for pagination
+    skip = (page - 1) * per_page
     
-    # Apply status filter if provided
-    if status:
-        episode_encounters = [
-            e for e in episode_encounters 
-            if e.status == status
-        ]
+    # Get episode encounters from repository
+    encounters = await encounter_repository.get_by_episode(
+        episode_id=episode_id,
+        status=status,
+        skip=skip,
+        limit=per_page
+    )
     
-    # Sort by created_at descending
-    episode_encounters.sort(key=lambda x: x.created_at or datetime.min, reverse=True)
-    
-    # Apply pagination
-    total = len(episode_encounters)
-    start_idx = (page - 1) * per_page
-    end_idx = start_idx + per_page
-    paginated_encounters = episode_encounters[start_idx:end_idx]
+    # Get total count for pagination
+    total = await encounter_repository.count_by_episode(
+        episode_id=episode_id,
+        status=status
+    )
     
     return EncounterListResponse(
-        data=paginated_encounters,
+        data=encounters,
         total=total,
         page=page,
         per_page=per_page
@@ -267,16 +219,11 @@ async def get_episode_encounters(
 async def update_encounter_soap(encounter_id: str, soap_data: SOAPModel):
     """Update SOAP documentation for an encounter"""
     
-    # Find encounter
-    encounter_index = next(
-        (i for i, e in enumerate(encounters_storage) if e.id == encounter_id),
-        None
-    )
+    # Get encounter
+    encounter = await encounter_repository.get_by_id(encounter_id)
     
-    if encounter_index is None:
+    if not encounter:
         raise NotFoundError("Encounter", encounter_id)
-    
-    encounter = encounters_storage[encounter_index]
     
     # Check if encounter is signed (prevent modifications)
     if encounter.status == EncounterStatusEnum.SIGNED:
@@ -295,26 +242,21 @@ async def update_encounter_soap(encounter_id: str, soap_data: SOAPModel):
     if encounter.status == EncounterStatusEnum.DRAFT:
         encounter.status = EncounterStatusEnum.IN_PROGRESS
     
-    # Update in storage
-    encounters_storage[encounter_index] = encounter
+    # Update in database
+    updated_encounter = await encounter_repository.update(encounter_id, encounter)
     
-    return EncounterResponse(data=encounter)
+    return EncounterResponse(data=updated_encounter)
 
 
 @router.delete("/{encounter_id}")
 async def delete_encounter(encounter_id: str):
     """Delete an encounter (only if not signed)"""
     
-    # Find encounter
-    encounter_index = next(
-        (i for i, e in enumerate(encounters_storage) if e.id == encounter_id),
-        None
-    )
+    # Get encounter first to verify it exists
+    encounter = await encounter_repository.get_by_id(encounter_id)
     
-    if encounter_index is None:
+    if not encounter:
         raise NotFoundError("Encounter", encounter_id)
-    
-    encounter = encounters_storage[encounter_index]
     
     # Prevent deletion of signed encounters
     if encounter.status == EncounterStatusEnum.SIGNED:
@@ -323,11 +265,11 @@ async def delete_encounter(encounter_id: str):
             {"encounter_id": encounter_id, "status": encounter.status}
         )
     
-    # Remove encounter
-    deleted_encounter = encounters_storage.pop(encounter_index)
+    # Delete encounter
+    await encounter_repository.delete(encounter_id)
     
     return {
         "success": True,
-        "message": f"Encounter {deleted_encounter.id} deleted successfully",
+        "message": f"Encounter {encounter.id} deleted successfully",
         "timestamp": datetime.utcnow()
     }

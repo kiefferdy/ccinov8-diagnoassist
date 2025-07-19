@@ -22,17 +22,8 @@ from app.core.exceptions import NotFoundError, ValidationException
 
 router = APIRouter()
 
-# In-memory storage for Phase 1 (will be replaced with database in Phase 3)
-patients_storage: List[PatientModel] = []
-patient_counter = 1
-
-
-def generate_patient_id() -> str:
-    """Generate a unique patient ID"""
-    global patient_counter
-    patient_id = f"P{patient_counter:03d}"
-    patient_counter += 1
-    return patient_id
+# Import repository
+from app.repositories.patient_repository import patient_repository
 
 
 @router.get("/", response_model=PatientListResponse)
@@ -46,35 +37,23 @@ async def get_patients(
 ):
     """Get list of patients with optional filtering and pagination"""
     
-    # Apply filters
-    filtered_patients = patients_storage
+    # Calculate skip for pagination
+    skip = (page - 1) * per_page
     
-    if name:
-        filtered_patients = [
-            p for p in filtered_patients 
-            if name.lower() in p.demographics.name.lower()
-        ]
+    # Get filtered patients from repository
+    patients = await patient_repository.get_by_demographics_filter(
+        name=name,
+        gender=gender,
+        email=email,
+        skip=skip,
+        limit=per_page
+    )
     
-    if gender:
-        filtered_patients = [
-            p for p in filtered_patients 
-            if p.demographics.gender == gender
-        ]
-    
-    if email:
-        filtered_patients = [
-            p for p in filtered_patients 
-            if p.demographics.email and email.lower() in p.demographics.email.lower()
-        ]
-    
-    # Apply pagination
-    total = len(filtered_patients)
-    start_idx = (page - 1) * per_page
-    end_idx = start_idx + per_page
-    paginated_patients = filtered_patients[start_idx:end_idx]
+    # Get total count for pagination
+    total = await patient_repository.count()
     
     return PatientListResponse(
-        data=paginated_patients,
+        data=patients,
         total=total,
         page=page,
         per_page=per_page
@@ -90,10 +69,7 @@ async def create_patient(
     
     # Check for duplicate email
     if request.demographics.email:
-        existing_patient = next(
-            (p for p in patients_storage if p.demographics.email == request.demographics.email),
-            None
-        )
+        existing_patient = await patient_repository.get_by_email(request.demographics.email)
         if existing_patient:
             raise ValidationException(
                 "Patient with this email already exists",
@@ -101,20 +77,16 @@ async def create_patient(
             )
     
     # Create new patient
-    now = datetime.utcnow()
     from app.models.patient import MedicalBackground
     new_patient = PatientModel(
-        id=generate_patient_id(),
         demographics=request.demographics,
         medical_background=request.medical_background or MedicalBackground(),
-        created_at=now,
-        updated_at=now
     )
     
-    # Store patient
-    patients_storage.append(new_patient)
+    # Store patient in database
+    created_patient = await patient_repository.create(new_patient)
     
-    return PatientResponse(data=new_patient)
+    return PatientResponse(data=created_patient)
 
 
 @router.get("/{patient_id}", response_model=PatientResponse)
@@ -124,10 +96,7 @@ async def get_patient(
 ):
     """Get a patient by ID"""
     
-    patient = next(
-        (p for p in patients_storage if p.id == patient_id),
-        None
-    )
+    patient = await patient_repository.get_by_id(patient_id)
     
     if not patient:
         raise NotFoundError("Patient", patient_id)
@@ -143,25 +112,16 @@ async def update_patient(
 ):
     """Update an existing patient"""
     
-    # Find patient
-    patient_index = next(
-        (i for i, p in enumerate(patients_storage) if p.id == patient_id),
-        None
-    )
+    # Get patient
+    patient = await patient_repository.get_by_id(patient_id)
     
-    if patient_index is None:
+    if not patient:
         raise NotFoundError("Patient", patient_id)
-    
-    patient = patients_storage[patient_index]
     
     # Check for email conflicts (if updating email)
     if request.demographics and request.demographics.email:
-        existing_patient = next(
-            (p for p in patients_storage 
-             if p.demographics.email == request.demographics.email and p.id != patient_id),
-            None
-        )
-        if existing_patient:
+        existing_patient = await patient_repository.get_by_email(request.demographics.email)
+        if existing_patient and existing_patient.id != patient_id:
             raise ValidationException(
                 "Patient with this email already exists",
                 {"email": request.demographics.email}
@@ -176,10 +136,10 @@ async def update_patient(
     
     patient.updated_at = datetime.utcnow()
     
-    # Update in storage
-    patients_storage[patient_index] = patient
+    # Update in database
+    updated_patient = await patient_repository.update(patient_id, patient)
     
-    return PatientResponse(data=patient)
+    return PatientResponse(data=updated_patient)
 
 
 @router.delete("/{patient_id}")
@@ -189,20 +149,17 @@ async def delete_patient(
 ):
     """Delete a patient"""
     
-    # Find patient
-    patient_index = next(
-        (i for i, p in enumerate(patients_storage) if p.id == patient_id),
-        None
-    )
+    # Get patient first to verify it exists
+    patient = await patient_repository.get_by_id(patient_id)
     
-    if patient_index is None:
+    if not patient:
         raise NotFoundError("Patient", patient_id)
     
-    # Remove patient
-    deleted_patient = patients_storage.pop(patient_index)
+    # Delete patient
+    await patient_repository.delete(patient_id)
     
     return {
         "success": True,
-        "message": f"Patient {deleted_patient.id} deleted successfully",
+        "message": f"Patient {patient.id} deleted successfully",
         "timestamp": datetime.utcnow()
     }

@@ -21,21 +21,15 @@ class AuthService:
     """Authentication service class"""
     
     def __init__(self):
-        # In-memory storage for Phase 2 (will be replaced with database in Phase 3)
-        self.users_storage = []
-        self.user_counter = 1
-    
-    def generate_user_id(self) -> str:
-        """Generate a unique user ID"""
-        user_id = f"U{self.user_counter:03d}"
-        self.user_counter += 1
-        return user_id
+        # Import repository here to avoid circular imports
+        from app.repositories.user_repository import user_repository
+        self.user_repo = user_repository
     
     async def register_user(self, registration_data: UserRegistrationRequest) -> UserModel:
         """Register a new user"""
         
         # Check if user already exists
-        existing_user = await self.get_user_by_email(registration_data.email)
+        existing_user = await self.user_repo.get_by_email(registration_data.email)
         if existing_user:
             raise ConflictException(
                 "User with this email already exists", 
@@ -47,29 +41,23 @@ class AuthService:
         hashed_password = get_password_hash(registration_data.password)
         
         # Create new user
-        now = datetime.utcnow()
         new_user = UserModel(
-            id=self.generate_user_id(),
             email=registration_data.email,
             hashed_password=hashed_password,
             role=registration_data.role,
             status=UserStatusEnum.PENDING_VERIFICATION,
             profile=registration_data.profile,
             is_verified=False,  # In real app, would send verification email
-            created_at=now,
-            updated_at=now
         )
         
-        # Store user
-        self.users_storage.append(new_user)
-        
-        return new_user
+        # Store user in database
+        return await self.user_repo.create(new_user)
     
     async def authenticate_user(self, login_data: UserLoginRequest) -> Optional[UserModel]:
         """Authenticate user with email and password"""
         
         # Get user by email
-        user = await self.get_user_by_email(login_data.email)
+        user = await self.user_repo.get_by_email(login_data.email)
         if not user:
             return None
         
@@ -85,10 +73,11 @@ class AuthService:
             raise AuthenticationException("Account is inactive")
         
         # Update last login
-        user.last_login = datetime.utcnow()
-        await self.update_user(user)
+        await self.user_repo.update_last_login(user.id)
         
-        return user
+        # Refresh user data after update
+        updated_user = await self.user_repo.get_by_id(user.id)
+        return updated_user
     
     async def login_user(self, login_data: UserLoginRequest) -> Dict[str, Any]:
         """Login user and return tokens"""
@@ -137,7 +126,7 @@ class AuthService:
             raise AuthenticationException("Invalid refresh token")
         
         # Get user
-        user = await self.get_user_by_id(token_data.sub)
+        user = await self.user_repo.get_by_id(token_data.sub)
         if not user:
             raise AuthenticationException("User not found")
         
@@ -170,7 +159,7 @@ class AuthService:
             raise AuthenticationException("Invalid access token")
         
         # Get user
-        user = await self.get_user_by_id(token_data.sub)
+        user = await self.user_repo.get_by_id(token_data.sub)
         if not user:
             raise AuthenticationException("User not found")
         
@@ -188,33 +177,17 @@ class AuthService:
     
     async def get_user_by_email(self, email: str) -> Optional[UserModel]:
         """Get user by email"""
-        for user in self.users_storage:
-            if user.email == email:
-                return user
-        return None
+        return await self.user_repo.get_by_email(email)
     
     async def get_user_by_id(self, user_id: str) -> Optional[UserModel]:
         """Get user by ID"""
-        for user in self.users_storage:
-            if user.id == user_id:
-                return user
-        return None
-    
-    async def update_user(self, user: UserModel) -> UserModel:
-        """Update user in storage"""
-        for i, stored_user in enumerate(self.users_storage):
-            if stored_user.id == user.id:
-                user.updated_at = datetime.utcnow()
-                self.users_storage[i] = user
-                return user
-        
-        raise NotFoundError("User", user.id)
+        return await self.user_repo.get_by_id(user_id)
     
     async def change_password(self, user_id: str, current_password: str, new_password: str) -> bool:
         """Change user password"""
         
         # Get user
-        user = await self.get_user_by_id(user_id)
+        user = await self.user_repo.get_by_id(user_id)
         if not user:
             raise NotFoundError("User", user_id)
         
@@ -223,50 +196,22 @@ class AuthService:
             raise AuthenticationException("Current password is incorrect")
         
         # Update password
-        user.hashed_password = get_password_hash(new_password)
-        await self.update_user(user)
+        hashed_password = get_password_hash(new_password)
+        await self.user_repo.update_password(user_id, hashed_password)
         
         return True
     
     async def activate_user(self, user_id: str) -> UserModel:
         """Activate user account (for admin use)"""
-        
-        user = await self.get_user_by_id(user_id)
-        if not user:
-            raise NotFoundError("User", user_id)
-        
-        user.status = UserStatusEnum.ACTIVE
-        user.is_verified = True
-        await self.update_user(user)
-        
-        return user
+        return await self.user_repo.update_status(user_id, UserStatusEnum.ACTIVE)
     
     async def suspend_user(self, user_id: str) -> UserModel:
         """Suspend user account (for admin use)"""
-        
-        user = await self.get_user_by_id(user_id)
-        if not user:
-            raise NotFoundError("User", user_id)
-        
-        user.status = UserStatusEnum.SUSPENDED
-        await self.update_user(user)
-        
-        return user
+        return await self.user_repo.update_status(user_id, UserStatusEnum.SUSPENDED)
     
     async def verify_user_email(self, user_id: str) -> UserModel:
         """Verify user email (simulate email verification)"""
-        
-        user = await self.get_user_by_id(user_id)
-        if not user:
-            raise NotFoundError("User", user_id)
-        
-        user.is_verified = True
-        if user.status == UserStatusEnum.PENDING_VERIFICATION:
-            user.status = UserStatusEnum.ACTIVE
-        
-        await self.update_user(user)
-        
-        return user
+        return await self.user_repo.verify_user(user_id)
 
 
 # Create service instance
