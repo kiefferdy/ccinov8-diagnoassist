@@ -2,7 +2,7 @@
 Encounter API endpoints for DiagnoAssist Backend
 """
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from datetime import datetime
 
 from app.models.encounter import (
@@ -17,6 +17,11 @@ from app.models.encounter import (
     WorkflowInfo
 )
 from app.models.soap import SOAPModel
+from app.models.auth import CurrentUser
+from app.middleware.auth_middleware import (
+    require_encounter_read, require_encounter_write, 
+    require_encounter_update, require_encounter_delete, require_encounter_sign
+)
 from app.core.exceptions import NotFoundError, ValidationException
 
 router = APIRouter()
@@ -42,6 +47,7 @@ async def get_encounters(
     episode_id: Optional[str] = Query(None),
     status: Optional[EncounterStatusEnum] = Query(None),
     type: Optional[EncounterTypeEnum] = Query(None),
+    current_user: CurrentUser = Depends(require_encounter_read),
 ):
     """Get list of encounters with optional filtering and pagination"""
     
@@ -172,7 +178,11 @@ async def update_encounter(encounter_id: str, request: EncounterUpdateRequest):
 
 
 @router.post("/{encounter_id}/sign", response_model=EncounterResponse)
-async def sign_encounter(encounter_id: str, request: EncounterSignRequest):
+async def sign_encounter(
+    encounter_id: str, 
+    request: EncounterSignRequest,
+    current_user: CurrentUser = Depends(require_encounter_sign),
+):
     """Sign an encounter"""
     
     # Find encounter

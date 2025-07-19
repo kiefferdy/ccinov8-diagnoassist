@@ -2,7 +2,7 @@
 Patient API endpoints for DiagnoAssist Backend
 """
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from datetime import datetime
 
 from app.models.patient import (
@@ -12,6 +12,11 @@ from app.models.patient import (
     PatientResponse,
     PatientListResponse,
     PatientSearchFilters
+)
+from app.models.auth import CurrentUser
+from app.middleware.auth_middleware import (
+    require_patient_read, require_patient_write, 
+    require_patient_update, require_patient_delete
 )
 from app.core.exceptions import NotFoundError, ValidationException
 
@@ -37,6 +42,7 @@ async def get_patients(
     name: Optional[str] = Query(None),
     gender: Optional[str] = Query(None),
     email: Optional[str] = Query(None),
+    current_user: CurrentUser = Depends(require_patient_read),
 ):
     """Get list of patients with optional filtering and pagination"""
     
@@ -76,7 +82,10 @@ async def get_patients(
 
 
 @router.post("/", response_model=PatientResponse)
-async def create_patient(request: PatientCreateRequest):
+async def create_patient(
+    request: PatientCreateRequest,
+    current_user: CurrentUser = Depends(require_patient_write),
+):
     """Create a new patient"""
     
     # Check for duplicate email
@@ -93,10 +102,11 @@ async def create_patient(request: PatientCreateRequest):
     
     # Create new patient
     now = datetime.utcnow()
+    from app.models.patient import MedicalBackground
     new_patient = PatientModel(
         id=generate_patient_id(),
         demographics=request.demographics,
-        medical_background=request.medical_background or None,
+        medical_background=request.medical_background or MedicalBackground(),
         created_at=now,
         updated_at=now
     )
@@ -108,7 +118,10 @@ async def create_patient(request: PatientCreateRequest):
 
 
 @router.get("/{patient_id}", response_model=PatientResponse)
-async def get_patient(patient_id: str):
+async def get_patient(
+    patient_id: str,
+    current_user: CurrentUser = Depends(require_patient_read),
+):
     """Get a patient by ID"""
     
     patient = next(
@@ -123,7 +136,11 @@ async def get_patient(patient_id: str):
 
 
 @router.put("/{patient_id}", response_model=PatientResponse)
-async def update_patient(patient_id: str, request: PatientUpdateRequest):
+async def update_patient(
+    patient_id: str, 
+    request: PatientUpdateRequest,
+    current_user: CurrentUser = Depends(require_patient_update),
+):
     """Update an existing patient"""
     
     # Find patient
@@ -166,7 +183,10 @@ async def update_patient(patient_id: str, request: PatientUpdateRequest):
 
 
 @router.delete("/{patient_id}")
-async def delete_patient(patient_id: str):
+async def delete_patient(
+    patient_id: str,
+    current_user: CurrentUser = Depends(require_patient_delete),
+):
     """Delete a patient"""
     
     # Find patient

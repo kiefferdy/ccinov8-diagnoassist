@@ -2,7 +2,7 @@
 Episode API endpoints for DiagnoAssist Backend
 """
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from datetime import datetime
 
 from app.models.episode import (
@@ -14,6 +14,11 @@ from app.models.episode import (
     EpisodeListResponse,
     EpisodeCategoryEnum,
     EpisodeStatusEnum
+)
+from app.models.auth import CurrentUser
+from app.middleware.auth_middleware import (
+    require_episode_read, require_episode_write, 
+    require_episode_update, require_episode_delete
 )
 from app.core.exceptions import NotFoundError, ValidationException
 
@@ -39,6 +44,7 @@ async def get_episodes(
     patient_id: Optional[str] = Query(None),
     status: Optional[EpisodeStatusEnum] = Query(None),
     category: Optional[EpisodeCategoryEnum] = Query(None),
+    current_user: CurrentUser = Depends(require_episode_read),
 ):
     """Get list of episodes with optional filtering and pagination"""
     
@@ -81,7 +87,10 @@ async def get_episodes(
 
 
 @router.post("/", response_model=EpisodeResponse)
-async def create_episode(request: EpisodeCreateRequest):
+async def create_episode(
+    request: EpisodeCreateRequest,
+    current_user: CurrentUser = Depends(require_episode_write),
+):
     """Create a new episode"""
     
     # TODO: Validate that patient_id exists (will be added in Phase 3 with database)
