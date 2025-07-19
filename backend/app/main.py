@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.routes import test
+from app.routes import test, transcription
 
 app = FastAPI()
 
@@ -8,4 +8,5 @@ async def root():
     return {"message": "Diagnoassist API is running."}
 
 app.include_router(test.router)
+app.include_router(transcription.router)
 
