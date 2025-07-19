@@ -27,64 +27,6 @@ const UnifiedVoiceInput = ({
   const audioChunksRef = useRef([]);
   const recordingTimerRef = useRef(null);
 
-  useEffect(() => {
-    // Check for browser support
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      setError('Speech recognition is not supported in your browser.');
-      return;
-    }
-
-    // Initialize speech recognition
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-    
-    recognition.onresult = (event) => {
-      let interim = '';
-      let final = '';
-      
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        if (result.isFinal) {
-          final += result[0].transcript + ' ';
-        } else {
-          interim += result[0].transcript;
-        }
-      }      
-      console.log('Recognition result - Final:', final, 'Interim:', interim); // Debug log
-      
-      if (final) {
-        setTranscript(prev => prev + final);
-      }
-      setInterimTranscript(interim);
-    };
-    
-    recognition.onerror = (event) => {
-      console.error('Speech recognition error:', event.error);
-      setError(`Recognition error: ${event.error}`);
-      stopRecording();
-    };
-    
-    recognition.onend = () => {
-      if (isRecording) {
-        // Restart if still recording
-        recognition.start();
-      }
-    };
-    
-    recognitionRef.current = recognition;
-    
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRecording]);
-
   // Timer for recording duration
   useEffect(() => {
     if (isRecording) {
@@ -116,20 +58,61 @@ const UnifiedVoiceInput = ({
       setTranscript('');
       setInterimTranscript('');
       setProcessedData(null);
-      setIsExpanded(true); // Auto-expand when recording
+      setIsExpanded(true); 
       
-      // Start speech recognition
-      if (recognitionRef.current) {
-        recognitionRef.current.start();
-      }
-      
-      // Start audio recording for better quality (optional)
+      audioChunksRef.current = [];
+
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream);
         
         mediaRecorder.ondataavailable = (event) => {
           audioChunksRef.current.push(event.data);
+        };
+        
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunksRef.current, { 
+            type: 'audio/wav'
+          });
+          
+          const base64Audio = await blobToBase64(audioBlob);
+          //console.log('Base64 audio data:', base64Audio);
+
+          setIsProcessing(true)
+
+          try {
+            const response = await fetch('http://localhost:8000/transcribe', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                audio_data: base64Audio
+              })
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const res = await response.json();
+            //console.log('API response:', result);
+
+            if (res.success) {
+              console.log(res)
+              const result = res.result
+              console.log(result)
+              setProcessedData(result)
+            }
+            
+          } catch (apiError) {
+            console.error('Error sending audio to API:', apiError);
+            setError('Failed to process audio. Please try again.');
+          }
+
+          setIsProcessing(false)
+          
+          stream.getTracks().forEach(track => track.stop());
         };
         
         mediaRecorder.start();
@@ -142,34 +125,24 @@ const UnifiedVoiceInput = ({
       setError('Failed to start recording. Please check microphone permissions.');
     }
   };
+
+  const blobToBase64 = (blob) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
   const stopRecording = () => {
-    // Stop speech recognition
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-    }
-    
-    // Stop media recording
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+    if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      setIsRecording(false);
     }
-    
-    setIsRecording(false);
-    
-    // Process the transcript after a small delay to ensure all text is captured
-    setTimeout(() => {
-      const fullTranscript = transcript + interimTranscript;
-      console.log('Stop recording - Full transcript:', fullTranscript); // Debug log
-      
-      if (fullTranscript.trim()) {
-        processTranscript(fullTranscript);
-      } else {
-        // If no transcript, use sample data for demo
-        console.log('No transcript captured, using sample data'); // Debug log
-        const sampleTranscript = "Patient complains of persistent cough and fever for the past 3 days. Temperature is 101.5 degrees. Blood pressure is 130 over 85. On examination, throat appears red and inflamed. Lungs are clear to auscultation. Assessment is likely viral upper respiratory infection. Plan to prescribe acetaminophen for fever and recommend rest and fluids. Follow up in one week if symptoms persist.";
-        processTranscript(sampleTranscript);
-      }
-    }, 500);
   };
 
   const processTranscript = async (text) => {
@@ -467,13 +440,6 @@ const UnifiedVoiceInput = ({
                 <span className="text-white/70">|</span>
                 <span className="font-mono text-white/90">{formatDuration(recordingDuration)}</span>
               </div>
-              <button
-                onClick={() => setShowTranscript(!showTranscript)}
-                className="text-white/80 hover:text-white text-sm flex items-center space-x-1"
-              >
-                <span>Live transcript</span>
-                {showTranscript ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </button>
             </div>
           </div>
         )}
