@@ -82,3 +82,18 @@ class RateLimitException(DiagnoAssistException):
     def __init__(self, message: str = "Rate limit exceeded", retry_after: Optional[int] = None):
         details = {"retry_after": retry_after} if retry_after else {}
         super().__init__(message, "RATE_LIMIT_ERROR", details)
+
+
+class BusinessRuleException(DiagnoAssistException):
+    """Business rule violation errors"""
+    
+    def __init__(self, message: str, violations: Optional[list] = None):
+        from typing import TYPE_CHECKING
+        if TYPE_CHECKING:
+            from app.core.business_rules import RuleViolation
+        
+        details = {"violations": violations or []}
+        super().__init__(message, "BUSINESS_RULE_ERROR", details)
+        
+        # Store violations for easy access
+        self.violations = violations or []

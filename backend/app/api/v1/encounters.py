@@ -26,8 +26,8 @@ from app.core.exceptions import NotFoundError, ValidationException
 
 router = APIRouter()
 
-# Import repository
-from app.repositories.encounter_repository import encounter_repository
+# Import service
+from app.services.encounter_service import encounter_service
 
 
 @router.get("/", response_model=EncounterListResponse)
@@ -45,7 +45,8 @@ async def get_encounters(
     # Calculate skip for pagination
     skip = (page - 1) * per_page
     
-    # Get filtered encounters from repository
+    # Get filtered encounters from repository (keeping direct access for general listing)
+    from app.repositories.encounter_repository import encounter_repository
     encounters = await encounter_repository.get_by_filters(
         patient_id=patient_id,
         episode_id=episode_id,
@@ -72,71 +73,98 @@ async def get_encounters(
 
 
 @router.post("/", response_model=EncounterResponse)
-async def create_encounter(request: EncounterCreateRequest):
+async def create_encounter(
+    request: EncounterCreateRequest,
+    current_user: CurrentUser = Depends(require_encounter_write)
+):
     """Create a new encounter"""
     
-    # Create new encounter
-    new_encounter = EncounterModel(
-        episode_id=request.episode_id,
-        patient_id=request.patient_id,
-        type=request.type,
-        provider=request.provider,
-        soap=SOAPModel(),  # Initialize empty SOAP
-        workflow=WorkflowInfo(last_saved=datetime.utcnow())
-    )
-    
-    # Store encounter in database
-    created_encounter = await encounter_repository.create(new_encounter)
-    
-    return EncounterResponse(data=created_encounter)
+    try:
+        # Create new encounter
+        new_encounter = EncounterModel(
+            episode_id=request.episode_id,
+            patient_id=request.patient_id,
+            type=request.type,
+            provider=request.provider,
+            soap=SOAPModel(),  # Initialize empty SOAP
+            workflow=WorkflowInfo(last_saved=datetime.utcnow())
+        )
+        
+        # Use service to create encounter with validation
+        created_encounter = await encounter_service.create_encounter(new_encounter)
+        
+        return EncounterResponse(data=created_encounter)
+        
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=str(e)
+        )
+    except ValidationException as e:
+        raise HTTPException(
+            status_code=422,
+            detail=str(e)
+        )
 
 
 @router.get("/{encounter_id}", response_model=EncounterResponse)
-async def get_encounter(encounter_id: str):
+async def get_encounter(
+    encounter_id: str,
+    current_user: CurrentUser = Depends(require_encounter_read)
+):
     """Get an encounter by ID"""
     
-    encounter = await encounter_repository.get_by_id(encounter_id)
-    
-    if not encounter:
-        raise NotFoundError("Encounter", encounter_id)
-    
-    return EncounterResponse(data=encounter)
+    try:
+        encounter = await encounter_service.get_encounter_with_validation(encounter_id)
+        return EncounterResponse(data=encounter)
+        
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=str(e)
+        )
 
 
 @router.put("/{encounter_id}", response_model=EncounterResponse)
-async def update_encounter(encounter_id: str, request: EncounterUpdateRequest):
+async def update_encounter(
+    encounter_id: str, 
+    request: EncounterUpdateRequest,
+    current_user: CurrentUser = Depends(require_encounter_update)
+):
     """Update an existing encounter"""
     
-    # Get encounter
-    encounter = await encounter_repository.get_by_id(encounter_id)
-    
-    if not encounter:
-        raise NotFoundError("Encounter", encounter_id)
-    
-    # Check if encounter is signed (prevent modifications)
-    if encounter.status == EncounterStatusEnum.SIGNED:
-        raise ValidationException(
-            "Cannot modify a signed encounter",
-            {"encounter_id": encounter_id, "status": encounter.status}
+    try:
+        # Get encounter first
+        encounter = await encounter_service.get_encounter_with_validation(encounter_id)
+        
+        # Update encounter data
+        if request.type is not None:
+            encounter.type = request.type
+        
+        if request.status is not None:
+            encounter.status = request.status
+        
+        if request.provider is not None:
+            encounter.provider = request.provider
+        
+        encounter.updated_at = datetime.utcnow()
+        encounter.workflow.last_saved = datetime.utcnow()
+        
+        # Use service to update with validation
+        updated_encounter = await encounter_service.update_encounter(encounter_id, encounter)
+        
+        return EncounterResponse(data=updated_encounter)
+        
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=str(e)
         )
-    
-    # Update encounter data
-    if request.type is not None:
-        encounter.type = request.type
-    
-    if request.status is not None:
-        encounter.status = request.status
-    
-    if request.provider is not None:
-        encounter.provider = request.provider
-    
-    encounter.updated_at = datetime.utcnow()
-    encounter.workflow.last_saved = datetime.utcnow()
-    
-    # Update in database
-    updated_encounter = await encounter_repository.update(encounter_id, encounter)
-    
-    return EncounterResponse(data=updated_encounter)
+    except ValidationException as e:
+        raise HTTPException(
+            status_code=422,
+            detail=str(e)
+        )
 
 
 @router.post("/{encounter_id}/sign", response_model=EncounterResponse)
@@ -145,40 +173,28 @@ async def sign_encounter(
     request: EncounterSignRequest,
     current_user: CurrentUser = Depends(require_encounter_sign),
 ):
-    """Sign an encounter"""
+    """Sign an encounter and trigger FHIR synchronization"""
     
-    # Get encounter
-    encounter = await encounter_repository.get_by_id(encounter_id)
-    
-    if not encounter:
-        raise NotFoundError("Encounter", encounter_id)
-    
-    # Validate encounter can be signed
-    if encounter.status == EncounterStatusEnum.SIGNED:
-        raise ValidationException(
-            "Encounter is already signed",
-            {"encounter_id": encounter_id}
+    try:
+        # Use service to sign encounter (includes FHIR sync)
+        signed_encounter = await encounter_service.sign_encounter(
+            encounter_id=encounter_id,
+            signed_by=current_user.id,
+            notes=getattr(request, 'notes', None)
         )
-    
-    if encounter.status == EncounterStatusEnum.CANCELLED:
-        raise ValidationException(
-            "Cannot sign a cancelled encounter",
-            {"encounter_id": encounter_id}
+        
+        return EncounterResponse(data=signed_encounter)
+        
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=str(e)
         )
-    
-    # Sign the encounter
-    now = datetime.utcnow()
-    encounter.status = EncounterStatusEnum.SIGNED
-    encounter.signed_at = now
-    encounter.signed_by = encounter.provider.id
-    encounter.updated_at = now
-    encounter.workflow.last_saved = now
-    encounter.workflow.signed_version = encounter.workflow.version
-    
-    # Update in database
-    updated_encounter = await encounter_repository.update(encounter_id, encounter)
-    
-    return EncounterResponse(data=updated_encounter)
+    except ValidationException as e:
+        raise HTTPException(
+            status_code=422,
+            detail=str(e)
+        )
 
 
 @router.get("/episodes/{episode_id}/encounters", response_model=EncounterListResponse)
@@ -187,89 +203,165 @@ async def get_episode_encounters(
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=100),
     status: Optional[EncounterStatusEnum] = Query(None),
+    current_user: CurrentUser = Depends(require_encounter_read)
 ):
     """Get all encounters for a specific episode"""
     
-    # Calculate skip for pagination
-    skip = (page - 1) * per_page
-    
-    # Get episode encounters from repository
-    encounters = await encounter_repository.get_by_episode(
-        episode_id=episode_id,
-        status=status,
-        skip=skip,
-        limit=per_page
-    )
-    
-    # Get total count for pagination
-    total = await encounter_repository.count_by_episode(
-        episode_id=episode_id,
-        status=status
-    )
-    
-    return EncounterListResponse(
-        data=encounters,
-        total=total,
-        page=page,
-        per_page=per_page
-    )
+    try:
+        # Calculate skip for pagination
+        skip = (page - 1) * per_page
+        
+        # Use service to get episode encounters with validation
+        encounters = await encounter_service.get_episode_encounters(
+            episode_id=episode_id,
+            status=status,
+            skip=skip,
+            limit=per_page
+        )
+        
+        # Get total count for pagination
+        from app.repositories.encounter_repository import encounter_repository
+        total = await encounter_repository.count_by_episode(
+            episode_id=episode_id,
+            status=status
+        )
+        
+        return EncounterListResponse(
+            data=encounters,
+            total=total,
+            page=page,
+            per_page=per_page
+        )
+        
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=str(e)
+        )
 
 
 @router.put("/{encounter_id}/soap", response_model=EncounterResponse)
-async def update_encounter_soap(encounter_id: str, soap_data: SOAPModel):
+async def update_encounter_soap(
+    encounter_id: str, 
+    soap_data: SOAPModel,
+    current_user: CurrentUser = Depends(require_encounter_update)
+):
     """Update SOAP documentation for an encounter"""
     
-    # Get encounter
-    encounter = await encounter_repository.get_by_id(encounter_id)
-    
-    if not encounter:
-        raise NotFoundError("Encounter", encounter_id)
-    
-    # Check if encounter is signed (prevent modifications)
-    if encounter.status == EncounterStatusEnum.SIGNED:
-        raise ValidationException(
-            "Cannot modify SOAP for a signed encounter",
-            {"encounter_id": encounter_id, "status": encounter.status}
+    try:
+        # Use service to update SOAP with validation
+        updated_encounter = await encounter_service.update_soap(encounter_id, soap_data)
+        
+        return EncounterResponse(data=updated_encounter)
+        
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=str(e)
         )
-    
-    # Update SOAP data
-    encounter.soap = soap_data
-    encounter.updated_at = datetime.utcnow()
-    encounter.workflow.last_saved = datetime.utcnow()
-    encounter.workflow.version += 1
-    
-    # Auto-update status to in_progress if it was draft
-    if encounter.status == EncounterStatusEnum.DRAFT:
-        encounter.status = EncounterStatusEnum.IN_PROGRESS
-    
-    # Update in database
-    updated_encounter = await encounter_repository.update(encounter_id, encounter)
-    
-    return EncounterResponse(data=updated_encounter)
+    except ValidationException as e:
+        raise HTTPException(
+            status_code=422,
+            detail=str(e)
+        )
 
 
 @router.delete("/{encounter_id}")
-async def delete_encounter(encounter_id: str):
+async def delete_encounter(
+    encounter_id: str,
+    current_user: CurrentUser = Depends(require_encounter_delete)
+):
     """Delete an encounter (only if not signed)"""
     
-    # Get encounter first to verify it exists
-    encounter = await encounter_repository.get_by_id(encounter_id)
-    
-    if not encounter:
-        raise NotFoundError("Encounter", encounter_id)
-    
-    # Prevent deletion of signed encounters
-    if encounter.status == EncounterStatusEnum.SIGNED:
-        raise ValidationException(
-            "Cannot delete a signed encounter",
-            {"encounter_id": encounter_id, "status": encounter.status}
+    try:
+        # Use service to delete encounter with validation
+        success = await encounter_service.delete_encounter(encounter_id)
+        
+        return {
+            "success": True,
+            "message": f"Encounter {encounter_id} deleted successfully",
+            "timestamp": datetime.utcnow()
+        }
+        
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=str(e)
         )
+    except ValidationException as e:
+        raise HTTPException(
+            status_code=422,
+            detail=str(e)
+        )
+
+
+@router.get("/{encounter_id}/validate")
+async def validate_encounter_completeness(
+    encounter_id: str,
+    current_user: CurrentUser = Depends(require_encounter_read)
+):
+    """Validate encounter documentation completeness"""
     
-    # Delete encounter
-    await encounter_repository.delete(encounter_id)
+    try:
+        validation_result = await encounter_service.validate_encounter_completeness(encounter_id)
+        
+        return {
+            "success": True,
+            "data": validation_result,
+            "timestamp": datetime.utcnow()
+        }
+        
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=str(e)
+        )
+
+
+@router.post("/{encounter_id}/cancel")
+async def cancel_encounter(
+    encounter_id: str,
+    reason: str,
+    current_user: CurrentUser = Depends(require_encounter_update)
+):
+    """Cancel an encounter"""
     
-    return {
-        "success": True,
-        "message": f"Encounter {encounter.id} deleted successfully",
-        "timestamp": datetime.utcnow()
-    }
+    try:
+        cancelled_encounter = await encounter_service.cancel_encounter(
+            encounter_id=encounter_id,
+            reason=reason,
+            cancelled_by=current_user.id
+        )
+        
+        return EncounterResponse(data=cancelled_encounter)
+        
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=str(e)
+        )
+    except ValidationException as e:
+        raise HTTPException(
+            status_code=422,
+            detail=str(e)
+        )
+
+
+@router.get("/statistics")
+async def get_encounter_statistics(current_user: CurrentUser = Depends(require_encounter_read)):
+    """Get encounter statistics"""
+    
+    try:
+        stats = await encounter_service.get_encounter_statistics()
+        
+        return {
+            "success": True,
+            "data": stats,
+            "timestamp": datetime.utcnow()
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get encounter statistics: {str(e)}"
+        )

@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     
     # FHIR Server Configuration
     fhir_server_url: str = "http://localhost:8080/fhir"
+    fhir_client_id: str = "diagnoassist-backend"
+    fhir_enabled: bool = True
+    fhir_timeout: int = 30
+    fhir_max_retries: int = 3
     
     # AI Configuration
     gemini_api_key: str

@@ -29,6 +29,11 @@ fastapi-cors==0.0.6
 # WebSocket support
 websockets==12.0
 
+# FHIR Integration
+fhir.resources==7.0.2
+fhirclient==4.1.0
+requests==2.31.0
+
 # Testing
 pytest==7.4.3
 pytest-asyncio==0.21.1

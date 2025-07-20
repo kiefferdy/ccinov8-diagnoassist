@@ -33,6 +33,15 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize database: {e}")
         raise
     
+    # Initialize FHIR client
+    try:
+        from app.core.fhir_client import init_fhir_client
+        await init_fhir_client()
+        logger.info("FHIR client initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize FHIR client: {e}")
+        # Don't raise - allow app to start without FHIR
+    
     yield
     
     # Shutdown
@@ -45,6 +54,14 @@ async def lifespan(app: FastAPI):
         logger.info("Database connection closed successfully")
     except Exception as e:
         logger.error(f"Error closing database connection: {e}")
+    
+    # Close FHIR client
+    try:
+        from app.core.fhir_client import close_fhir_client
+        await close_fhir_client()
+        logger.info("FHIR client closed successfully")
+    except Exception as e:
+        logger.error(f"Error closing FHIR client: {e}")
 
 
 # Create FastAPI application
