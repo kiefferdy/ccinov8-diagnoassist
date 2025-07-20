@@ -316,58 +316,81 @@ const AIAssistant = ({
   };
   const processUserMessage = async (message, files) => {
     const lowerMessage = message.toLowerCase();
+
+    console.log(episode)
+    return ""
     
     // Check if files were uploaded
-    if (files && files.length > 0) {
-      const fileTypes = files.map(f => f.type);
-      if (fileTypes.some(t => t.startsWith('image/'))) {
-        return {
-          content: "I've received the image(s). Based on what I can see, here are my observations:\n\n• Consider documenting visible findings in the objective section\n• Compare with previous images if available\n• Note any changes in appearance or measurements",
-          actions: [
-            { label: "Add to Objective Findings", value: "add_image_findings" },
-            { label: "Request Specialist Opinion", value: "specialist_consult" }
-          ]
-        };
-      } else if (fileTypes.some(t => t.includes('pdf'))) {
-        return {
-          content: "I've received the document(s). These appear to be medical records or test results. Key points to consider:\n\n• Review for relevant past medical history\n• Note any abnormal findings\n• Compare with current presentation",
-          actions: [
-            { label: "Summarize Key Findings", value: "summarize_docs" },
-            { label: "Add to Medical History", value: "add_to_history" }
-          ]
-        };
-      }
-    }
-    
-    // Context-aware responses based on current section
-    if (currentSection === 'subjective') {
-      if (lowerMessage.includes('question') || lowerMessage.includes('ask')) {
-        return {
-          content: "Here are some relevant questions you might ask:",
-          actions: [
-            { label: "Review of Systems", value: "ros_template" },
-            { label: "Pain Assessment", value: "pain_opqrst" },
-            { label: "Social History", value: "social_history" }
-          ]
-        };
-      }
-    }
+    //if (files && files.length > 0) {
+    //  const fileTypes = files.map(f => f.type);
+    //  if (fileTypes.some(t => t.startsWith('image/'))) {
+    //    return {
+    //      content: "I've received the image(s). Based on what I can see, here are my observations:\n\n• Consider documenting visible findings in the objective section\n• Compare with previous images if available\n• Note any changes in appearance or measurements",
+    //      actions: [
+    //        { label: "Add to Objective Findings", value: "add_image_findings" },
+    //        { label: "Request Specialist Opinion", value: "specialist_consult" }
+    //      ]
+    //    };
+    //  } else if (fileTypes.some(t => t.includes('pdf'))) {
+    //    return {
+    //      content: "I've received the document(s). These appear to be medical records or test results. Key points to consider:\n\n• Review for relevant past medical history\n• Note any abnormal findings\n• Compare with current presentation",
+    //      actions: [
+    //        { label: "Summarize Key Findings", value: "summarize_docs" },
+    //        { label: "Add to Medical History", value: "add_to_history" }
+    //      ]
+    //    };
+    //  }
+    //}
+    //
+    //// Context-aware responses based on current section
+    //if (currentSection === 'subjective') {
+    //  if (lowerMessage.includes('question') || lowerMessage.includes('ask')) {
+    //    return {
+    //      content: "Here are some relevant questions you might ask:",
+    //      actions: [
+    //        { label: "Review of Systems", value: "ros_template" },
+    //        { label: "Pain Assessment", value: "pain_opqrst" },
+    //        { label: "Social History", value: "social_history" }
+    //      ]
+    //    };
+    //  }
+    //}
     
     // Default intelligent response
     return {
-      content: generateIntelligentResponse(),
+      content: await generateIntelligentResponse(message),
       actions: []
     };
   };
-  const generateIntelligentResponse = () => {
-    const responses = [
-      "Based on the clinical presentation, I suggest considering additional history about onset, duration, and associated symptoms.",
-      "The symptoms described align with several possible conditions. Would you like me to help generate a differential diagnosis?",
-      "For this presentation, evidence-based guidelines recommend the following diagnostic approach...",
-      "I can help you document this finding. Which section would you like to add it to?"
-    ];
+
+  const generateIntelligentResponse = async (message) => {
+
+    try {
+      const response = await fetch('http://localhost:8000/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({message: message, message_history: messages})
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const res = await response.json();
+
+      console.log(res)
+
+      if (res.success) {
+        return res.message.response
+      }
+
+    } catch (apiError) {
+      console.error("Failed to send message!")
+    }
     
-    return responses[Math.floor(Math.random() * responses.length)];
+    return "Error!";
   };
 
   const handleQuickAction = (action) => {

@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.routes import test, transcription
+from app.routes import test, transcription, chatbot
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -18,4 +18,4 @@ async def root():
 
 app.include_router(test.router)
 app.include_router(transcription.router)
-
+app.include_router(chatbot.router)
