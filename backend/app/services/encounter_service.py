@@ -14,6 +14,8 @@ from app.repositories.episode_repository import episode_repository
 from app.services.fhir_sync_service import fhir_sync_service
 from app.core.exceptions import NotFoundError, ValidationException
 from app.core.business_rules import business_rules_engine, RuleContext, RuleSeverity
+from app.services.ai_service import ai_service
+from app.models.ai_models import DocumentationCompletionRequest, ClinicalInsights
 
 logger = logging.getLogger(__name__)
 
@@ -414,6 +416,232 @@ class EncounterService:
                 "recent_activity": {"last_24h": 0, "last_week": 0},
                 "error": str(e)
             }
+    
+    async def generate_ai_documentation_suggestions(
+        self,
+        encounter_id: str,
+        user: Optional[UserModel] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate AI-powered documentation suggestions for encounter
+        
+        Args:
+            encounter_id: ID of the encounter
+            user: User requesting suggestions
+            
+        Returns:
+            AI-generated documentation suggestions and completions
+        """
+        try:
+            # Get encounter and patient
+            encounter = await self.get_encounter(encounter_id, user)
+            patient = await self.patient_repo.get_by_id(encounter.patient_id)
+            
+            if not patient:
+                raise NotFoundError("Patient", encounter.patient_id)
+            
+            # Build current content from SOAP
+            current_content = {}
+            if encounter.soap:
+                if encounter.soap.subjective:
+                    current_content["subjective"] = encounter.soap.subjective.model_dump(exclude_none=True)
+                if encounter.soap.objective:
+                    current_content["objective"] = encounter.soap.objective.model_dump(exclude_none=True)
+                if encounter.soap.assessment:
+                    current_content["assessment"] = encounter.soap.assessment.model_dump(exclude_none=True)
+                if encounter.soap.plan:
+                    current_content["plan"] = encounter.soap.plan.model_dump(exclude_none=True)
+            
+            # Create documentation completion request
+            completion_request = DocumentationCompletionRequest(
+                encounter_id=encounter_id,
+                current_content=current_content,
+                patient_context={
+                    "patient_id": patient.id,
+                    "demographics": patient.demographics.model_dump() if patient.demographics else None,
+                    "medical_background": patient.medical_background.model_dump() if patient.medical_background else None
+                }
+            )
+            
+            # Get AI suggestions
+            completion_response = await ai_service.complete_documentation(completion_request, patient)
+            
+            logger.info(f"AI documentation suggestions generated for encounter {encounter_id}")
+            
+            return {
+                "suggestions": [sugg.model_dump() for sugg in completion_response.suggestions],
+                "completed_sections": completion_response.completed_sections,
+                "quality_score": completion_response.quality_score,
+                "missing_elements": completion_response.missing_elements,
+                "generated_at": datetime.utcnow().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error generating AI documentation suggestions: {e}")
+            raise
+    
+    async def generate_clinical_insights(
+        self,
+        encounter_id: str,
+        user: Optional[UserModel] = None
+    ) -> ClinicalInsights:
+        """
+        Generate AI-powered clinical insights for encounter
+        
+        Args:
+            encounter_id: ID of the encounter
+            user: User requesting insights
+            
+        Returns:
+            Clinical insights including diagnoses, treatments, and risk assessments
+        """
+        try:
+            # Get encounter and patient
+            encounter = await self.get_encounter(encounter_id, user)
+            patient = await self.patient_repo.get_by_id(encounter.patient_id)
+            
+            if not patient:
+                raise NotFoundError("Patient", encounter.patient_id)
+            
+            # Generate clinical insights
+            insights = await ai_service.generate_clinical_insights(patient, encounter)
+            
+            logger.info(f"Clinical insights generated for encounter {encounter_id}")
+            
+            return insights
+            
+        except Exception as e:
+            logger.error(f"Error generating clinical insights: {e}")
+            raise
+    
+    async def apply_ai_suggestions_to_soap(
+        self,
+        encounter_id: str,
+        suggestions: List[Dict[str, Any]],
+        user: Optional[UserModel] = None
+    ) -> EncounterModel:
+        """
+        Apply AI-generated suggestions to encounter SOAP documentation
+        
+        Args:
+            encounter_id: ID of the encounter
+            suggestions: List of AI suggestions to apply
+            user: User applying suggestions
+            
+        Returns:
+            Updated encounter with applied suggestions
+        """
+        try:
+            encounter = await self.get_encounter(encounter_id, user)
+            
+            # Only allow applying suggestions to draft encounters
+            if encounter.status not in [EncounterStatusEnum.DRAFT, EncounterStatusEnum.IN_PROGRESS]:
+                raise ValidationException("Cannot apply AI suggestions to signed encounters")
+            
+            # Apply business rules validation
+            await business_rules_engine.validate_and_raise(
+                encounter, 
+                RuleContext.ENCOUNTER_MODIFICATION,
+                user=user,
+                additional_data={
+                    "action": "apply_ai_suggestions",
+                    "suggestion_count": len(suggestions)
+                }
+            )
+            
+            # Initialize SOAP if not exists
+            if not encounter.soap:
+                encounter.soap = SOAPModel()
+            
+            # Apply suggestions to appropriate SOAP sections
+            for suggestion in suggestions:
+                section = suggestion.get("section", "").lower()
+                field = suggestion.get("field", "")
+                content = suggestion.get("suggestion", "")
+                confidence = suggestion.get("confidence", "medium")
+                
+                # Only apply high and medium confidence suggestions
+                if confidence in ["high", "medium"] and content:
+                    if section == "subjective" and encounter.soap.subjective:
+                        if field == "chief_complaint" and not encounter.soap.subjective.chief_complaint:
+                            encounter.soap.subjective.chief_complaint = content
+                        elif field == "history_present_illness" and not encounter.soap.subjective.history_present_illness:
+                            encounter.soap.subjective.history_present_illness = content
+                    
+                    elif section == "objective" and encounter.soap.objective:
+                        if field == "physical_examination" and not encounter.soap.objective.physical_examination:
+                            encounter.soap.objective.physical_examination = content
+                    
+                    elif section == "assessment" and encounter.soap.assessment:
+                        if field == "primary_diagnosis" and not encounter.soap.assessment.primary_diagnosis:
+                            encounter.soap.assessment.primary_diagnosis = content
+                        elif field == "differential_diagnoses" and not encounter.soap.assessment.differential_diagnoses:
+                            encounter.soap.assessment.differential_diagnoses = [content]
+                    
+                    elif section == "plan" and encounter.soap.plan:
+                        if field == "treatment_plan" and not encounter.soap.plan.treatment_plan:
+                            encounter.soap.plan.treatment_plan = content
+            
+            # Add AI consultation metadata
+            if not encounter.ai_consultation:
+                encounter.ai_consultation = {}
+            
+            encounter.ai_consultation.setdefault("suggestions_applied", []).extend([
+                {
+                    "applied_at": datetime.utcnow().isoformat(),
+                    "applied_by": user.id if user else None,
+                    "suggestion_count": len(suggestions)
+                }
+            ])
+            
+            # Update encounter
+            updated_encounter = await self.encounter_repo.update(encounter_id, encounter)
+            
+            logger.info(f"Applied {len(suggestions)} AI suggestions to encounter {encounter_id}")
+            
+            return updated_encounter
+            
+        except Exception as e:
+            logger.error(f"Error applying AI suggestions: {e}")
+            raise
+    
+    async def get_ai_consultation_history(
+        self,
+        encounter_id: str,
+        user: Optional[UserModel] = None
+    ) -> Dict[str, Any]:
+        """
+        Get AI consultation history for encounter
+        
+        Args:
+            encounter_id: ID of the encounter
+            user: User requesting history
+            
+        Returns:
+            AI consultation history and metadata
+        """
+        try:
+            encounter = await self.get_encounter(encounter_id, user)
+            
+            ai_history = {
+                "encounter_id": encounter_id,
+                "ai_consultation": encounter.ai_consultation or {},
+                "suggestions_applied": [],
+                "insights_generated": [],
+                "voice_processing": []
+            }
+            
+            # Extract AI activity from consultation data
+            if encounter.ai_consultation:
+                ai_history["suggestions_applied"] = encounter.ai_consultation.get("suggestions_applied", [])
+                ai_history["insights_generated"] = encounter.ai_consultation.get("insights_generated", [])
+                ai_history["voice_processing"] = encounter.ai_consultation.get("voice_processing", [])
+            
+            return ai_history
+            
+        except Exception as e:
+            logger.error(f"Error getting AI consultation history: {e}")
+            raise
 
 
 # Create service instance

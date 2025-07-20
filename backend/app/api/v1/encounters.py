@@ -365,3 +365,127 @@ async def get_encounter_statistics(current_user: CurrentUser = Depends(require_e
             status_code=500,
             detail=f"Failed to get encounter statistics: {str(e)}"
         )
+
+
+# AI-Enhanced Endpoints
+
+@router.get("/{encounter_id}/ai/suggestions")
+async def get_ai_documentation_suggestions(
+    encounter_id: str,
+    current_user: CurrentUser = Depends(require_encounter_read)
+):
+    """Get AI-powered documentation suggestions for encounter"""
+    
+    try:
+        suggestions = await encounter_service.generate_ai_documentation_suggestions(
+            encounter_id, current_user
+        )
+        
+        return {
+            "success": True,
+            "data": suggestions,
+            "timestamp": datetime.utcnow()
+        }
+        
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate AI suggestions: {str(e)}"
+        )
+
+
+@router.get("/{encounter_id}/ai/insights")
+async def get_clinical_insights(
+    encounter_id: str,
+    current_user: CurrentUser = Depends(require_encounter_read)
+):
+    """Get AI-powered clinical insights for encounter"""
+    
+    try:
+        insights = await encounter_service.generate_clinical_insights(
+            encounter_id, current_user
+        )
+        
+        return {
+            "success": True,
+            "data": insights.model_dump(),
+            "timestamp": datetime.utcnow()
+        }
+        
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate clinical insights: {str(e)}"
+        )
+
+
+@router.post("/{encounter_id}/ai/apply-suggestions")
+async def apply_ai_suggestions(
+    encounter_id: str,
+    suggestions: List[dict],
+    current_user: CurrentUser = Depends(require_encounter_update)
+):
+    """Apply AI-generated suggestions to encounter SOAP documentation"""
+    
+    try:
+        updated_encounter = await encounter_service.apply_ai_suggestions_to_soap(
+            encounter_id, suggestions, current_user
+        )
+        
+        return EncounterResponse(data=updated_encounter)
+        
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=str(e)
+        )
+    except ValidationException as e:
+        raise HTTPException(
+            status_code=422,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to apply AI suggestions: {str(e)}"
+        )
+
+
+@router.get("/{encounter_id}/ai/history")
+async def get_ai_consultation_history(
+    encounter_id: str,
+    current_user: CurrentUser = Depends(require_encounter_read)
+):
+    """Get AI consultation history for encounter"""
+    
+    try:
+        ai_history = await encounter_service.get_ai_consultation_history(
+            encounter_id, current_user
+        )
+        
+        return {
+            "success": True,
+            "data": ai_history,
+            "timestamp": datetime.utcnow()
+        }
+        
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get AI consultation history: {str(e)}"
+        )

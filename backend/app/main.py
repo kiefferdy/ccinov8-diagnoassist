@@ -42,6 +42,15 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize FHIR client: {e}")
         # Don't raise - allow app to start without FHIR
     
+    # Initialize AI client
+    try:
+        from app.core.ai_client import initialize_ai_client
+        initialize_ai_client(settings.gemini_api_key)
+        logger.info("AI client initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize AI client: {e}")
+        # Don't raise - allow app to start without AI
+    
     yield
     
     # Shutdown
