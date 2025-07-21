@@ -4,15 +4,25 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 const supabase = require('./supabaseClient');
-const PORT = 4000;
+const PORT = process.env.PORT || 4000;
 
-app.use(cors());
+// CORS configuration
+const corsOptions = {
+  origin: [
+    'http://localhost:5173', // Vite dev server
+    'http://localhost:3000', // Alternative local port
+    process.env.FRONTEND_URL // Railway or production frontend URL
+  ].filter(Boolean), // Remove any undefined values
+  credentials: true
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 
 
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });
 
 app.post('/track-visit', async (req, res) => {
