@@ -11,6 +11,7 @@ from .common import BaseSchema, PaginatedResponse
 
 class PatientBase(BaseSchema):
     """Base patient schema with common fields"""
+    medical_record_number: str = Field(..., min_length=1, max_length=50, description="Unique medical record number")
     first_name: str = Field(..., min_length=1, max_length=100)
     last_name: str = Field(..., min_length=1, max_length=100)
     date_of_birth: date
@@ -42,6 +43,16 @@ class PatientBase(BaseSchema):
         if v and not v.replace('+', '').replace('-', '').replace(' ', '').replace('(', '').replace(')', '').isdigit():
             raise ValueError('Phone number must contain only digits and basic formatting')
         return v
+    
+    @validator('medical_record_number')
+    def validate_mrn(cls, v):
+        if not v or not v.strip():
+            raise ValueError('Medical record number cannot be empty')
+        # Remove spaces and validate format (alphanumeric with hyphens allowed)
+        clean_mrn = v.strip().upper()
+        if not all(c.isalnum() or c in '-_' for c in clean_mrn):
+            raise ValueError('Medical record number can only contain letters, numbers, hyphens, and underscores')
+        return clean_mrn
 
 class PatientCreate(PatientBase):
     """Schema for creating a new patient"""
@@ -49,6 +60,7 @@ class PatientCreate(PatientBase):
 
 class PatientUpdate(BaseModel):
     """Schema for updating a patient (all fields optional)"""
+    medical_record_number: Optional[str] = Field(None, min_length=1, max_length=50)
     first_name: Optional[str] = Field(None, min_length=1, max_length=100)
     last_name: Optional[str] = Field(None, min_length=1, max_length=100)
     date_of_birth: Optional[date] = None

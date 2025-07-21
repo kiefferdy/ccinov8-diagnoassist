@@ -1,9 +1,6 @@
 """
-DiagnoAssist Backend Test Script - Fixed for Scripts Folder
-Validates Steps 1-4 with correct path handling
-
-Save this as: backend/scripts/test_backend.py (replace existing)
-Run with: cd backend/scripts && python test_backend.py
+DiagnoAssist Backend Test Script - No Typing Version
+Replace your entire test_backend.py with this version
 """
 
 import os
@@ -144,13 +141,13 @@ def check_file_structure():
     if missing_files:
         print(f"❌ Missing files: {len(missing_files)}")
         print("💡 You may need to create these files from our previous artifacts")
-        return len(existing_files) >= len(required_files) // 2  # Pass if at least half exist
+        return len(existing_files) >= len(required_files) // 2
     
     print("✅ All required files present")
     return True
 
 def test_imports():
-    """Test critical imports"""
+    """Test critical imports - NO TYPING VERSION"""
     print("🔍 Testing Critical Imports...")
     
     try:
@@ -169,16 +166,43 @@ def test_imports():
             print(f"❌ Database config issue: {e}")
             config_ok = False
         
-        # Test model imports
+        # Test model imports - SIMPLE VERSION
         models_imported = 0
-        model_files = ['patient', 'episode', 'diagnosis', 'treatment', 'fhir_resource']
-        for model_file in model_files:
-            try:
-                exec(f"from models.{model_file} import {model_file.title().replace('_', '')}")
-                print(f"✅ models.{model_file} imported")
-                models_imported += 1
-            except ImportError as e:
-                print(f"❌ models.{model_file} import failed: {e}")
+        
+        try:
+            from models.patient import Patient
+            print("✅ models.patient imported")
+            models_imported += 1
+        except ImportError as e:
+            print(f"❌ models.patient import failed: {e}")
+        
+        try:
+            from models.episode import Episode
+            print("✅ models.episode imported")
+            models_imported += 1
+        except ImportError as e:
+            print(f"❌ models.episode import failed: {e}")
+        
+        try:
+            from models.diagnosis import Diagnosis
+            print("✅ models.diagnosis imported")
+            models_imported += 1
+        except ImportError as e:
+            print(f"❌ models.diagnosis import failed: {e}")
+        
+        try:
+            from models.treatment import Treatment
+            print("✅ models.treatment imported")
+            models_imported += 1
+        except ImportError as e:
+            print(f"❌ models.treatment import failed: {e}")
+        
+        try:
+            from models.fhir_resource import FHIRResource
+            print("✅ models.fhir_resource imported")
+            models_imported += 1
+        except ImportError as e:
+            print(f"❌ models.fhir_resource import failed: {e}")
         
         # Test repository imports
         repos_imported = 0
@@ -314,7 +338,7 @@ def test_models():
         
         print(f"✅ Tables found: {', '.join(found_tables)}")
         
-        return len(found_tables) >= 2  # At least 2 tables should exist
+        return len(found_tables) >= 2
         
     except Exception as e:
         print(f"❌ Model testing failed: {e}")

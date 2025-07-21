@@ -23,6 +23,9 @@ class Patient(Base):
     # Primary identifier
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     
+    # Medical Record Number - unique identifier for the patient
+    medical_record_number = Column(String(50), unique=True, index=True, nullable=False)
+    
     # Demographics
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
@@ -53,7 +56,7 @@ class Patient(Base):
     episodes = relationship("Episode", back_populates="patient", cascade="all, delete-orphan")
     
     def __repr__(self):
-        return f"<Patient(id='{self.id}', name='{self.first_name} {self.last_name}')>"
+        return f"<Patient(id='{self.id}', mrn='{self.medical_record_number}', name='{self.first_name} {self.last_name}')>"
     
     @property
     def full_name(self):
@@ -74,29 +77,3 @@ class Patient(Base):
             age -= 1
             
         return age
-    
-    def to_dict(self):
-        """Convert patient to dictionary"""
-        return {
-            "id": str(self.id),
-            "first_name": self.first_name,
-            "last_name": self.last_name,
-            "full_name": self.full_name,
-            "date_of_birth": self.date_of_birth.isoformat() if self.date_of_birth else None,
-            "age": self.age,
-            "gender": self.gender,
-            "email": self.email,
-            "phone": self.phone,
-            "address": self.address,
-            "emergency_contact": {
-                "name": self.emergency_contact_name,
-                "phone": self.emergency_contact_phone,
-                "relationship": self.emergency_contact_relationship
-            } if self.emergency_contact_name else None,
-            "medical_history": self.medical_history or [],
-            "allergies": self.allergies or [],
-            "current_medications": self.current_medications or [],
-            "active": self.active,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None
-        }
