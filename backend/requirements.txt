@@ -1,116 +1,71 @@
 # ==================================================
-# DiagnoAssist Backend Requirements
+# DiagnoAssist Requirements
 # ==================================================
 
-# FastAPI Framework and ASGI Server
+# Core FastAPI (keep versions for stability)
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
-python-multipart==0.0.6
+python-multipart
 
-# Database and ORM
+# Database (keep core versions)
 sqlalchemy[asyncio]==2.0.23
 alembic==1.12.1
-psycopg2-binary==2.9.9  # PostgreSQL driver
-aiosqlite==0.19.0       # Async SQLite support
+psycopg2-binary==2.9.9
+supabase==2.3.0
 
-# FHIR Libraries - Compatible versions
-fhir.resources==7.0.2   # Main FHIR R4 library
-pydantic==1.10.12       # Data validation (compatible with fhir.resources)
+# FHIR and Validation (let pip resolve pydantic)
+fhir.resources==7.0.2
+pydantic  # Let pip choose compatible version
 
 # Authentication and Security
-python-jose[cryptography]==3.3.0  # JWT handling
-passlib[bcrypt]==1.7.4            # Password hashing
-cryptography==41.0.7              # Encryption utilities (fixed version)
+python-jose[cryptography]
+passlib[bcrypt]
+cryptography
 
-# HTTP Client and API Tools
-httpx==0.25.2          # Async HTTP client
-requests==2.31.0       # Sync HTTP client
+# Configuration
+python-dotenv==1.0.0
 
-# Configuration and Environment
-python-dotenv==1.0.0   # Environment variable management
+# AI Integration (core functionality)
+openai
+anthropic
 
-# Data Processing and Utilities
-pandas==2.1.4          # Data manipulation (for reports)
-numpy==1.25.2          # Numerical computing
-python-dateutil==2.8.2 # Date utilities
+# HTTP Client
+httpx
+requests
 
-# AI/ML Integration (for diagnosis service)
-openai==1.3.8          # OpenAI API client
-anthropic==0.7.8       # Claude API client (if using)
+# Essential utilities
+python-dateutil
 
-# Logging and Monitoring
-structlog==23.2.0      # Structured logging
-python-json-logger==2.0.7  # JSON logging
+# Development Tools (no version conflicts)
+pytest
+pytest-asyncio
+black
+isort
+flake8
 
-# Testing Framework
-pytest==7.4.3
-pytest-asyncio==0.21.1
-pytest-cov==4.1.0
+# File handling
+aiofiles
 
-# Development Tools
-black==23.11.0         # Code formatting
-isort==5.12.0          # Import sorting
-flake8==6.1.0          # Linting
-mypy==1.7.1            # Type checking
+# Background tasks (optional - remove if conflicts)
+# celery
+# redis
 
-# Documentation
-mkdocs==1.5.3          # Documentation generator
-mkdocs-material==9.4.8 # Material theme for docs
+# Removed packages that cause pydantic conflicts:
+# - fastapi-mail (pydantic >=2.0 conflict with fhir.resources)
+# - pydantic-settings (version conflicts)
+# - many optional packages
 
-# CORS Support
-fastapi-cors==0.0.6
+# Data processing (let pip resolve)
+pandas
+numpy
 
-# File Upload Support
-aiofiles==23.2.1       # Async file operations
-python-magic==0.4.27   # File type detection
+# Optional packages (no version pins)
+structlog
+python-json-logger
+jsonschema
+pytz
+openpyxl
+cachetools
 
-# Background Tasks
-celery==5.3.4          # Task queue (optional)
-redis==5.0.1           # Redis client (for caching/tasks)
-
-# Email Support (for notifications)
-fastapi-mail==1.4.1
-
-# Validation and Serialization
-marshmallow==3.20.1    # Additional serialization
-jsonschema==4.20.0     # JSON schema validation
-
-# Timezone Support
-pytz==2023.3.post1
-
-# Excel/CSV Processing (for data import/export)
-openpyxl==3.1.2        # Excel file handling
-xlsxwriter==3.1.9      # Excel writing
-
-# Image Processing (for medical images)
-Pillow==10.1.0         # Image manipulation
-
-# API Documentation
-fastapi-limiter==0.1.6 # Rate limiting
-
-# Health Checks
-fastapi-health==0.4.0
-
-# Caching
-cachetools==5.3.2
-
-# Configuration Validation
-dynaconf==3.2.4        # Advanced configuration management
-
-# ==================================================
-# Optional Production Dependencies
-# ==================================================
-
-# Production WSGI Server (alternative to uvicorn)
-gunicorn==21.2.0
-
-# Monitoring and APM
-sentry-sdk[fastapi]==1.38.0  # Error tracking
-
-# ==================================================
-# Development Only Dependencies
-# ==================================================
-
-# Development tools (install with: pip install -e ".[dev]")
-# pre-commit==3.6.0     # Git hooks
-# bandit==1.7.5         # Security linting
+# Production essentials
+gunicorn
