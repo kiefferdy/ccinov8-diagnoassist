@@ -3,7 +3,7 @@ Main API router for DiagnoAssist Backend
 """
 from fastapi import APIRouter
 
-from app.api.v1 import auth, patients, episodes, encounters, fhir, ai, realtime, chat, collaboration, status
+from app.api.v1 import auth, patients, episodes, encounters, fhir, ai, realtime, chat, collaboration, status, templates, reports, search, performance
 
 api_router = APIRouter()
 
@@ -18,3 +18,7 @@ api_router.include_router(realtime.router, prefix="/realtime", tags=["realtime"]
 api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
 api_router.include_router(collaboration.router, prefix="/collaboration", tags=["collaboration"])
 api_router.include_router(status.router, prefix="/status", tags=["status"])
+api_router.include_router(templates.router, prefix="/templates", tags=["templates"])
+api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
+api_router.include_router(search.router, prefix="/search", tags=["search"])
+api_router.include_router(performance.router, prefix="/performance", tags=["performance"])

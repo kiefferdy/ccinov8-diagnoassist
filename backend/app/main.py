@@ -51,6 +51,42 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize AI client: {e}")
         # Don't raise - allow app to start without AI
     
+    # Initialize template service
+    try:
+        from app.services.template_initialization import initialize_template_service_with_dependencies
+        await initialize_template_service_with_dependencies()
+        logger.info("Template service initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize template service: {e}")
+        # Don't raise - allow app to start without templates
+    
+    # Initialize report service
+    try:
+        from app.services.report_initialization import initialize_report_service_with_dependencies
+        await initialize_report_service_with_dependencies()
+        logger.info("Report service initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize report service: {e}")
+        # Don't raise - allow app to start without reports
+    
+    # Initialize search service
+    try:
+        from app.services.search_initialization import initialize_search_service_with_dependencies
+        await initialize_search_service_with_dependencies()
+        logger.info("Search service initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize search service: {e}")
+        # Don't raise - allow app to start without search
+    
+    # Initialize performance optimization system
+    try:
+        from app.core.performance_integration import initialize_performance_system
+        performance_result = await initialize_performance_system()
+        logger.info(f"Performance optimization system initialized: {performance_result['status']}")
+    except Exception as e:
+        logger.error(f"Failed to initialize performance system: {e}")
+        # Don't raise - allow app to start without performance optimization
+    
     yield
     
     # Shutdown
