@@ -2,7 +2,7 @@ import {v4 as uuidv4} from 'uuid';
 import Cookies from 'js-cookie';
 import axios from 'axios';
 
-const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
+const BACKEND = import.meta.env.VITE_BACKEND_LANDING_URL || 'http://localhost:4000';
 
 export const trackVisit = async () => {
     let sessionId = Cookies.get('session_id');
