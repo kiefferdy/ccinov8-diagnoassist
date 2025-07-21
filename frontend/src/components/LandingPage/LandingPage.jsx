@@ -4,20 +4,29 @@ import { Activity, Check, Star, Users, Zap, Shield, Clock, Brain, ChartBar, Arro
 import SubscriptionModal from './SubscriptionModal';
 import DemoDisclaimer from './DemoDisclaimer';
 import CountdownTimer from './CountdownTimer';
+import { trackVisit, trackClick, fetchStats } from '../../utils/analytics';
 
 const LandingPage = () => {
   const navigate = useNavigate();
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [showDemoDisclaimer, setShowDemoDisclaimer] = useState(false);
+
+
   
   const handleSubscribe = (plan) => {
     setSelectedPlan(plan);
     setShowSubscriptionModal(true);
+    trackClick('subscribe', plan);
+    console.log(plan);
+    // fetchStats();
+
   };
   
   const handleDemo = () => {
     setShowDemoDisclaimer(true);
+    trackClick('demo');
+    // fetchStats();
   };
   
   const plans = [
@@ -158,6 +167,11 @@ const LandingPage = () => {
       answer: 'We offer a 30-day money-back guarantee after launch. If DiagnoAssist doesn\'t meet your expectations, we\'ll provide a full refund.'
     }
   ];
+
+  useEffect(() => {
+    trackVisit();
+    // fetchStats();
+  }, []);
   
   return (
     <>

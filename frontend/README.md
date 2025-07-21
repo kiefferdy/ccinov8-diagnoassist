@@ -28,6 +28,25 @@ npm run dev
 
 4. Open your browser and navigate to `http://localhost:5173`
 
+### Run backend for landing page
+
+1. Navigate to the backend-landing directory:
+```bash
+cd backend-landing 
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Start the development server:
+```bash
+node index.js
+```
+
+4. Open your browser and navigate to `http://localhost:4000`
+
 ### Build for Production
 
 ```bash
