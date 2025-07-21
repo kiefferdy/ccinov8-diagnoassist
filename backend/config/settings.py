@@ -1,83 +1,59 @@
+"""
+Settings Configuration for DiagnoAssist
+Uses existing Supabase URL + ANON KEY method
+"""
+
 import os
-from typing import Optional, List
-from pydantic import BaseSettings, validator
 from functools import lru_cache
+from typing import List, Optional
+from pydantic import BaseSettings, validator
+
 
 class Settings(BaseSettings):
-    """
-    Application settings with environment variable support
-    """
+    """Application settings from environment variables"""
     
-    # Basic App Settings
-    app_name: str = "DiagnoAssist API"
+    # Application Settings
+    app_name: str = "DiagnoAssist"
     app_version: str = "1.0.0"
-    debug: bool = False
-    environment: str = "development"  # development, staging, production
+    environment: str = "development"
+    debug: bool = True
     
-    # Server Settings
-    host: str = "0.0.0.0"
-    port: int = 8000
-    reload: bool = True
+    # Supabase Settings (Your current working setup)
+    supabase_url: str = ""
+    supabase_anon_key: str = ""
     
-    # Database Settings
-    database_url: str = "sqlite:///./diagnoassist.db"
-    database_echo: bool = False  # Set to True for SQL logging
+    # Database Settings (Optional - for future SQLAlchemy direct connection)
+    database_url: Optional[str] = None
+    database_echo: bool = False
     
     # Security Settings
-    secret_key: str = "your-super-secret-key-change-in-production"
+    secret_key: str = "your-secret-key-change-this"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
-    refresh_token_expire_days: int = 7
     
-    # CORS Settings
+    # API Settings
+    api_v1_str: str = "/api/v1"
     cors_origins: List[str] = [
-        "http://localhost:3000",  # React dev server
-        "http://localhost:5173",  # Vite dev server
+        "http://localhost:3000",
+        "http://localhost:5173", 
+        "http://localhost:8080",
         "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173"
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:8080"
     ]
-    cors_allow_credentials: bool = True
-    cors_allow_methods: List[str] = ["*"]
-    cors_allow_headers: List[str] = ["*"]
     
     # FHIR Settings
-    fhir_version: str = "4.0.1"
-    fhir_base_url: str = "https://diagnoassist.com/fhir/R4"
-    fhir_publisher: str = "DiagnoAssist"
-    fhir_contact_email: str = "support@diagnoassist.com"
+    fhir_base_url: str = "http://localhost:8000/fhir"
+    fhir_version: str = "R4"
+    fhir_server_name: str = "DiagnoAssist FHIR Server"
+    fhir_server_version: str = "1.0.0"
+    fhir_publisher: str = "DiagnoAssist Medical Systems"
     
-    # External FHIR Servers
-    external_fhir_servers: List[str] = [
-        "https://r4.ontoserver.csiro.au/fhir",  # CSIRO Ontology Server
-        "https://tx.fhir.org/r4"  # FHIR Terminology Server
-    ]
-    
-    # AI Service Settings
-    ai_service_url: Optional[str] = None
-    ai_service_api_key: Optional[str] = None
-    ai_service_timeout: int = 30
-    ai_service_max_retries: int = 3
-    
-    # Medical Coding Settings
-    icd10_api_url: Optional[str] = None
-    loinc_api_url: Optional[str] = None
-    snomed_api_url: Optional[str] = None
-    
-    # File Storage Settings
-    upload_max_size: int = 10 * 1024 * 1024  # 10MB
-    upload_allowed_types: List[str] = [
-        "image/jpeg", "image/png", "image/gif",
-        "application/pdf", "text/plain",
-        "application/dicom"  # Medical imaging
-    ]
-    file_storage_path: str = "./uploads"
-    
-    # Email Settings (for notifications)
-    smtp_server: Optional[str] = None
-    smtp_port: int = 587
-    smtp_username: Optional[str] = None
-    smtp_password: Optional[str] = None
-    smtp_use_tls: bool = True
+    # AI Settings
+    openai_api_key: Optional[str] = None
+    ai_model: str = "gpt-4"
+    ai_temperature: float = 0.3
+    ai_max_tokens: int = 1500
     
     # Logging Settings
     log_level: str = "INFO"
@@ -105,26 +81,71 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
         case_sensitive = False
     
-    @validator('database_url')
-    def validate_database_url(cls, v):
-        if v.startswith('sqlite'):
-            # Ensure SQLite directory exists
-            db_path = v.replace('sqlite:///', '')
-            os.makedirs(os.path.dirname(db_path) if os.path.dirname(db_path) else '.', exist_ok=True)
+    @validator('supabase_url')
+    def validate_supabase_url(cls, v):
+        """Validate Supabase URL"""
+        if not v:
+            raise ValueError("SUPABASE_URL is required")
+        if not v.startswith("https://"):
+            raise ValueError("SUPABASE_URL must start with https://")
+        if not "supabase.co" in v:
+            raise ValueError("SUPABASE_URL must be a valid Supabase URL")
+        return v
+    
+    @validator('supabase_anon_key')
+    def validate_supabase_anon_key(cls, v):
+        """Validate Supabase anonymous key"""
+        if not v:
+            raise ValueError("SUPABASE_ANON_KEY is required")
+        if len(v) < 100:  # JWT tokens are typically much longer
+            raise ValueError("SUPABASE_ANON_KEY appears to be invalid (too short)")
         return v
     
     @validator('cors_origins', pre=True)
     def parse_cors_origins(cls, v):
+        """Parse CORS origins from environment"""
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(',')]
         return v
     
     @validator('environment')
     def validate_environment(cls, v):
+        """Validate environment setting"""
         valid_envs = ['development', 'staging', 'production']
         if v not in valid_envs:
             raise ValueError(f'Environment must be one of: {valid_envs}')
         return v
+    
+    @validator('secret_key')
+    def validate_secret_key(cls, v):
+        """Validate secret key"""
+        if len(v) < 32:
+            raise ValueError('SECRET_KEY must be at least 32 characters long')
+        return v
+    
+    @property
+    def is_development(self) -> bool:
+        """Check if we're in development environment"""
+        return self.environment == "development"
+    
+    @property
+    def is_production(self) -> bool:
+        """Check if we're in production environment"""
+        return self.environment == "production"
+    
+    @property
+    def supabase_rest_url(self) -> str:
+        """Get Supabase REST API URL"""
+        return f"{self.supabase_url}/rest/v1"
+    
+    def get_supabase_headers(self) -> dict:
+        """Get headers for Supabase REST API calls"""
+        return {
+            'apikey': self.supabase_anon_key,
+            'Authorization': f'Bearer {self.supabase_anon_key}',
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+        }
 
 
 @lru_cache()
