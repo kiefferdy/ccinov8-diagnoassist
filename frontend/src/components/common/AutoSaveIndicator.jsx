@@ -1,21 +1,44 @@
 import React from 'react';
-import { usePatient } from '../../contexts/PatientContext';
-import { Save, Check } from 'lucide-react';
+import { Save, Check, Clock } from 'lucide-react';
 
-const AutoSaveIndicator = () => {
-  const { lastSaved } = usePatient();
-  
-  if (!lastSaved) return null;
-  
-  const timeSinceLastSave = Date.now() - new Date(lastSaved).getTime();
-  const isRecent = timeSinceLastSave < 5000; // Show for 5 seconds after save
-  
-  if (!isRecent) return null;
+const AutoSaveIndicator = ({ hasUnsavedChanges, lastSaved }) => {
+  const formatLastSaved = () => {
+    if (!lastSaved) return null;
+    
+    const date = new Date(lastSaved);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'Just saved';
+    if (diffMins === 1) return '1 minute ago';
+    if (diffMins < 60) return `${diffMins} minutes ago`;
+    
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours === 1) return '1 hour ago';
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    
+    return date.toLocaleDateString();
+  };
   
   return (
-    <div className="fixed bottom-4 right-4 flex items-center bg-green-50 border border-green-200 rounded-lg px-4 py-2 shadow-lg animate-fade-in">
-      <Check className="w-4 h-4 text-green-600 mr-2" />
-      <span className="text-sm text-green-700">Session auto-saved</span>
+    <div className="flex items-center text-sm">
+      {hasUnsavedChanges ? (
+        <div className="flex items-center text-amber-600">
+          <Save className="w-4 h-4 mr-1" />
+          <span>Unsaved changes</span>
+        </div>
+      ) : lastSaved ? (
+        <div className="flex items-center text-gray-500">
+          <Check className="w-4 h-4 mr-1" />
+          <span>Saved {formatLastSaved()}</span>
+        </div>
+      ) : (
+        <div className="flex items-center text-gray-400">
+          <Clock className="w-4 h-4 mr-1" />
+          <span>No changes</span>
+        </div>
+      )}
     </div>
   );
 };

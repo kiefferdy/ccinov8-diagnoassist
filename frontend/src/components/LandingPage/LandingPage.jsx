@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { Activity, Check, Star, Users, Zap, Shield, Clock, Brain, ChartBar, ArrowRight, Sparkles, Calendar, Bell } from 'lucide-react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Activity, Check, Star, Users, Zap, Shield, Clock, Brain, ChartBar, ArrowRight, Sparkles, Calendar, Bell, LogIn } from 'lucide-react';
 import SubscriptionModal from './SubscriptionModal';
 import DemoDisclaimer from './DemoDisclaimer';
 import CountdownTimer from './CountdownTimer';
 import { trackVisit, trackClick, fetchStats } from '../../utils/analytics';
 
 const LandingPage = () => {
+  const navigate = useNavigate();
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [showDemoDisclaimer, setShowDemoDisclaimer] = useState(false);
@@ -203,8 +205,15 @@ const LandingPage = () => {
                 See Demo
               </button>
               <button 
+                onClick={() => navigate('/dashboard')}
+                className="px-6 py-2 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all duration-300 flex items-center space-x-2"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Doctor Login</span>
+              </button>
+              <button 
                 onClick={() => handleSubscribe(plans[1])}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl"
               >
                 Reserve Your Spot
               </button>

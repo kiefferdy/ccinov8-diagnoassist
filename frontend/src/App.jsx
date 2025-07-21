@@ -1,85 +1,35 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { PatientProvider, usePatient } from './contexts/PatientContext';
-import { AppDataProvider } from './contexts/AppDataContext';
-import Layout from './components/Layout/Layout';
-import Home from './components/Home/Home';
-import PatientList from './components/PatientManagement/PatientList';
-import PatientDetailView from './components/PatientManagement/PatientDetailView';
-import PatientSelection from './components/Patient/PatientSelection';
-import PatientInformation from './components/Patient/PatientInformation';
-import ClinicalAssessment from './components/Patient/ClinicalAssessment';
-import PhysicalExam from './components/Diagnosis/PhysicalExam';
-import DiagnosticAnalysis from './components/Diagnosis/DiagnosticAnalysis';
-import RecommendedTests from './components/Tests/RecommendedTests';
-import TestResults from './components/Tests/TestResults';
-import FinalDiagnosis from './components/FinalDiagnosis/FinalDiagnosis';
-import TreatmentPlan from './components/TreatmentPlan/TreatmentPlan';
-import ClinicalSummary from './components/ClinicalSummary/ClinicalSummary';
-import LandingPage from './components/LandingPage/LandingPage';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { PatientProvider } from './contexts/PatientContext';
+import { EpisodeProvider } from './contexts/EpisodeContext';
+import { EncounterProvider } from './contexts/EncounterContext';
+import { NavigationProvider } from './contexts/NavigationContext';
+import { NotificationProvider } from './components/common/Notification';
 
-function AppContent() {
-  const { currentStep } = usePatient();
-  
-  const renderStep = () => {
-    // Show home if currentStep is explicitly 'home'
-    if (currentStep === 'home') {
-      return <Home />;
-    }
-    
-    switch (currentStep) {
-      case 'patient-list':
-        return <PatientList />;
-      case 'patient-detail':
-        return <PatientDetailView />;
-      case 'patient-selection':
-        return <PatientSelection />;
-      case 'patient-info':
-        return <PatientInformation />;
-      case 'clinical-assessment':
-        return <ClinicalAssessment />;
-      case 'physical-exam':
-        return <PhysicalExam />;
-      case 'diagnostic-analysis':
-        return <DiagnosticAnalysis />;
-      case 'recommended-tests':
-        return <RecommendedTests />;
-      case 'test-results':
-        return <TestResults />;
-      case 'tests': // Legacy support
-        return <RecommendedTests />;
-      case 'final-diagnosis':
-        return <FinalDiagnosis />;
-      case 'treatment-plan':
-        return <TreatmentPlan />;
-      case 'clinical-summary':
-        return <ClinicalSummary />;
-      default:
-        return <Home />;
-    }
-  };
-  
-  // Show layout with sidebar only when patient workflow is active
-  const showLayout = currentStep !== 'home' && 
-                    currentStep !== 'patient-list' && 
-                    currentStep !== 'patient-detail' && 
-                    currentStep !== 'patient-selection';
-  
-  if (showLayout) {
-    return (
-      <Layout>
-        {renderStep()}
-      </Layout>
-    );
-  }
-  
-  // For home page, show without sidebar
+// Import components
+import DoctorDashboard from './components/Dashboard/DoctorDashboard';
+import PatientList from './components/PatientManagement/PatientList';
+import PatientDashboard from './components/Dashboard/PatientDashboard';
+import EpisodeWorkspace from './components/Episode/EpisodeWorkspace';
+import LandingPage from './components/LandingPage/LandingPage';
+import Schedule from './components/Schedule/Schedule';
+import Reports from './components/Reports/Reports';
+import Profile from './components/Profile/Profile';
+import NotificationsPage from './components/Notifications/NotificationsPage';
+
+function AppProviders({ children }) {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="p-8">
-        {renderStep()}
-      </div>
-    </div>
+    <NotificationProvider>
+      <NavigationProvider>
+        <PatientProvider>
+          <EpisodeProvider>
+            <EncounterProvider>
+              {children}
+            </EncounterProvider>
+          </EpisodeProvider>
+        </PatientProvider>
+      </NavigationProvider>
+    </NotificationProvider>
   );
 }
 
@@ -87,13 +37,46 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/landing" element={<LandingPage />} />
-        <Route path="/*" element={
-          <AppDataProvider>
-            <PatientProvider>
-              <AppContent />
-            </PatientProvider>
-          </AppDataProvider>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/dashboard" element={
+          <AppProviders>
+            <DoctorDashboard />
+          </AppProviders>
+        } />
+        <Route path="/patients" element={
+          <AppProviders>
+            <PatientList />
+          </AppProviders>
+        } />
+        <Route path="/patient/:patientId" element={
+          <AppProviders>
+            <PatientDashboard />
+          </AppProviders>
+        } />
+        <Route path="/patient/:patientId/episode/:episodeId" element={
+          <AppProviders>
+            <EpisodeWorkspace />
+          </AppProviders>
+        } />
+        <Route path="/schedule" element={
+          <AppProviders>
+            <Schedule />
+          </AppProviders>
+        } />
+        <Route path="/reports" element={
+          <AppProviders>
+            <Reports />
+          </AppProviders>
+        } />
+        <Route path="/profile" element={
+          <AppProviders>
+            <Profile />
+          </AppProviders>
+        } />
+        <Route path="/notifications" element={
+          <AppProviders>
+            <NotificationsPage />
+          </AppProviders>
         } />
       </Routes>
     </Router>
