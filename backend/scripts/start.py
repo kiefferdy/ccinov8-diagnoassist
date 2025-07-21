@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 DiagnoAssist Startup Script  
 Uses your existing Supabase setup (SUPABASE_URL + SUPABASE_ANON_KEY)
