@@ -1,4 +1,11 @@
+"""
+Internal API Router
+Provides simplified internal endpoints for the DiagnoAssist application
+"""
+
 from fastapi import APIRouter
+
+# Import all internal routers
 from .health import router as health_router
 from .patients import router as patients_router
 from .episodes import router as episodes_router
