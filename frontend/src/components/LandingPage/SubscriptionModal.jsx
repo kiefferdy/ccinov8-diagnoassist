@@ -116,7 +116,7 @@ const SubscriptionModal = ({ plan, onClose }) => {
         </div>
         
         {/* Step 1: Account Information */}
-        {step === 1 && (
+        {/* {step === 1 && (
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-6">Account Information</h3>
             <div className="space-y-4">
@@ -150,7 +150,7 @@ const SubscriptionModal = ({ plan, onClose }) => {
               </div>
             </div>
           </div>
-        )}
+        )} */}
         
         {/* Step 2: Payment Information */}
         {step === 2 && (
@@ -263,7 +263,13 @@ const SubscriptionModal = ({ plan, onClose }) => {
         </div>
         
         {/* Action Buttons */}
-        <div className="flex justify-between">
+        <div className="w-full flex justify-around">
+         <button
+               onClick={() => (window.location.href = 'https://forms.gle/iFwZQRzV2WL3ap2s8')}
+              className='px-6 py-2 w-full bg-blue-600 text-white hover:bg-blue-700 rounded-md'
+            >Reserve now</button>
+          </div>
+        {/* <div className="flex justify-between">
           {step > 1 && (
             <button
               onClick={() => setStep(step - 1)}
@@ -297,7 +303,7 @@ const SubscriptionModal = ({ plan, onClose }) => {
               </span>
             ) : step === 1 ? 'Continue to Payment' : 'Complete Reservation'}
           </button>
-        </div>
+        </div> */}
       </div>
     </div>
   );
