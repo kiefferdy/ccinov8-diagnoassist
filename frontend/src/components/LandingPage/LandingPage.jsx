@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, Check, Star, Users, Zap, Shield, Clock, Brain, ChartBar, ArrowRight, Sparkles, Calendar, Bell, LogIn } from 'lucide-react';
+import { Activity, Check, Star, Users, Zap, Clock, Brain, ChartBar, ArrowRight, Sparkles, Calendar, Bell, LogIn } from 'lucide-react';
 import SubscriptionModal from './SubscriptionModal';
 import DemoDisclaimer from './DemoDisclaimer';
 import CountdownTimer from './CountdownTimer';
-import { trackVisit, trackClick, fetchStats } from '../../utils/analytics';
+import { trackVisit, trackClick } from '../../utils/analytics';
 
 const LandingPage = () => {
   const navigate = useNavigate();
