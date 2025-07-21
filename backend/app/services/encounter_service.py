@@ -16,6 +16,7 @@ from app.core.exceptions import NotFoundError, ValidationException
 from app.core.business_rules import business_rules_engine, RuleContext, RuleSeverity
 from app.services.ai_service import ai_service
 from app.models.ai_models import DocumentationCompletionRequest, ClinicalInsights
+from app.core.websocket_manager import websocket_manager, MessageType
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,71 @@ class EncounterService:
         self.patient_repo = patient_repository
         self.episode_repo = episode_repository
         self.fhir_sync = fhir_sync_service
+    
+    async def _broadcast_encounter_update(
+        self,
+        encounter_id: str,
+        update_type: str,
+        data: Dict[str, Any],
+        user: Optional[UserModel] = None,
+        exclude_user: bool = True
+    ):
+        """Broadcast encounter update to connected clients"""
+        try:
+            message = {
+                "type": MessageType.ENCOUNTER_UPDATE.value,
+                "encounter_id": encounter_id,
+                "update_type": update_type,
+                "data": data,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+            if user:
+                message["user"] = {
+                    "id": user.id,
+                    "name": user.name,
+                    "role": user.role.value
+                }
+            
+            exclude_connection = f"encounter_{encounter_id}_{user.id}" if (user and exclude_user) else None
+            
+            await websocket_manager.broadcast_to_resource(
+                encounter_id,
+                message,
+                exclude_connection=exclude_connection
+            )
+            
+        except Exception as e:
+            logger.warning(f"Failed to broadcast encounter update: {e}")
+    
+    async def _broadcast_status_update(
+        self,
+        encounter_id: str,
+        status: EncounterStatusEnum,
+        message: str,
+        user: Optional[UserModel] = None
+    ):
+        """Broadcast status update to connected clients"""
+        try:
+            update_message = {
+                "type": MessageType.STATUS_UPDATE.value,
+                "encounter_id": encounter_id,
+                "status": status.value,
+                "message": message,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+            if user:
+                update_message["user"] = {
+                    "id": user.id,
+                    "name": user.name,
+                    "role": user.role.value
+                }
+            
+            await websocket_manager.broadcast_to_resource(encounter_id, update_message)
+            
+        except Exception as e:
+            logger.warning(f"Failed to broadcast status update: {e}")
     
     async def create_encounter(
         self, 
@@ -111,7 +177,8 @@ class EncounterService:
     async def update_soap(
         self, 
         encounter_id: str, 
-        soap_data: SOAPModel
+        soap_data: SOAPModel,
+        user: Optional[UserModel] = None
     ) -> EncounterModel:
         """Update SOAP documentation for an encounter"""
         try:
@@ -127,6 +194,9 @@ class EncounterService:
                     {"encounter_id": encounter_id, "status": encounter.status}
                 )
             
+            # Store old status for comparison
+            old_status = encounter.status
+            
             # Update SOAP data
             encounter.soap = soap_data
             encounter.updated_at = datetime.utcnow()
@@ -139,6 +209,27 @@ class EncounterService:
             
             # Save encounter
             updated_encounter = await self.encounter_repo.update(encounter_id, encounter)
+            
+            # Broadcast SOAP update to connected clients
+            await self._broadcast_encounter_update(
+                encounter_id,
+                "soap_updated",
+                {
+                    "soap": soap_data.model_dump(),
+                    "version": encounter.workflow.version,
+                    "last_saved": encounter.workflow.last_saved.isoformat()
+                },
+                user
+            )
+            
+            # Broadcast status change if it occurred
+            if old_status != encounter.status:
+                await self._broadcast_status_update(
+                    encounter_id,
+                    encounter.status,
+                    f"Encounter status changed from {old_status.value} to {encounter.status.value}",
+                    user
+                )
             
             logger.info(f"Updated SOAP for encounter {encounter_id}")
             
@@ -197,6 +288,27 @@ class EncounterService:
             # Save encounter
             signed_encounter = await self.encounter_repo.update(encounter_id, encounter)
             
+            # Broadcast encounter signing to connected clients
+            await self._broadcast_encounter_update(
+                encounter_id,
+                "encounter_signed",
+                {
+                    "signed_by": signed_by,
+                    "signed_at": encounter.signed_at.isoformat(),
+                    "version": encounter.workflow.signed_version,
+                    "notes": notes
+                },
+                user
+            )
+            
+            # Broadcast status update
+            await self._broadcast_status_update(
+                encounter_id,
+                EncounterStatusEnum.SIGNED,
+                f"Encounter signed by {signed_by}",
+                user
+            )
+            
             logger.info(f"Signed encounter {encounter_id} by {signed_by}")
             
             # Trigger FHIR synchronization asynchronously
@@ -220,7 +332,8 @@ class EncounterService:
         self, 
         encounter_id: str,
         reason: str,
-        cancelled_by: str
+        cancelled_by: str,
+        user: Optional[UserModel] = None
     ) -> EncounterModel:
         """Cancel an encounter"""
         try:
@@ -250,6 +363,26 @@ class EncounterService:
             
             # Save encounter
             cancelled_encounter = await self.encounter_repo.update(encounter_id, encounter)
+            
+            # Broadcast encounter cancellation to connected clients
+            await self._broadcast_encounter_update(
+                encounter_id,
+                "encounter_cancelled",
+                {
+                    "cancelled_by": cancelled_by,
+                    "reason": reason,
+                    "cancelled_at": now.isoformat()
+                },
+                user
+            )
+            
+            # Broadcast status update
+            await self._broadcast_status_update(
+                encounter_id,
+                EncounterStatusEnum.CANCELLED,
+                f"Encounter cancelled by {cancelled_by}: {reason}",
+                user
+            )
             
             logger.info(f"Cancelled encounter {encounter_id} by {cancelled_by}: {reason}")
             

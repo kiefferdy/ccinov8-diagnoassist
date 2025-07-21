@@ -2,7 +2,7 @@
 Authentication middleware for DiagnoAssist Backend
 """
 from typing import Optional, List
-from fastapi import Request, HTTPException, status
+from fastapi import Request, HTTPException, status, WebSocketException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.security.utils import get_authorization_scheme_param
 
@@ -178,3 +178,31 @@ class ResourceOwnershipAuth:
         # For now, allow all authenticated users
         # In Phase 4, this will be enhanced with actual ownership checks
         return current_user
+
+
+# WebSocket Authentication
+async def get_current_user_websocket(token: str) -> CurrentUser:
+    """
+    Get current authenticated user from WebSocket token
+    
+    Args:
+        token: JWT token from WebSocket query parameter
+        
+    Returns:
+        Current user object
+        
+    Raises:
+        WebSocketException: If authentication fails
+    """
+    try:
+        if not token:
+            raise AuthenticationException("Authentication token not provided")
+        
+        # Get user from token
+        current_user = await auth_service.get_current_user(token)
+        return current_user
+        
+    except AuthenticationException as e:
+        raise WebSocketException(code=4001, reason=f"Authentication failed: {str(e)}")
+    except Exception as e:
+        raise WebSocketException(code=4001, reason="Could not validate credentials")

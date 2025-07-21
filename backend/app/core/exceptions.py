@@ -97,3 +97,11 @@ class BusinessRuleException(DiagnoAssistException):
         
         # Store violations for easy access
         self.violations = violations or []
+
+
+class WebSocketException(DiagnoAssistException):
+    """WebSocket connection and messaging errors"""
+    
+    def __init__(self, message: str, connection_id: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
+        error_details = {"connection_id": connection_id, **(details or {})}
+        super().__init__(message, "WEBSOCKET_ERROR", error_details)

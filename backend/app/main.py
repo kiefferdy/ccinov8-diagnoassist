@@ -177,6 +177,10 @@ async def health_check():
 # Include API router
 app.include_router(api_router, prefix=settings.api_v1_prefix)
 
+# Include WebSocket router
+from app.api.v1.websocket import router as websocket_router
+app.include_router(websocket_router, prefix="/ws", tags=["websocket"])
+
 
 if __name__ == "__main__":
     import uvicorn
