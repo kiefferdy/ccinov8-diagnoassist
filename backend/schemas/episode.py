@@ -1,5 +1,5 @@
 """
-Episode Pydantic Schemas
+Episode Pydantic Schemas - Matches SQL Schema Exactly
 """
 from pydantic import BaseModel, validator
 from typing import Optional, List
@@ -7,7 +7,7 @@ from datetime import datetime, date
 from uuid import UUID
 
 class VitalSigns(BaseModel):
-    """Simplified vital signs"""
+    """Vital signs helper schema"""
     blood_pressure_systolic: Optional[int] = None
     blood_pressure_diastolic: Optional[int] = None
     heart_rate: Optional[int] = None
@@ -16,13 +16,13 @@ class VitalSigns(BaseModel):
     oxygen_saturation: Optional[int] = None
 
 class EpisodeBase(BaseModel):
-    """Base episode fields"""
+    """Base episode fields - matches SQL exactly"""
     patient_id: UUID
     chief_complaint: str
     encounter_type: str = "outpatient"
     priority: str = "routine"
     
-    # Vital signs as individual fields
+    # Vital signs as individual fields (matches SQL)
     blood_pressure_systolic: Optional[int] = None
     blood_pressure_diastolic: Optional[int] = None
     heart_rate: Optional[int] = None
@@ -30,14 +30,16 @@ class EpisodeBase(BaseModel):
     respiratory_rate: Optional[int] = None
     oxygen_saturation: Optional[int] = None
     
-    # Notes as simple strings
+    # Notes as simple text fields (matches SQL)
     symptoms: Optional[str] = ""
     physical_exam_findings: Optional[str] = ""
     clinical_notes: Optional[str] = ""
     assessment_notes: Optional[str] = ""
     plan_notes: Optional[str] = ""
     
-    # Provider and location
+    # Additional fields from SQL
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
     provider_id: Optional[str] = None
     location: Optional[str] = None
     
@@ -75,12 +77,14 @@ class EpisodeUpdate(BaseModel):
     clinical_notes: Optional[str] = None
     assessment_notes: Optional[str] = None
     plan_notes: Optional[str] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
     provider_id: Optional[str] = None
     location: Optional[str] = None
     status: Optional[str] = None
 
 class EpisodeResponse(EpisodeBase):
-    """Schema for episode responses"""
+    """Schema for episode responses - matches SQL exactly"""
     id: UUID
     status: str = "active"
     created_at: datetime
@@ -97,6 +101,7 @@ class EpisodeListResponse(BaseModel):
     page: int = 1
     size: int = 20
 
+# Physical exam findings class for backwards compatibility
 class PhysicalExamFindings(BaseModel):
     """Physical examination findings"""
     general_appearance: Optional[str] = None

@@ -1,14 +1,14 @@
 """
-Treatment Pydantic Schemas
+Treatment Pydantic Schemas - Matches SQL Schema Exactly
 """
 
 from pydantic import BaseModel, validator, Field
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 from datetime import datetime, date
 from uuid import UUID
 
 class TreatmentBase(BaseModel):
-    """Base treatment fields"""
+    """Base treatment fields - matches SQL exactly"""
     episode_id: UUID
     diagnosis_id: Optional[UUID] = None
     treatment_type: str = "medication"
@@ -19,6 +19,8 @@ class TreatmentBase(BaseModel):
     route: Optional[str] = None
     duration: Optional[str] = None
     instructions: Optional[str] = None
+    
+    # Simple text fields as per SQL schema
     monitoring_requirements: Optional[str] = ""
     contraindications: Optional[str] = ""
     side_effects: Optional[str] = ""
@@ -26,8 +28,12 @@ class TreatmentBase(BaseModel):
     lifestyle_modifications: Optional[str] = ""
     follow_up_instructions: Optional[str] = ""
     patient_education: Optional[str] = ""
+    
+    # Additional fields from SQL
     prescriber: Optional[str] = None
     approved_by: Optional[str] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
 
 class TreatmentCreate(TreatmentBase):
     """Schema for creating a treatment"""
@@ -35,6 +41,7 @@ class TreatmentCreate(TreatmentBase):
 
 class TreatmentUpdate(BaseModel):
     """Schema for updating a treatment"""
+    diagnosis_id: Optional[UUID] = None
     treatment_type: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
@@ -57,11 +64,9 @@ class TreatmentUpdate(BaseModel):
     end_date: Optional[datetime] = None
 
 class TreatmentResponse(TreatmentBase):
-    """Schema for treatment responses"""
+    """Schema for treatment responses - matches SQL exactly"""
     id: UUID
     status: str = "active"
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
     created_by: Optional[str] = "system"
@@ -85,9 +90,9 @@ class MedicationTreatment(BaseModel):
     route: str = "oral"
     duration: Optional[str] = None
     instructions: Optional[str] = None
-    side_effects: Optional[List[str]] = Field(default_factory=list)
-    contraindications: Optional[List[str]] = Field(default_factory=list)
-    drug_interactions: Optional[List[str]] = Field(default_factory=list)
+    side_effects: Optional[str] = None
+    contraindications: Optional[str] = None
+    drug_interactions: Optional[str] = None
 
 class NonPharmacologicalTreatment(BaseModel):
     """Schema for non-medication treatments"""
@@ -97,7 +102,7 @@ class NonPharmacologicalTreatment(BaseModel):
     instructions: Optional[str] = None
     duration: Optional[str] = None
     frequency: Optional[str] = None
-    goals: Optional[List[str]] = Field(default_factory=list)
-    lifestyle_modifications: Optional[List[str]] = Field(default_factory=list)
-    patient_education: Optional[List[str]] = Field(default_factory=list)
+    goals: Optional[str] = None
+    lifestyle_modifications: Optional[str] = None
+    patient_education: Optional[str] = None
     follow_up_requirements: Optional[str] = None

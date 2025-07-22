@@ -1,12 +1,19 @@
 """
 Settings Configuration for DiagnoAssist
-Uses existing Supabase URL + ANON KEY method
+Fixed for Pydantic V2 and pydantic-settings
 """
 
 import os
 from functools import lru_cache
 from typing import List, Optional
-from pydantic import BaseSettings, validator
+
+try:
+    from pydantic_settings import BaseSettings
+except ImportError:
+    # Fallback for older pydantic versions
+    from pydantic import BaseSettings
+
+from pydantic import validator
 
 
 class Settings(BaseSettings):
@@ -58,99 +65,33 @@ class Settings(BaseSettings):
     # Logging Settings
     log_level: str = "INFO"
     log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    log_file: Optional[str] = "./logs/diagnoassist.log"
+    log_file: Optional[str] = None
     
     # Performance Settings
-    worker_processes: int = 1
-    max_connections: int = 1000
-    connection_pool_size: int = 10
-    connection_pool_overflow: int = 20
+    request_timeout: int = 30
+    max_request_size: int = 100 * 1024 * 1024  # 100MB
     
-    # Feature Flags
-    enable_fhir_validation: bool = True
-    enable_ai_diagnosis: bool = True
-    enable_external_integrations: bool = False
-    enable_audit_logging: bool = True
+    # Validation
+    @validator('environment')
+    def validate_environment(cls, v):
+        valid_envs = ['development', 'staging', 'production', 'testing']
+        if v not in valid_envs:
+            return 'development'
+        return v
     
-    # Rate Limiting
-    rate_limit_requests: int = 100
-    rate_limit_window: int = 60  # seconds
+    @validator('supabase_url')
+    def validate_supabase_url(cls, v):
+        if v and not v.startswith('https://'):
+            raise ValueError('Supabase URL must start with https://')
+        return v
     
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
-    
-    @validator('supabase_url')
-    def validate_supabase_url(cls, v):
-        """Validate Supabase URL"""
-        if not v:
-            raise ValueError("SUPABASE_URL is required")
-        if not v.startswith("https://"):
-            raise ValueError("SUPABASE_URL must start with https://")
-        if not "supabase.co" in v:
-            raise ValueError("SUPABASE_URL must be a valid Supabase URL")
-        return v
-    
-    @validator('supabase_anon_key')
-    def validate_supabase_anon_key(cls, v):
-        """Validate Supabase anonymous key"""
-        if not v:
-            raise ValueError("SUPABASE_ANON_KEY is required")
-        if len(v) < 100:  # JWT tokens are typically much longer
-            raise ValueError("SUPABASE_ANON_KEY appears to be invalid (too short)")
-        return v
-    
-    @validator('cors_origins', pre=True)
-    def parse_cors_origins(cls, v):
-        """Parse CORS origins from environment"""
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(',')]
-        return v
-    
-    @validator('environment')
-    def validate_environment(cls, v):
-        """Validate environment setting"""
-        valid_envs = ['development', 'staging', 'production']
-        if v not in valid_envs:
-            raise ValueError(f'Environment must be one of: {valid_envs}')
-        return v
-    
-    @validator('secret_key')
-    def validate_secret_key(cls, v):
-        """Validate secret key"""
-        if len(v) < 32:
-            raise ValueError('SECRET_KEY must be at least 32 characters long')
-        return v
-    
-    @property
-    def is_development(self) -> bool:
-        """Check if we're in development environment"""
-        return self.environment == "development"
-    
-    @property
-    def is_production(self) -> bool:
-        """Check if we're in production environment"""
-        return self.environment == "production"
-    
-    @property
-    def supabase_rest_url(self) -> str:
-        """Get Supabase REST API URL"""
-        return f"{self.supabase_url}/rest/v1"
-    
-    def get_supabase_headers(self) -> dict:
-        """Get headers for Supabase REST API calls"""
-        return {
-            'apikey': self.supabase_anon_key,
-            'Authorization': f'Bearer {self.supabase_anon_key}',
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-        }
 
 
 @lru_cache()
 def get_settings() -> Settings:
-    """
-    Create settings instance with caching
-    """
+    """Get cached settings instance"""
     return Settings()

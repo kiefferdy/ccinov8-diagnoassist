@@ -1,8 +1,8 @@
 """
-Patient Database Model
+Patient Database Model - Matches SQL Schema Exactly
 """
 
-from sqlalchemy import Column, String, Date, DateTime, Boolean, Text, JSON
+from sqlalchemy import Column, String, Date, DateTime, Boolean, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime, date
@@ -16,7 +16,7 @@ except ImportError:
 
 class Patient(Base):
     """
-    Patient model for storing patient demographic and basic information
+    Patient model - matches SQL schema exactly
     """
     __tablename__ = "patients"
     
@@ -24,33 +24,34 @@ class Patient(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     
     # Medical Record Number - unique identifier for the patient
-    medical_record_number = Column(String(50), unique=True, index=True, nullable=False)
+    medical_record_number = Column(String, unique=True, nullable=False)
     
     # Demographics
-    first_name = Column(String(100), nullable=False)
-    last_name = Column(String(100), nullable=False)
+    first_name = Column(String, nullable=False)
+    last_name = Column(String, nullable=False)
     date_of_birth = Column(Date, nullable=False)
-    gender = Column(String(20))  # male, female, other, unknown
+    gender = Column(String, default="unknown")
     
     # Contact information
-    email = Column(String(255), unique=True, index=True)
-    phone = Column(String(20))
+    email = Column(String, unique=True)
+    phone = Column(String)
     address = Column(Text)
     
     # Emergency contact
-    emergency_contact_name = Column(String(200))
-    emergency_contact_phone = Column(String(20))
-    emergency_contact_relationship = Column(String(50))
+    emergency_contact_name = Column(String)
+    emergency_contact_phone = Column(String)
+    emergency_contact_relationship = Column(String)
     
-    # Medical information
-    medical_history = Column(JSON, default=list)  # List of conditions
-    allergies = Column(JSON, default=list)  # List of allergies
-    current_medications = Column(JSON, default=list)  # List of medications
+    # Medical information - FIXED: Use Text instead of JSON to match SQL
+    medical_history = Column(Text, default="")
+    allergies = Column(Text, default="")
+    current_medications = Column(Text, default="")
     
-    # System fields
-    active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    # System fields - matches SQL exactly
+    status = Column(String, nullable=False, default="active")
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_by = Column(String, default="system")
     
     # Relationships
     episodes = relationship("Episode", back_populates="patient", cascade="all, delete-orphan")

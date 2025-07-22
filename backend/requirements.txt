@@ -1,71 +1,80 @@
 # ==================================================
-# DiagnoAssist Requirements
+# DiagnoAssist Requirements - Wide Ranges, MVP Focus
+# Fixed for Pydantic V2 and pydantic-settings
 # ==================================================
 
-# Core FastAPI (keep versions for stability)
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-python-multipart
+# Core FastAPI Stack
+fastapi>=0.100.0,<1.0.0
+uvicorn[standard]>=0.20.0,<1.0.0
+python-multipart>=0.0.5
 
-# Database (keep core versions)
-sqlalchemy[asyncio]==2.0.23
-alembic==1.12.1
-psycopg2-binary==2.9.9
-supabase==2.3.0
+# Database & ORM
+sqlalchemy[asyncio]>=2.0.0,<3.0.0
+alembic>=1.10.0,<2.0.0
+psycopg2-binary>=2.9.0,<3.0.0
 
-# FHIR and Validation (let pip resolve pydantic)
-fhir.resources==7.0.2
-pydantic  # Let pip choose compatible version
+# Supabase Integration
+supabase>=2.0.0,<3.0.0
+postgrest>=0.10.0,<1.0.0
+gotrue>=1.0.0,<2.0.0
 
-# Authentication and Security
-python-jose[cryptography]
-passlib[bcrypt]
-cryptography
+# FHIR & Medical Standards
+fhir.resources>=7.0.0,<8.0.0
+
+# Validation & Serialization - FIXED for Pydantic V2
+pydantic>=2.0.0,<3.0.0
+pydantic-settings>=2.0.0,<3.0.0
+
+# Security & Authentication
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+cryptography>=40.0.0
 
 # Configuration
-python-dotenv==1.0.0
+python-dotenv>=1.0.0
 
-# AI Integration (core functionality)
-openai
-anthropic
+# AI Integration
+openai>=1.0.0
+anthropic>=0.20.0
 
-# HTTP Client
-httpx
-requests
+# HTTP & Networking
+httpx>=0.24.0
+requests>=2.28.0
+aiofiles>=22.0.0
 
-# Essential utilities
-python-dateutil
+# Date & Time
+python-dateutil>=2.8.0
 
-# Development Tools (no version conflicts)
-pytest
-pytest-asyncio
-black
-isort
-flake8
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
 
-# File handling
-aiofiles
+# Utilities
+structlog>=22.0.0
+python-json-logger>=2.0.0
+jsonschema>=4.0.0
+pytz>=2023.0
+cachetools>=5.0.0
 
-# Background tasks (optional - remove if conflicts)
-# celery
-# redis
+# File Processing
+openpyxl>=3.1.0
 
-# Removed packages that cause pydantic conflicts:
-# - fastapi-mail (pydantic >=2.0 conflict with fhir.resources)
-# - pydantic-settings (version conflicts)
-# - many optional packages
+# Development Tools
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+isort>=5.12.0
+flake8>=6.0.0
 
-# Data processing (let pip resolve)
-pandas
-numpy
+# Production Server
+gunicorn>=21.0.0
 
-# Optional packages (no version pins)
-structlog
-python-json-logger
-jsonschema
-pytz
-openpyxl
-cachetools
+# Optional: Background Tasks (uncomment if needed)
+# celery>=5.3.0
+# redis>=4.5.0
 
-# Production essentials
-gunicorn
+# Optional: Advanced Features (uncomment if needed)
+# tensorflow>=2.13.0
+# scikit-learn>=1.3.0
+# pillow>=10.0.0
+# reportlab>=4.0.0

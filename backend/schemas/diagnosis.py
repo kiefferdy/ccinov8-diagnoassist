@@ -1,5 +1,5 @@
 """
-Diagnosis Pydantic Schemas
+Diagnosis Pydantic Schemas - Matches SQL Schema Exactly
 """
 
 from pydantic import BaseModel, validator, Field
@@ -8,7 +8,7 @@ from datetime import datetime, date
 from uuid import UUID
 
 class DiagnosisBase(BaseModel):
-    """Base diagnosis fields"""
+    """Base diagnosis fields - matches SQL exactly"""
     episode_id: UUID
     condition_name: str
     icd10_code: Optional[str] = None
@@ -19,6 +19,8 @@ class DiagnosisBase(BaseModel):
     physician_confirmed: bool = False
     physician_notes: Optional[str] = None
     final_diagnosis: bool = False
+    
+    # Simple text fields as per SQL schema
     supporting_symptoms: Optional[str] = ""
     differential_diagnoses: Optional[str] = ""
     red_flags: Optional[str] = ""
@@ -59,7 +61,7 @@ class DiagnosisUpdate(BaseModel):
     status: Optional[str] = None
 
 class DiagnosisResponse(DiagnosisBase):
-    """Schema for diagnosis responses"""
+    """Schema for diagnosis responses - matches SQL exactly"""
     id: UUID
     status: str = "active"
     created_at: datetime

@@ -1,14 +1,14 @@
 """
-Patient Pydantic Schemas
+Patient Pydantic Schemas - Matches SQL Schema Exactly
 """
 
-from pydantic import BaseModel, validator, EmailStr
+from pydantic import BaseModel, validator
 from typing import Optional, List
 from datetime import datetime, date
 from uuid import UUID
 
 class PatientBase(BaseModel):
-    """Base patient fields"""
+    """Base patient fields - matches SQL exactly"""
     medical_record_number: str
     first_name: str
     last_name: str
@@ -20,6 +20,8 @@ class PatientBase(BaseModel):
     emergency_contact_name: Optional[str] = None
     emergency_contact_phone: Optional[str] = None
     emergency_contact_relationship: Optional[str] = None
+    
+    # Simple text fields as per SQL schema
     medical_history: Optional[str] = ""
     allergies: Optional[str] = ""
     current_medications: Optional[str] = ""
@@ -58,7 +60,7 @@ class PatientUpdate(BaseModel):
     current_medications: Optional[str] = None
 
 class PatientResponse(PatientBase):
-    """Schema for patient responses"""
+    """Schema for patient responses - matches SQL exactly"""
     id: UUID
     status: str = "active"
     created_at: datetime

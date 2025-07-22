@@ -1,10 +1,11 @@
 """
-Episode Database Model
+Episode Database Model - Matches Supabase schema exactly
 """
 
-from sqlalchemy import Column, String, DateTime, Text, JSON, ForeignKey, Boolean
+from sqlalchemy import Column, String, DateTime, Text, Integer, Numeric
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+from sqlalchemy import ForeignKey
 from datetime import datetime
 import uuid
 
@@ -16,7 +17,7 @@ except ImportError:
 
 class Episode(Base):
     """
-    Episode model for storing medical encounters/episodes of care
+    Episode model for storing patient encounters and visits
     """
     __tablename__ = "episodes"
     
@@ -27,32 +28,38 @@ class Episode(Base):
     patient_id = Column(UUID(as_uuid=True), ForeignKey("patients.id"), nullable=False)
     
     # Episode details
-    chief_complaint = Column(String(500), nullable=False)
-    status = Column(String(50), default="in-progress")  # in-progress, completed, cancelled
-    encounter_type = Column(String(50), default="outpatient")  # outpatient, inpatient, emergency
-    priority = Column(String(50), default="routine")  # routine, urgent, emergent
+    chief_complaint = Column(Text, nullable=False)
+    status = Column(String(50), default="active", nullable=False)
+    encounter_type = Column(String(50), default="outpatient", nullable=False)
+    priority = Column(String(50), default="routine", nullable=False)
     
-    # Timing
-    start_time = Column(DateTime, default=datetime.utcnow, nullable=False)
-    end_time = Column(DateTime)
+    # Vital signs
+    blood_pressure_systolic = Column(Integer)
+    blood_pressure_diastolic = Column(Integer)
+    heart_rate = Column(Integer)
+    temperature = Column(Numeric)
+    respiratory_rate = Column(Integer)
+    oxygen_saturation = Column(Integer)
+    
+    # Clinical information
+    symptoms = Column(Text, default="")
+    physical_exam_findings = Column(Text, default="")
+    clinical_notes = Column(Text, default="")
+    assessment_notes = Column(Text, default="")
+    plan_notes = Column(Text, default="")
+    
+    # Episode timing
+    start_date = Column(DateTime, default=datetime.utcnow, nullable=False)
+    end_date = Column(DateTime)
     
     # Provider and location
-    provider_id = Column(String(100))  # Healthcare provider identifier
+    provider_id = Column(String(100))
     location = Column(String(200))
-    
-    # Clinical data
-    vital_signs = Column(JSON, default=dict)
-    symptoms = Column(JSON, default=list)
-    physical_exam_findings = Column(JSON, default=dict)
-    
-    # Notes and assessments
-    clinical_notes = Column(Text)
-    assessment_notes = Column(Text)
-    plan_notes = Column(Text)
     
     # System fields
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_by = Column(String(100), default="system")
     
     # Relationships
     patient = relationship("Patient", back_populates="episodes")
@@ -60,41 +67,4 @@ class Episode(Base):
     treatments = relationship("Treatment", back_populates="episode", cascade="all, delete-orphan")
     
     def __repr__(self):
-        return f"<Episode(id='{self.id}', patient_id='{self.patient_id}', complaint='{self.chief_complaint}')>"
-    
-    @property
-    def duration(self):
-        """Calculate episode duration"""
-        if not self.end_time:
-            return None
-        return self.end_time - self.start_time
-    
-    @property
-    def is_active(self):
-        """Check if episode is currently active"""
-        return self.status == "in-progress"
-    
-    def to_dict(self):
-        """Convert episode to dictionary"""
-        return {
-            "id": str(self.id),
-            "patient_id": str(self.patient_id),
-            "chief_complaint": self.chief_complaint,
-            "status": self.status,
-            "encounter_type": self.encounter_type,
-            "priority": self.priority,
-            "start_time": self.start_time.isoformat() if self.start_time else None,
-            "end_time": self.end_time.isoformat() if self.end_time else None,
-            "duration_seconds": self.duration.total_seconds() if self.duration else None,
-            "provider_id": self.provider_id,
-            "location": self.location,
-            "vital_signs": self.vital_signs or {},
-            "symptoms": self.symptoms or [],
-            "physical_exam_findings": self.physical_exam_findings or {},
-            "clinical_notes": self.clinical_notes,
-            "assessment_notes": self.assessment_notes,
-            "plan_notes": self.plan_notes,
-            "is_active": self.is_active,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None
-        }
+        return f"<Episode(id='{self.id}', patient_id='{self.patient_id}', complaint='{self.chief_complaint[:50]}...')>"
