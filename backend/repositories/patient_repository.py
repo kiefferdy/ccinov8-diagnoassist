@@ -292,3 +292,15 @@ class PatientRepository(BaseRepository[Patient]):
         except Exception as e:
             logger.error(f"Error validating unique MRN {mrn}: {str(e)}")
             return False
+        
+    def get_by_mrn(self, mrn: str) -> Optional[Patient]:
+        """Get patient by medical record number (alias)"""
+        return self.get_by_medical_record_number(mrn)
+
+    def get_by_email(self, email: str) -> Optional[Patient]:
+        """Get patient by email address"""
+        try:
+            return self.db.query(Patient).filter(Patient.email == email).first()
+        except Exception as e:
+            logger.error(f"Error getting patient by email {email}: {str(e)}")
+            return None

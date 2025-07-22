@@ -82,10 +82,7 @@ async def create_treatment(
         )
     
     # Create treatment through service layer
-    treatment = services.treatment.create_treatment(
-        treatment_data=treatment_data,
-        created_by=current_user["user_id"]
-    )
+    treatment = services.treatment.create_treatment(treatment_data)
     
     return treatment
 

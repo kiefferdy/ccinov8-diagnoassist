@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 security = HTTPBearer(auto_error=False)
 
 # =============================================================================
-# FIXED WORKING SERVICE WRAPPER
+# FIXED WORKING SERVICE WRAPPER (as fallback)
 # =============================================================================
 
 class WorkingService:
@@ -59,42 +59,16 @@ class WorkingService:
             logger.error(f"Failed to create response model: {e}")
             raise Exception(f"Failed to create response: {str(e)}")
     
-    # Patient methods
+    # Patient methods (ADD MISSING METHODS)
     def create_patient(self, patient_data, created_by=None):
         try:
-            # Convert to dict
             data = self._convert_to_dict(patient_data)
-            
-            # Create patient
             patient = self.repos.patient.create(data)
             
-            # Return as response schema
             from schemas.patient import PatientResponse
             return self._create_response_model(patient, PatientResponse)
         except Exception as e:
             raise Exception(f"Patient creation failed: {str(e)}")
-    
-    def get_patients(self, pagination=None, search=None, status=None):
-        try:
-            patients = self.repos.patient.get_all()
-            
-            from schemas.patient import PatientListResponse, PatientResponse
-            patient_responses = []
-            for p in patients:
-                try:
-                    patient_responses.append(self._create_response_model(p, PatientResponse))
-                except Exception as e:
-                    logger.error(f"Failed to convert patient {p.id}: {e}")
-                    continue
-            
-            return PatientListResponse(
-                data=patient_responses,
-                total=len(patient_responses),
-                page=1 if pagination else 1,
-                size=len(patient_responses)
-            )
-        except Exception as e:
-            raise Exception(f"Failed to get patients: {str(e)}")
     
     def get_patient(self, patient_id):
         try:
@@ -105,8 +79,6 @@ class WorkingService:
             from schemas.patient import PatientResponse
             return self._create_response_model(patient, PatientResponse)
         except Exception as e:
-            if "not found" in str(e).lower():
-                raise Exception("Patient not found")
             raise Exception(f"Failed to get patient: {str(e)}")
     
     def update_patient(self, patient_id, patient_data, updated_by=None):
@@ -126,38 +98,6 @@ class WorkingService:
         except Exception as e:
             raise Exception(f"Failed to delete patient: {str(e)}")
     
-    def get_patient_by_mrn(self, mrn):
-        try:
-            patient = self.repos.patient.get_by_mrn(mrn)
-            if not patient:
-                raise Exception("Patient not found")
-            
-            from schemas.patient import PatientResponse
-            return self._create_response_model(patient, PatientResponse)
-        except Exception as e:
-            raise Exception(f"Patient not found: {str(e)}")
-    
-    def get_patient_by_email(self, email):
-        try:
-            patient = self.repos.patient.get_by_email(email)
-            if not patient:
-                raise Exception("Patient not found")
-            
-            from schemas.patient import PatientResponse
-            return self._create_response_model(patient, PatientResponse)
-        except Exception as e:
-            raise Exception(f"Patient not found: {str(e)}")
-    
-    def get_patient_summary(self, patient_id):
-        try:
-            patient = self.get_patient(patient_id)
-            return {
-                "patient": patient,
-                "summary": {"total_episodes": 0, "active_episodes": 0}
-            }
-        except Exception as e:
-            raise Exception(f"Failed to get summary: {str(e)}")
-    
     # Episode methods
     def create_episode(self, episode_data, created_by=None):
         try:
@@ -169,20 +109,72 @@ class WorkingService:
         except Exception as e:
             raise Exception(f"Episode creation failed: {str(e)}")
     
-    def get_episodes_by_patient(self, patient_id, status=None):
+    def get_episode(self, episode_id):
         try:
-            episodes = self.repos.episode.get_by_patient(patient_id)
+            episode = self.repos.episode.get_by_id(episode_id)
+            if not episode:
+                raise Exception("Episode not found")
+            
             from schemas.episode import EpisodeResponse
-            episode_responses = []
-            for ep in episodes:
-                try:
-                    episode_responses.append(self._create_response_model(ep, EpisodeResponse))
-                except Exception as e:
-                    logger.error(f"Failed to convert episode {ep.id}: {e}")
-                    continue
-            return episode_responses
-        except Exception:
-            return []
+            return self._create_response_model(episode, EpisodeResponse)
+        except Exception as e:
+            raise Exception(f"Failed to get episode: {str(e)}")
+    
+    def update_episode(self, episode_id, episode_data, updated_by=None):
+        try:
+            data = self._convert_to_dict(episode_data)
+            updated = self.repos.episode.update(episode_id, data)
+            
+            from schemas.episode import EpisodeResponse
+            return self._create_response_model(updated, EpisodeResponse)
+        except Exception as e:
+            raise Exception(f"Failed to update episode: {str(e)}")
+    
+    def delete_episode(self, episode_id, deleted_by=None):
+        try:
+            self.repos.episode.delete(episode_id)
+            return {"status": "deleted", "episode_id": episode_id}
+        except Exception as e:
+            raise Exception(f"Failed to delete episode: {str(e)}")
+    
+    # Diagnosis methods
+    def create_diagnosis(self, diagnosis_data, created_by=None):
+        try:
+            data = self._convert_to_dict(diagnosis_data)
+            diagnosis = self.repos.diagnosis.create(data)
+            
+            from schemas.diagnosis import DiagnosisResponse
+            return self._create_response_model(diagnosis, DiagnosisResponse)
+        except Exception as e:
+            raise Exception(f"Diagnosis creation failed: {str(e)}")
+    
+    def get_diagnosis(self, diagnosis_id):
+        try:
+            diagnosis = self.repos.diagnosis.get_by_id(diagnosis_id)
+            if not diagnosis:
+                raise Exception("Diagnosis not found")
+            
+            from schemas.diagnosis import DiagnosisResponse
+            return self._create_response_model(diagnosis, DiagnosisResponse)
+        except Exception as e:
+            raise Exception(f"Failed to get diagnosis: {str(e)}")
+    
+    def update_diagnosis(self, diagnosis_id, diagnosis_data, updated_by=None):
+        try:
+            data = self._convert_to_dict(diagnosis_data)
+            updated = self.repos.diagnosis.update(diagnosis_id, data)
+            
+            from schemas.diagnosis import DiagnosisResponse
+            return self._create_response_model(updated, DiagnosisResponse)
+        except Exception as e:
+            raise Exception(f"Failed to update diagnosis: {str(e)}")
+    
+    def delete_diagnosis(self, diagnosis_id, deleted_by=None):
+        try:
+            self.repos.diagnosis.delete(diagnosis_id)
+            return {"status": "deleted", "diagnosis_id": diagnosis_id}
+        except Exception as e:
+            raise Exception(f"Failed to delete diagnosis: {str(e)}")
     
     # Treatment methods
     def create_treatment(self, treatment_data, created_by=None):
@@ -194,6 +186,34 @@ class WorkingService:
             return self._create_response_model(treatment, TreatmentResponse)
         except Exception as e:
             raise Exception(f"Treatment creation failed: {str(e)}")
+    
+    def get_treatment(self, treatment_id):
+        try:
+            treatment = self.repos.treatment.get_by_id(treatment_id)
+            if not treatment:
+                raise Exception("Treatment not found")
+            
+            from schemas.treatment import TreatmentResponse
+            return self._create_response_model(treatment, TreatmentResponse)
+        except Exception as e:
+            raise Exception(f"Failed to get treatment: {str(e)}")
+    
+    def update_treatment(self, treatment_id, treatment_data, updated_by=None):
+        try:
+            data = self._convert_to_dict(treatment_data)
+            updated = self.repos.treatment.update(treatment_id, data)
+            
+            from schemas.treatment import TreatmentResponse
+            return self._create_response_model(updated, TreatmentResponse)
+        except Exception as e:
+            raise Exception(f"Failed to update treatment: {str(e)}")
+    
+    def delete_treatment(self, treatment_id, deleted_by=None):
+        try:
+            self.repos.treatment.delete(treatment_id)
+            return {"status": "deleted", "treatment_id": treatment_id}
+        except Exception as e:
+            raise Exception(f"Failed to delete treatment: {str(e)}")
 
 # =============================================================================
 # DEPENDENCY FUNCTIONS
@@ -211,8 +231,8 @@ def get_repository_manager(db: Session = Depends(get_database)) -> RepositoryMan
     """Get repository manager with database session"""
     return RepositoryManager(db)
 
-def get_service(repos: RepositoryManager = Depends(get_repository_manager)) -> WorkingService:
-    """Get working service instance"""
+def get_working_service(repos: RepositoryManager = Depends(get_repository_manager)) -> WorkingService:
+    """Get working service instance as fallback"""
     return WorkingService(repos, "api")
 
 def get_pagination(
@@ -261,8 +281,6 @@ def get_auth_user(credentials: HTTPAuthorizationCredentials = Depends(security))
         }
     }
 
-CurrentUserDep = Annotated[Optional[Dict[str, Any]], Depends(get_auth_user)]
-
 def check_database_health():
     """Check database connection health"""
     if not test_database_connection():
@@ -271,29 +289,6 @@ def check_database_health():
             detail="Database connection unavailable"
         )
     return True
-
-ServiceDep = Annotated[WorkingService, Depends(get_service)]
-CurrentUserDep = Annotated[Optional[str], Depends(get_auth_user)]
-PaginationDep = Annotated[PaginationParams, Depends(get_pagination)]
-
-DatabaseDep = Annotated[Session, Depends(get_database)]
-RepositoryDep = Annotated[RepositoryManager, Depends(get_repository_manager)]
-SettingsDep = Annotated[Settings, Depends(lambda: Settings())]
-
-try:
-    from services import get_service_manager, ServiceManager
-    
-    def get_service_manager_dep(repos: RepositoryManager = Depends(get_repository_manager)) -> ServiceManager:
-        """Get service manager for dependency injection"""
-        return get_service_manager(repos)
-    
-    # Alternative service type using proper ServiceManager
-    ServiceManagerDep = Annotated[ServiceManager, Depends(get_service_manager_dep)]
-    
-except ImportError:
-    # If services aren't available, use the WorkingService
-    print("⚠️  ServiceManager not available, using WorkingService")
-    ServiceManagerDep = ServiceDep
 
 def check_services_health():
     """Check services health - simple version"""
@@ -307,3 +302,43 @@ def check_services_health():
     except Exception as e:
         logger.error(f"Services health check failed: {e}")
         return False
+
+# =============================================================================
+# SERVICE DEPENDENCY SETUP - Try ServiceManager first, fallback to WorkingService
+# =============================================================================
+
+# Try to import and use the proper ServiceManager
+try:
+    from services import get_service_manager, ServiceManager
+    
+    def get_service_manager_dep(repos: RepositoryManager = Depends(get_repository_manager)) -> ServiceManager:
+        """Get service manager for dependency injection"""
+        return get_service_manager(repos)
+    
+    # Use proper ServiceManager if available
+    ServiceDep = Annotated[ServiceManager, Depends(get_service_manager_dep)]
+    print("✅ Using ServiceManager for dependency injection")
+    
+except ImportError as e:
+    # Fall back to WorkingService if ServiceManager not available
+    print(f"⚠️  ServiceManager not available ({e}), using WorkingService fallback")
+    ServiceDep = Annotated[WorkingService, Depends(get_working_service)]
+
+# Type annotations for FastAPI dependency injection
+CurrentUserDep = Annotated[Optional[Dict[str, Any]], Depends(get_auth_user)]
+PaginationDep = Annotated[PaginationParams, Depends(get_pagination)]
+DatabaseDep = Annotated[Session, Depends(get_database)]
+RepositoryDep = Annotated[RepositoryManager, Depends(get_repository_manager)]
+SettingsDep = Annotated[Settings, Depends(lambda: Settings())]
+
+# Export everything
+__all__ = [
+    "ServiceDep",
+    "CurrentUserDep", 
+    "PaginationDep",
+    "DatabaseDep",
+    "RepositoryDep",
+    "SettingsDep",
+    "check_database_health",
+    "check_services_health"
+]

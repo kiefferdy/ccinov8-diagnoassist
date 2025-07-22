@@ -80,10 +80,7 @@ async def create_diagnosis(
         )
     
     # Create diagnosis through service layer
-    diagnosis = services.diagnosis.create_diagnosis(
-        diagnosis_data=diagnosis_data,
-        created_by=current_user["user_id"]
-    )
+    diagnosis = services.diagnosis.create_diagnosis(diagnosis_data)
     
     return diagnosis
 

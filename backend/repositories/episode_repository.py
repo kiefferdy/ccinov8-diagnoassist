@@ -354,3 +354,15 @@ class EpisodeRepository(BaseRepository[Episode]):
         except Exception as e:
             logger.error(f"Error getting episode statistics: {str(e)}")
             return {}
+        
+    def get_by_patient(self, patient_id: str, skip: int = 0, limit: int = 100) -> List[Episode]:
+        """Get all episodes for a specific patient"""
+        try:
+            from uuid import UUID
+            patient_uuid = UUID(patient_id) if isinstance(patient_id, str) else patient_id
+            return self.db.query(Episode).filter(
+                Episode.patient_id == patient_uuid
+            ).offset(skip).limit(limit).all()
+        except Exception as e:
+            logger.error(f"Error getting episodes for patient {patient_id}: {str(e)}")
+            return []

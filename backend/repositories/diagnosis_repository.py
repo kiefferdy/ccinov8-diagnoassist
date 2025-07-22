@@ -390,3 +390,14 @@ class DiagnosisRepository(BaseRepository[Diagnosis]):
         except Exception as e:
             logger.error(f"Error getting most common conditions: {str(e)}")
             return []
+    def get_by_episode(self, episode_id: str, skip: int = 0, limit: int = 100) -> List[Diagnosis]:
+        """Get all diagnoses for a specific episode"""
+        try:
+            from uuid import UUID
+            episode_uuid = UUID(episode_id) if isinstance(episode_id, str) else episode_id
+            return self.db.query(Diagnosis).filter(
+                Diagnosis.episode_id == episode_uuid
+            ).offset(skip).limit(limit).all()
+        except Exception as e:
+            logger.error(f"Error getting diagnoses for episode {episode_id}: {str(e)}")
+            return []

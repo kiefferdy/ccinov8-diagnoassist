@@ -57,11 +57,7 @@ async def create_patient(
     
     try:
         # Create patient through service layer
-        patient = services.patient.create_patient(
-            patient_data=patient_data,
-            created_by=current_user["user_id"]
-        )
-        
+        patient = services.patient.create_patient(patient_data)
         return patient
     except Exception as e:
         # Convert service exceptions to HTTP exceptions

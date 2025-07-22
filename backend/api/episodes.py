@@ -73,10 +73,7 @@ async def create_episode(
         )
     
     # Create episode through service layer
-    episode = services.episode.create_episode(
-        episode_data=episode_data,
-        created_by=current_user["user_id"]
-    )
+    episode = services.episode.create_episode(episode_data)
     
     return episode
 

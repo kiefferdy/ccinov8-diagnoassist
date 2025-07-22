@@ -1,7 +1,6 @@
 """
-Enhanced Base Service Class for DiagnoAssist
-Business Logic Layer Foundation with Medical Exception Handling
-BACKWARD COMPATIBLE with existing services
+Enhanced Base Service Class for DiagnoAssist - COMPLETE VERSION
+Business Logic Layer Foundation with all required methods
 """
 
 from __future__ import annotations
@@ -11,6 +10,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 import logging
+import uuid
 
 if TYPE_CHECKING:
     from repositories.repository_manager import RepositoryManager
@@ -134,165 +134,89 @@ class BaseService(ABC):
                     value=data.get(field)
                 )
     
-    def validate_patient_safety(
-        self, 
-        condition: bool, 
-        message: str, 
-        patient_id: str, 
-        safety_rule: str,
-        risk_level: str = "HIGH"
-    ) -> None:
+    def validate_uuid(self, value: str, field_name: str) -> None:
         """
-        Enhanced patient safety validation
+        Validate UUID format
         
         Args:
-            condition: If True, raise safety exception
-            message: Safety violation message
-            patient_id: Patient identifier
-            safety_rule: Safety rule violated
-            risk_level: Risk level (LOW, MEDIUM, HIGH, CRITICAL)
-        """
-        if condition:
-            if self.enhanced_exceptions:
-                raise PatientSafetyException(
-                    message=message,
-                    patient_id=patient_id,
-                    safety_rule=safety_rule,
-                    risk_level=risk_level,
-                    immediate_action_required=True
-                )
-            else:
-                # Fallback to basic exception
-                raise BusinessRuleException(
-                    f"PATIENT SAFETY: {message} (Patient: {patient_id})",
-                    rule=safety_rule
-                )
-    
-    def validate_clinical_data(
-        self,
-        data: Dict[str, Any],
-        data_type: str,
-        patient_id: Optional[str] = None,
-        safety_critical: bool = False
-    ) -> None:
-        """
-        Enhanced clinical data validation
-        
-        Args:
-            data: Clinical data to validate
-            data_type: Type of clinical data
-            patient_id: Patient identifier
-            safety_critical: Whether data is safety critical
-        """
-        if not data or not isinstance(data, dict):
-            if self.enhanced_exceptions:
-                raise ClinicalDataException(
-                    message=f"Invalid {data_type} data format",
-                    data_type=data_type,
-                    patient_id=patient_id,
-                    safety_critical=safety_critical
-                )
-            else:
-                raise ValidationException(f"Invalid {data_type} data format")
-    
-    def validate_medical_code(
-        self,
-        code: str,
-        code_system: str,
-        field_name: str,
-        allow_empty: bool = False
-    ) -> None:
-        """
-        Enhanced medical code validation
-        
-        Args:
-            code: Medical code to validate
-            code_system: Code system (ICD-10, SNOMED, etc.)
+            value: UUID string to validate
             field_name: Field name for error reporting
-            allow_empty: Whether empty codes are allowed
+            
+        Raises:
+            ValidationException: If UUID is invalid
         """
-        if not code and not allow_empty:
-            if self.enhanced_exceptions:
-                raise MedicalValidationException(
-                    message=f"Missing {code_system} code",
-                    field=field_name,
-                    code_system=code_system
-                )
-            else:
-                raise ValidationException(f"Missing {code_system} code", field=field_name)
-        
-        if code and code_system == "ICD-10":
-            # Basic ICD-10 format validation
-            if not (len(code) >= 3 and len(code) <= 7):
-                if self.enhanced_exceptions:
-                    raise MedicalValidationException(
-                        message=f"Invalid ICD-10 code format: {code}",
-                        field=field_name,
-                        value=code,
-                        medical_code=code,
-                        code_system="ICD-10"
-                    )
-                else:
-                    raise ValidationException(f"Invalid ICD-10 code format: {code}", field=field_name)
+        try:
+            uuid.UUID(value)
+        except (ValueError, TypeError):
+            raise ValidationException(
+                f"Invalid UUID format for {field_name}: {value}",
+                field=field_name,
+                value=value
+            )
     
-    def validate_diagnosis_confidence(
-        self,
-        ai_confidence: Optional[float],
-        confidence_level: Optional[str],
-        diagnosis_id: Optional[str] = None,
-        min_confidence: float = 0.5
-    ) -> None:
+    def get_or_raise(self, resource_type: str, resource_id: str, getter_func) -> Any:
         """
-        Enhanced diagnosis confidence validation
+        Get resource or raise ResourceNotFoundException
         
         Args:
-            ai_confidence: AI confidence score (0.0 to 1.0)
-            confidence_level: Human confidence level
-            diagnosis_id: Diagnosis identifier
-            min_confidence: Minimum acceptable confidence
+            resource_type: Type of resource
+            resource_id: Resource identifier
+            getter_func: Function to get the resource
+            
+        Returns:
+            Resource object
+            
+        Raises:
+            ResourceNotFoundException: If resource not found
         """
-        if ai_confidence is not None:
-            if ai_confidence < min_confidence:
-                if self.enhanced_exceptions:
-                    raise DiagnosisException(
-                        message=f"AI confidence ({ai_confidence:.2f}) below minimum threshold ({min_confidence})",
-                        diagnosis_id=diagnosis_id,
-                        ai_confidence=ai_confidence,
-                        validation_stage="confidence_check"
-                    )
-                else:
-                    raise ValidationException(f"AI confidence too low: {ai_confidence}")
+        resource = getter_func(resource_id)
+        if not resource:
+            raise ResourceNotFoundException(resource_type, resource_id)
+        return resource
+    
+    def safe_commit(self, operation: str = "operation") -> None:
+        """
+        Safely commit database transaction with error handling
         
-        if confidence_level:
-            valid_levels = ["very_low", "low", "medium", "high", "very_high"]
-            if confidence_level not in valid_levels:
-                if self.enhanced_exceptions:
-                    raise DiagnosisException(
-                        message=f"Invalid confidence level: {confidence_level}",
-                        diagnosis_id=diagnosis_id,
-                        validation_stage="confidence_level_check"
-                    )
-                else:
-                    raise ValidationException(f"Invalid confidence level: {confidence_level}")
+        Args:
+            operation: Description of the operation being committed
+        """
+        try:
+            self.repos.commit()
+            self.logger.info(f"Successfully committed {operation}")
+        except Exception as e:
+            self.logger.error(f"Error committing {operation}: {str(e)}")
+            self.safe_rollback(operation)
+            raise
+    
+    def safe_rollback(self, operation: str = "operation") -> None:
+        """
+        Safely rollback database transaction with error handling
+        
+        Args:
+            operation: Description of the operation being rolled back
+        """
+        try:
+            self.repos.rollback()
+            self.logger.warning(f"Rolled back {operation}")
+        except Exception as e:
+            self.logger.error(f"Error rolling back {operation}: {str(e)}")
     
     def handle_database_error(self, error: SQLAlchemyError, operation: str = "database operation") -> None:
         """
-        Enhanced database error handling with medical context
+        Handle database errors with enhanced exception system if available
         
         Args:
             error: SQLAlchemy error
-            operation: Operation that failed
+            operation: Description of the operation that failed
             
         Raises:
-            DataIntegrityException: For constraint violations
-            ValidationException: For other database errors
+            Various exceptions based on the error type
         """
         error_message = str(error)
         
-        if self.enhanced_exceptions:
-            # Use enhanced exception system
-            from exceptions.base import DatabaseException
-            
+        if ENHANCED_EXCEPTIONS_AVAILABLE:
+            # Use enhanced exception system if available
             if "unique constraint" in error_message.lower():
                 raise DataIntegrityException(
                     message=f"Duplicate record detected during {operation}",
@@ -312,10 +236,10 @@ class BaseService(ABC):
                     table_name=self._extract_table_from_error(error_message)
                 )
             else:
-                raise DatabaseException(
-                    message=f"Database error during {operation}",
-                    operation=operation,
-                    original_exception=error
+                raise ServiceException(
+                    f"Database error during {operation}",
+                    "DATABASE_ERROR",
+                    {"operation": operation, "original_exception": str(error)}
                 )
         else:
             # Fallback to basic exceptions
