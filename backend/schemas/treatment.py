@@ -84,7 +84,7 @@ class TreatmentListResponse(BaseModel):
 # Specific treatment type schemas for compatibility
 class MedicationTreatment(BaseModel):
     """Schema for medication-specific treatments"""
-    medication_name: str
+    name: str  # Changed from medication_name to match SQL schema
     dosage: str
     frequency: str
     route: str = "oral"
@@ -96,8 +96,8 @@ class MedicationTreatment(BaseModel):
 
 class NonPharmacologicalTreatment(BaseModel):
     """Schema for non-medication treatments"""
-    treatment_name: str
-    treatment_type: str = Field(..., regex="^(therapy|procedure|lifestyle|education|monitoring)$")
+    name: str  # Changed from treatment_name to match SQL schema
+    treatment_type: str = Field(..., pattern="^(therapy|procedure|lifestyle|education|monitoring)$")  # FIXED: regex -> pattern
     description: str
     instructions: Optional[str] = None
     duration: Optional[str] = None

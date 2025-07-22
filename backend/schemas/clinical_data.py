@@ -14,7 +14,7 @@ from uuid import UUID
 
 class ClinicalNoteCreate(BaseModel):
     """Schema for creating clinical notes"""
-    note_type: str = Field(..., regex="^(progress|assessment|plan|discharge|consultation)$")
+    note_type: str = Field(..., pattern="^(progress|assessment|plan|discharge|consultation)$")  # FIXED: regex -> pattern
     content: str = Field(..., min_length=1, max_length=5000)
     author_id: str = Field(..., max_length=100)
     is_private: bool = False
@@ -35,9 +35,9 @@ class ClinicalNoteResponse(ClinicalNoteCreate):
 
 class DiagnosisEvidence(BaseModel):
     """Schema for diagnosis supporting evidence"""
-    evidence_type: str = Field(..., regex="^(symptom|sign|test_result|imaging|lab|clinical_reasoning)$")
+    evidence_type: str = Field(..., pattern="^(symptom|sign|test_result|imaging|lab|clinical_reasoning)$")  # FIXED: regex -> pattern
     description: str = Field(..., min_length=1, max_length=1000)
-    supporting_strength: str = Field(..., regex="^(weak|moderate|strong)$")
+    supporting_strength: str = Field(..., pattern="^(weak|moderate|strong)$")  # FIXED: regex -> pattern
     source: Optional[str] = Field(None, max_length=200)
     date_observed: Optional[datetime] = None
 
@@ -53,10 +53,10 @@ class DiagnosisRefinement(BaseModel):
 class DiagnosisConfirmation(BaseModel):
     """Schema for confirming final diagnosis"""
     confirmed: bool = True
-    confirmation_method: str = Field(..., regex="^(clinical_assessment|test_results|specialist_consult|imaging|response_to_treatment)$")
+    confirmation_method: str = Field(..., pattern="^(clinical_assessment|test_results|specialist_consult|imaging|response_to_treatment)$")  # FIXED: regex -> pattern
     confirming_physician: str = Field(..., max_length=200)
     confirmation_notes: Optional[str] = None
-    certainty_level: str = Field(..., regex="^(probable|likely|definite)$")
+    certainty_level: str = Field(..., pattern="^(probable|likely|definite)$")  # FIXED: regex -> pattern
 
 
 # =============================================================================
@@ -70,7 +70,7 @@ class SymptomAnalysisInput(BaseModel):
     chief_complaint: str = Field(..., min_length=1, max_length=500)
     symptoms: List[str] = Field(..., min_items=1)
     duration: Optional[str] = None
-    severity: Optional[str] = Field(None, regex="^(mild|moderate|severe)$")
+    severity: Optional[str] = Field(None, pattern="^(mild|moderate|severe)$")  # FIXED: regex -> pattern
     patient_demographics: Optional[Dict[str, Any]] = Field(default_factory=dict)
     medical_history: Optional[List[str]] = Field(default_factory=list)
     current_medications: Optional[List[str]] = Field(default_factory=list)
@@ -89,7 +89,7 @@ class TreatmentPlanGeneration(BaseModel):
     patient_preferences: Optional[Dict[str, Any]] = Field(default_factory=dict)
     contraindications: Optional[List[str]] = Field(default_factory=list)
     current_medications: Optional[List[str]] = Field(default_factory=list)
-    severity: str = Field(..., regex="^(mild|moderate|severe)$")
+    severity: str = Field(..., pattern="^(mild|moderate|severe)$")  # FIXED: regex -> pattern
     goals: Optional[List[str]] = Field(default_factory=list)
 
 
@@ -112,11 +112,11 @@ class TreatmentPlanResponse(BaseModel):
 
 class TreatmentMonitoring(BaseModel):
     """Schema for treatment monitoring data"""
-    monitoring_type: str = Field(..., regex="^(symptoms|vitals|lab_values|side_effects|compliance|response)$")
+    monitoring_type: str = Field(..., pattern="^(symptoms|vitals|lab_values|side_effects|compliance|response)$")  # FIXED: regex -> pattern
     measurement_value: Optional[str] = None
     measurement_unit: Optional[str] = None
     normal_range: Optional[str] = None
-    status: str = Field(..., regex="^(normal|abnormal|critical)$")
+    status: str = Field(..., pattern="^(normal|abnormal|critical)$")  # FIXED: regex -> pattern
     notes: Optional[str] = None
     recorded_by: str = Field(..., max_length=200)
     recorded_at: datetime
@@ -127,7 +127,7 @@ class TreatmentMonitoringResponse(TreatmentMonitoring):
     id: UUID
     treatment_id: UUID
     alert_generated: bool = False
-    alert_level: Optional[str] = Field(None, regex="^(low|medium|high|critical)$")
+    alert_level: Optional[str] = Field(None, pattern="^(low|medium|high|critical)$")  # FIXED: regex -> pattern
 
 
 # =============================================================================
@@ -147,8 +147,8 @@ class TreatmentStart(BaseModel):
 class TreatmentCompletion(BaseModel):
     """Schema for completing treatment"""
     completion_date: datetime
-    completion_reason: str = Field(..., regex="^(completed_course|patient_improved|side_effects|patient_request|ineffective)$")
-    outcome_assessment: str = Field(..., regex="^(excellent|good|fair|poor)$")
+    completion_reason: str = Field(..., pattern="^(completed_course|patient_improved|side_effects|patient_request|ineffective)$")  # FIXED: regex -> pattern
+    outcome_assessment: str = Field(..., pattern="^(excellent|good|fair|poor)$")  # FIXED: regex -> pattern
     patient_response: Optional[str] = None
     follow_up_needed: bool = False
 
@@ -156,62 +156,21 @@ class TreatmentCompletion(BaseModel):
 class TreatmentDiscontinuation(BaseModel):
     """Schema for discontinuing treatment"""
     discontinuation_date: datetime
-    reason: str = Field(..., regex="^(side_effects|ineffective|patient_request|contraindication|completed)$")
+    reason: str = Field(..., pattern="^(side_effects|ineffective|patient_request|contraindication|completed)$")  # FIXED: regex -> pattern
     notes: Optional[str] = None
     alternative_recommended: Optional[str] = None
 
 
 # =============================================================================
-# Safety and Alert Schemas
+# Safety Schema
 # =============================================================================
 
 class SafetyAlert(BaseModel):
     """Schema for safety alerts"""
-    alert_type: str = Field(..., regex="^(drug_interaction|allergy|contraindication|dose_limit|monitoring_required)$")
-    severity: str = Field(..., regex="^(low|medium|high|critical)$")
+    alert_type: str = Field(..., pattern="^(drug_interaction|allergy|contraindication|dosage|monitoring)$")  # FIXED: regex -> pattern
+    severity: str = Field(..., pattern="^(low|medium|high|critical)$")  # FIXED: regex -> pattern
     message: str = Field(..., min_length=1, max_length=500)
     recommendation: Optional[str] = None
-    requires_action: bool = False
-    auto_generated: bool = True
-    generated_at: datetime = Field(default_factory=datetime.now)
-
-
-# =============================================================================
-# Differential Diagnosis and AI Analysis Result Schemas
-# =============================================================================
-
-class DifferentialDiagnosis(BaseModel):
-    """Schema for differential diagnosis"""
-    condition_name: str
-    icd10_code: Optional[str] = None
-    probability: float = Field(..., ge=0.0, le=1.0)
-    supporting_factors: List[str]
-    opposing_factors: List[str]
-    recommended_tests: Optional[List[str]] = Field(default_factory=list)
-
-
-class AIAnalysisResult(BaseModel):
-    """Schema for AI analysis results"""
-    primary_diagnosis: str
-    confidence_score: float = Field(..., ge=0.0, le=1.0)
-    differential_diagnoses: List[DifferentialDiagnosis]
-    reasoning: str
-    recommended_next_steps: List[str]
-    red_flags: Optional[List[str]] = Field(default_factory=list)
-    analysis_timestamp: datetime = Field(default_factory=datetime.now)
-
-
-# =============================================================================
-# Physical Exam Findings Schema (for episode compatibility)
-# =============================================================================
-
-class PhysicalExamFindings(BaseModel):
-    """Schema for physical examination findings"""
-    general_appearance: Optional[str] = None
-    cardiovascular: Optional[str] = None
-    respiratory: Optional[str] = None
-    neurological: Optional[str] = None
-    gastrointestinal: Optional[str] = None
-    musculoskeletal: Optional[str] = None
-    skin: Optional[str] = None
-    other_findings: Optional[str] = None
+    override_reason: Optional[str] = None
+    acknowledged_by: Optional[str] = None
+    acknowledged_at: Optional[datetime] = None

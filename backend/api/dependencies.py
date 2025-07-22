@@ -222,13 +222,46 @@ def get_pagination(
     """Get pagination parameters"""
     return PaginationParams(page=page, size=size)
 
-def get_auth_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Optional[str]:
-    """Get authenticated user - optional for MVP"""
+def get_auth_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Optional[Dict[str, Any]]:
+    """Get authenticated user - MVP version with all permissions"""
     if credentials:
-        # For MVP, just return a simple user identifier
-        # In production, validate JWT token here
-        return "system_user"
-    return None
+        # For MVP, return a mock user with all permissions
+        return {
+            "user_id": "system_user",
+            "username": "system", 
+            "token": credentials.credentials,
+            "permissions": {
+                "patient.create": True,
+                "patient.read": True,
+                "patient.update": True,
+                "patient.delete": True,
+                "episode.create": True,
+                "episode.read": True,
+                "episode.update": True,
+                "episode.delete": True,
+                "diagnosis.create": True,
+                "diagnosis.read": True,
+                "diagnosis.update": True,
+                "diagnosis.delete": True,
+                "treatment.create": True,
+                "treatment.read": True,
+                "treatment.update": True,
+                "treatment.delete": True
+            }
+        }
+    # For MVP, return anonymous user with read permissions
+    return {
+        "user_id": "anonymous",
+        "username": "anonymous",
+        "permissions": {
+            "patient.read": True,
+            "episode.read": True,
+            "diagnosis.read": True,
+            "treatment.read": True
+        }
+    }
+
+CurrentUserDep = Annotated[Optional[Dict[str, Any]], Depends(get_auth_user)]
 
 def check_database_health():
     """Check database connection health"""
@@ -238,3 +271,39 @@ def check_database_health():
             detail="Database connection unavailable"
         )
     return True
+
+ServiceDep = Annotated[WorkingService, Depends(get_service)]
+CurrentUserDep = Annotated[Optional[str], Depends(get_auth_user)]
+PaginationDep = Annotated[PaginationParams, Depends(get_pagination)]
+
+DatabaseDep = Annotated[Session, Depends(get_database)]
+RepositoryDep = Annotated[RepositoryManager, Depends(get_repository_manager)]
+SettingsDep = Annotated[Settings, Depends(lambda: Settings())]
+
+try:
+    from services import get_service_manager, ServiceManager
+    
+    def get_service_manager_dep(repos: RepositoryManager = Depends(get_repository_manager)) -> ServiceManager:
+        """Get service manager for dependency injection"""
+        return get_service_manager(repos)
+    
+    # Alternative service type using proper ServiceManager
+    ServiceManagerDep = Annotated[ServiceManager, Depends(get_service_manager_dep)]
+    
+except ImportError:
+    # If services aren't available, use the WorkingService
+    print("⚠️  ServiceManager not available, using WorkingService")
+    ServiceManagerDep = ServiceDep
+
+def check_services_health():
+    """Check services health - simple version"""
+    try:
+        from config.database import SessionLocal
+        db = SessionLocal()
+        repos = RepositoryManager(db)
+        service = WorkingService(repos)
+        db.close()
+        return True
+    except Exception as e:
+        logger.error(f"Services health check failed: {e}")
+        return False
