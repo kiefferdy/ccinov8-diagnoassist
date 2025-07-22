@@ -2,12 +2,10 @@
 Diagnosis Pydantic Schemas
 """
 
-from pydantic import BaseModel, validator, EmailStr
+from pydantic import BaseModel, validator, Field
 from typing import Optional, List
 from datetime import datetime, date
 from uuid import UUID
-
-from .common import BaseSchema, PaginatedResponse
 
 class DiagnosisBase(BaseModel):
     """Base diagnosis fields"""
@@ -77,3 +75,23 @@ class DiagnosisListResponse(BaseModel):
     total: int
     page: int = 1
     size: int = 20
+
+# Additional schemas for AI analysis compatibility
+class DifferentialDiagnosis(BaseModel):
+    """Schema for differential diagnosis"""
+    condition_name: str
+    icd10_code: Optional[str] = None
+    probability: float = Field(..., ge=0.0, le=1.0)
+    supporting_factors: List[str]
+    opposing_factors: List[str]
+    recommended_tests: Optional[List[str]] = Field(default_factory=list)
+
+class AIAnalysisResult(BaseModel):
+    """Schema for AI analysis results"""
+    primary_diagnosis: str
+    confidence_score: float = Field(..., ge=0.0, le=1.0)
+    differential_diagnoses: List[DifferentialDiagnosis]
+    reasoning: str
+    recommended_next_steps: List[str]
+    red_flags: Optional[List[str]] = Field(default_factory=list)
+    analysis_timestamp: datetime = Field(default_factory=datetime.now)

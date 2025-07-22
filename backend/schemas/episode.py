@@ -1,12 +1,10 @@
 """
 Episode Pydantic Schemas
 """
-from pydantic import BaseModel, validator, EmailStr
+from pydantic import BaseModel, validator
 from typing import Optional, List
 from datetime import datetime, date
 from uuid import UUID
-
-from .common import BaseSchema, PaginatedResponse
 
 class VitalSigns(BaseModel):
     """Simplified vital signs"""
@@ -85,8 +83,6 @@ class EpisodeResponse(EpisodeBase):
     """Schema for episode responses"""
     id: UUID
     status: str = "active"
-    start_date: datetime
-    end_date: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
     created_by: Optional[str] = "system"
@@ -100,3 +96,14 @@ class EpisodeListResponse(BaseModel):
     total: int
     page: int = 1
     size: int = 20
+
+class PhysicalExamFindings(BaseModel):
+    """Physical examination findings"""
+    general_appearance: Optional[str] = None
+    cardiovascular: Optional[str] = None
+    respiratory: Optional[str] = None
+    neurological: Optional[str] = None
+    gastrointestinal: Optional[str] = None
+    musculoskeletal: Optional[str] = None
+    skin: Optional[str] = None
+    other_findings: Optional[str] = None

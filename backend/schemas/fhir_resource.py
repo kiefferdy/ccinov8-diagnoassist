@@ -2,12 +2,10 @@
 FHIR Resource Pydantic Schemas
 """
 
-from pydantic import BaseModel, validator, EmailStr
+from pydantic import BaseModel, validator
 from typing import Optional, List
 from datetime import datetime, date
 from uuid import UUID
-
-from .common import BaseSchema, PaginatedResponse
 
 class FHIRResourceBase(BaseModel):
     """Base FHIR resource fields"""
@@ -33,3 +31,10 @@ class FHIRResourceResponse(FHIRResourceBase):
     
     class Config:
         from_attributes = True
+
+class FHIRResourceListResponse(BaseModel):
+    """Schema for paginated FHIR resource list"""
+    data: List[FHIRResourceResponse]
+    total: int
+    page: int = 1
+    size: int = 20

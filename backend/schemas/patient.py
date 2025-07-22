@@ -7,8 +7,6 @@ from typing import Optional, List
 from datetime import datetime, date
 from uuid import UUID
 
-from .common import BaseSchema, PaginatedResponse
-
 class PatientBase(BaseModel):
     """Base patient fields"""
     medical_record_number: str

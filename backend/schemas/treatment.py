@@ -2,12 +2,10 @@
 Treatment Pydantic Schemas
 """
 
-from pydantic import BaseModel, validator, EmailStr
-from typing import Optional, List
+from pydantic import BaseModel, validator, Field
+from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 from uuid import UUID
-
-from .common import BaseSchema, PaginatedResponse
 
 class TreatmentBase(BaseModel):
     """Base treatment fields"""
@@ -77,3 +75,29 @@ class TreatmentListResponse(BaseModel):
     total: int
     page: int = 1
     size: int = 20
+
+# Specific treatment type schemas for compatibility
+class MedicationTreatment(BaseModel):
+    """Schema for medication-specific treatments"""
+    medication_name: str
+    dosage: str
+    frequency: str
+    route: str = "oral"
+    duration: Optional[str] = None
+    instructions: Optional[str] = None
+    side_effects: Optional[List[str]] = Field(default_factory=list)
+    contraindications: Optional[List[str]] = Field(default_factory=list)
+    drug_interactions: Optional[List[str]] = Field(default_factory=list)
+
+class NonPharmacologicalTreatment(BaseModel):
+    """Schema for non-medication treatments"""
+    treatment_name: str
+    treatment_type: str = Field(..., regex="^(therapy|procedure|lifestyle|education|monitoring)$")
+    description: str
+    instructions: Optional[str] = None
+    duration: Optional[str] = None
+    frequency: Optional[str] = None
+    goals: Optional[List[str]] = Field(default_factory=list)
+    lifestyle_modifications: Optional[List[str]] = Field(default_factory=list)
+    patient_education: Optional[List[str]] = Field(default_factory=list)
+    follow_up_requirements: Optional[str] = None

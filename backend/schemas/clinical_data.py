@@ -151,68 +151,67 @@ class TreatmentCompletion(BaseModel):
     outcome_assessment: str = Field(..., regex="^(excellent|good|fair|poor)$")
     patient_response: Optional[str] = None
     follow_up_needed: bool = False
-    follow_up_instructions: Optional[str] = None
 
 
 class TreatmentDiscontinuation(BaseModel):
     """Schema for discontinuing treatment"""
     discontinuation_date: datetime
-    reason: str = Field(..., regex="^(side_effects|ineffective|patient_request|contraindication|drug_interaction)$")
-    detailed_reason: str = Field(..., min_length=1, max_length=1000)
-    tapering_schedule: Optional[str] = None
+    reason: str = Field(..., regex="^(side_effects|ineffective|patient_request|contraindication|completed)$")
+    notes: Optional[str] = None
     alternative_recommended: Optional[str] = None
-    safety_monitoring: Optional[str] = None
 
 
 # =============================================================================
-# Safety and Alerts Schemas
+# Safety and Alert Schemas
 # =============================================================================
 
 class SafetyAlert(BaseModel):
     """Schema for safety alerts"""
-    alert_type: str = Field(..., regex="^(drug_interaction|allergy|contraindication|abnormal_vitals|critical_lab)$")
+    alert_type: str = Field(..., regex="^(drug_interaction|allergy|contraindication|dose_limit|monitoring_required)$")
     severity: str = Field(..., regex="^(low|medium|high|critical)$")
     message: str = Field(..., min_length=1, max_length=500)
-    affected_treatment_ids: List[UUID]
-    patient_id: UUID
-    requires_action: bool = True
-    action_required: Optional[str] = None
-    generated_at: datetime
-    acknowledged: bool = False
-    acknowledged_by: Optional[str] = None
-    acknowledged_at: Optional[datetime] = None
+    recommendation: Optional[str] = None
+    requires_action: bool = False
+    auto_generated: bool = True
+    generated_at: datetime = Field(default_factory=datetime.now)
 
 
 # =============================================================================
-# Export all schemas
+# Differential Diagnosis and AI Analysis Result Schemas
 # =============================================================================
 
-__all__ = [
-    # Clinical notes
-    "ClinicalNoteCreate",
-    "ClinicalNoteResponse",
-    
-    # Evidence and refinement
-    "DiagnosisEvidence",
-    "DiagnosisRefinement", 
-    "DiagnosisConfirmation",
-    
-    # AI analysis
-    "SymptomAnalysisInput",
-    
-    # Treatment planning
-    "TreatmentPlanGeneration",
-    "TreatmentPlanResponse",
-    
-    # Monitoring
-    "TreatmentMonitoring",
-    "TreatmentMonitoringResponse",
-    
-    # Treatment lifecycle
-    "TreatmentStart",
-    "TreatmentCompletion",
-    "TreatmentDiscontinuation",
-    
-    # Safety
-    "SafetyAlert"
-]
+class DifferentialDiagnosis(BaseModel):
+    """Schema for differential diagnosis"""
+    condition_name: str
+    icd10_code: Optional[str] = None
+    probability: float = Field(..., ge=0.0, le=1.0)
+    supporting_factors: List[str]
+    opposing_factors: List[str]
+    recommended_tests: Optional[List[str]] = Field(default_factory=list)
+
+
+class AIAnalysisResult(BaseModel):
+    """Schema for AI analysis results"""
+    primary_diagnosis: str
+    confidence_score: float = Field(..., ge=0.0, le=1.0)
+    differential_diagnoses: List[DifferentialDiagnosis]
+    reasoning: str
+    recommended_next_steps: List[str]
+    red_flags: Optional[List[str]] = Field(default_factory=list)
+    analysis_timestamp: datetime = Field(default_factory=datetime.now)
+
+
+# =============================================================================
+# Physical Exam Findings Schema (for episode compatibility)
+# =============================================================================
+
+class PhysicalExamFindings(BaseModel):
+    """Schema for physical examination findings"""
+    general_appearance: Optional[str] = None
+    cardiovascular: Optional[str] = None
+    respiratory: Optional[str] = None
+    neurological: Optional[str] = None
+    gastrointestinal: Optional[str] = None
+    musculoskeletal: Optional[str] = None
+    skin: Optional[str] = None
+    other_findings: Optional[str] = None

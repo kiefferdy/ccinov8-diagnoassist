@@ -127,9 +127,9 @@ class DatabaseCRUDTester:
             "emergency_contact_name": "Jane DatabaseTest",
             "emergency_contact_phone": "+1-555-0124",
             "emergency_contact_relationship": "spouse",
-            "medical_history": ["Hypertension", "Type 2 Diabetes"],
-            "allergies": ["Penicillin", "Shellfish"],
-            "current_medications": ["Metformin 500mg", "Lisinopril 10mg"]
+            "medical_history": "Hypertension, Type 2 Diabetes",
+            "allergies": "Penicillin, Shellfish",
+            "current_medications": "Metformin 500mg, Lisinopril 10mg"
         }
         
         created_patient = self.make_request("POST", "/api/v1/patients/", patient_data, 201)
@@ -173,9 +173,10 @@ class DatabaseCRUDTester:
             "emergency_contact_name": patient_data["emergency_contact_name"],
             "emergency_contact_phone": patient_data["emergency_contact_phone"],
             "emergency_contact_relationship": patient_data["emergency_contact_relationship"],
-            "medical_history": patient_data["medical_history"] + ["Migraine"],  # Added condition
+            # FIXED: Keep as strings and append to them
+            "medical_history": patient_data["medical_history"] + ", Migraine",  
             "allergies": patient_data["allergies"],
-            "current_medications": patient_data["current_medications"] + ["Aspirin 81mg"]  # Added medication
+            "current_medications": patient_data["current_medications"] + ", Aspirin 81mg"
         }
         
         updated_patient = self.make_request("PUT", f"/api/v1/patients/{patient_id}", update_data)
