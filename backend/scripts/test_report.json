@@ -1,0 +1,17 @@
+{
+  "timestamp": "2025-07-22T18:07:20.564618",
+  "total_tests": 9,
+  "passed_tests": 5,
+  "success_rate": 55.6,
+  "detailed_results": {
+    "server_health": true,
+    "health_endpoints": false,
+    "database_connection": true,
+    "fhir_metadata": false,
+    "fhir_patient_ops": false,
+    "other_fhir_resources": true,
+    "internal_api": true,
+    "data_flow": false,
+    "performance": true
+  }
+}
