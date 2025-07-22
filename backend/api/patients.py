@@ -67,12 +67,10 @@ async def create_patient(
     if not current_user or not current_user.get("permissions", {}).get("patient.create", False):
         raise AuthorizationException(
             message="Insufficient permissions to create patients",
-            required_permission="patient.create",
-            user_id=current_user.get("user_id") if current_user else None
+            required_permission="patient.create"
         )
     
     # Create patient through service layer
-    # Service will handle validation and business rules
     patient = services.patient.create_patient(
         patient_data=patient_data,
         created_by=current_user["user_id"]
@@ -81,108 +79,86 @@ async def create_patient(
     return patient
 
 
+@router.get("/", response_model=PatientListResponse)
+async def get_patients(
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    pagination: PaginationDep,
+    search: Optional[str] = Query(None, description="Search patients by name, MRN, or email"),
+    status: Optional[str] = Query(None, description="Filter by patient status")
+):
+    """
+    Get paginated list of patients
+    
+    Args:
+        services: Injected services
+        current_user: Current authenticated user
+        pagination: Pagination parameters
+        search: Search query
+        status: Patient status filter
+        
+    Returns:
+        Paginated list of patients
+    """
+    # Authorization check
+    if not current_user:
+        raise AuthenticationException(message="Authentication required")
+    
+    # Get patients through service layer
+    patients = services.patient.get_patients(
+        pagination=pagination,
+        search=search,
+        status=status
+    )
+    
+    return patients
+
+
 @router.get("/{patient_id}", response_model=PatientResponse)
 async def get_patient(
-    patient_id: UUID = Path(..., description="Patient ID"),
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    patient_id: UUID = Path(..., description="Patient ID")
 ):
     """
     Get patient by ID
     
     Args:
-        patient_id: Patient UUID
         services: Injected services
         current_user: Current authenticated user
+        patient_id: Patient UUID
         
     Returns:
         Patient data
-        
-    Raises:
-        ResourceNotFoundException: Patient not found
-        AuthorizationException: User lacks permission
     """
-    # Authorization check - can read patients
-    if not current_user or not current_user.get("permissions", {}).get("patient.read", False):
-        raise AuthorizationException(
-            message="Insufficient permissions to view patients",
-            required_permission="patient.read"
-        )
+    # Authorization check
+    if not current_user:
+        raise AuthenticationException(message="Authentication required")
     
     # Get patient through service layer
-    # Service will raise ResourceNotFoundException if not found
     patient = services.patient.get_patient(str(patient_id))
     
     return patient
 
 
-@router.get("/", response_model=PaginatedResponse[PatientListResponse])
-async def list_patients(
-    pagination: PaginationDep = Depends(),
-    search: Optional[str] = Query(None, description="Search by name, email, or MRN"),
-    status: Optional[str] = Query(None, description="Filter by patient status"),
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
-):
-    """
-    List patients with filtering and pagination
-    
-    Args:
-        pagination: Pagination parameters
-        search: Search query
-        status: Status filter
-        services: Injected services
-        current_user: Current authenticated user
-        
-    Returns:
-        Paginated list of patients
-        
-    Raises:
-        ValidationException: Invalid query parameters
-        AuthorizationException: User lacks permission
-    """
-    # Authorization check
-    if not current_user or not current_user.get("permissions", {}).get("patient.read", False):
-        raise AuthorizationException(
-            message="Insufficient permissions to list patients",
-            required_permission="patient.read"
-        )
-    
-    # Search patients through service layer
-    result = services.patient.search_patients(
-        search_query=search,
-        status_filter=status,
-        offset=pagination.offset,
-        limit=pagination.limit
-    )
-    
-    return result
-
-
 @router.put("/{patient_id}", response_model=PatientResponse)
 async def update_patient(
-    patient_id: UUID = Path(..., description="Patient ID"),
-    patient_data: PatientUpdate = ...,
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    patient_data: PatientUpdate,
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    patient_id: UUID = Path(..., description="Patient ID")
 ):
     """
     Update patient information
     
     Args:
-        patient_id: Patient UUID
         patient_data: Updated patient data
         services: Injected services
         current_user: Current authenticated user
+        patient_id: Patient UUID
         
     Returns:
         Updated patient data
-        
-    Raises:
-        ResourceNotFoundException: Patient not found
-        ValidationException: Invalid update data
-        BusinessRuleException: Business rule violation
-        AuthorizationException: User lacks permission
     """
     # Authorization check
     if not current_user or not current_user.get("permissions", {}).get("patient.update", False):
@@ -203,27 +179,22 @@ async def update_patient(
 
 @router.delete("/{patient_id}", response_model=StatusResponse)
 async def delete_patient(
-    patient_id: UUID = Path(..., description="Patient ID"),
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    patient_id: UUID = Path(..., description="Patient ID")
 ):
     """
     Delete patient (soft delete)
     
     Args:
-        patient_id: Patient UUID
         services: Injected services
         current_user: Current authenticated user
+        patient_id: Patient UUID
         
     Returns:
         Deletion status
-        
-    Raises:
-        ResourceNotFoundException: Patient not found
-        PatientSafetyException: Patient has active episodes
-        AuthorizationException: User lacks permission
     """
-    # Authorization check - requires admin or delete permission
+    # Authorization check
     if not current_user or not current_user.get("permissions", {}).get("patient.delete", False):
         raise AuthorizationException(
             message="Insufficient permissions to delete patients",
@@ -231,38 +202,33 @@ async def delete_patient(
         )
     
     # Delete patient through service layer
-    # Service will check for active episodes and patient safety
     services.patient.delete_patient(
         patient_id=str(patient_id),
         deleted_by=current_user["user_id"]
     )
     
     return StatusResponse(
-        status="success",
+        success=True,
         message=f"Patient {patient_id} deleted successfully"
     )
 
 
-# =============================================================================
-# Patient Summary and Clinical Operations
-# =============================================================================
-
 @router.get("/{patient_id}/summary")
 async def get_patient_summary(
-    patient_id: UUID = Path(..., description="Patient ID"),
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    patient_id: UUID = Path(..., description="Patient ID")
 ):
     """
-    Get comprehensive patient summary including episodes and conditions
+    Get comprehensive patient summary
     
     Args:
-        patient_id: Patient UUID
         services: Injected services
         current_user: Current authenticated user
+        patient_id: Patient UUID
         
     Returns:
-        Patient summary with clinical data
+        Patient summary with episodes, diagnoses, treatments
     """
     # Authorization check
     if not current_user or not current_user.get("permissions", {}).get("patient.read", False):
@@ -279,19 +245,19 @@ async def get_patient_summary(
 
 @router.get("/{patient_id}/episodes")
 async def get_patient_episodes(
+    services: ServiceDep,
+    current_user: CurrentUserDep,
     patient_id: UUID = Path(..., description="Patient ID"),
-    status: Optional[str] = Query(None, description="Filter by episode status"),
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    status: Optional[str] = Query(None, description="Filter by episode status")
 ):
     """
     Get all episodes for a patient
     
     Args:
-        patient_id: Patient UUID
-        status: Episode status filter
         services: Injected services
         current_user: Current authenticated user
+        patient_id: Patient UUID
+        status: Episode status filter
         
     Returns:
         List of patient episodes
@@ -311,19 +277,19 @@ async def get_patient_episodes(
 
 @router.post("/{patient_id}/episodes", status_code=201)
 async def create_patient_episode(
-    patient_id: UUID = Path(..., description="Patient ID"),
-    episode_data: EpisodeCreate = ...,
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    episode_data: EpisodeCreate,
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    patient_id: UUID = Path(..., description="Patient ID")
 ):
     """
     Create new episode for patient
     
     Args:
-        patient_id: Patient UUID
         episode_data: Episode creation data
         services: Injected services
         current_user: Current authenticated user
+        patient_id: Patient UUID
         
     Returns:
         Created episode data
@@ -356,17 +322,17 @@ async def create_patient_episode(
 
 @router.get("/search/by-mrn/{mrn}")
 async def get_patient_by_mrn(
-    mrn: str = Path(..., description="Medical Record Number"),
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    mrn: str = Path(..., description="Medical Record Number")
 ):
     """
     Find patient by Medical Record Number
     
     Args:
-        mrn: Medical Record Number
         services: Injected services
         current_user: Current authenticated user
+        mrn: Medical Record Number
         
     Returns:
         Patient data if found
@@ -383,17 +349,17 @@ async def get_patient_by_mrn(
 
 @router.get("/search/by-email/{email}")
 async def get_patient_by_email(
-    email: str = Path(..., description="Email address"),
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    email: str = Path(..., description="Email address")
 ):
     """
     Find patient by email address
     
     Args:
-        email: Email address
         services: Injected services
         current_user: Current authenticated user
+        email: Email address
         
     Returns:
         Patient data if found

@@ -88,33 +88,67 @@ async def create_diagnosis(
     return diagnosis
 
 
+@router.get("/", response_model=DiagnosisListResponse)
+async def get_diagnoses(
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    pagination: PaginationDep,
+    episode_id: Optional[UUID] = Query(None, description="Filter by episode ID"),
+    patient_id: Optional[UUID] = Query(None, description="Filter by patient ID"),
+    status: Optional[str] = Query(None, description="Filter by diagnosis status"),
+    confidence_min: Optional[float] = Query(None, ge=0.0, le=1.0, description="Minimum confidence level")
+):
+    """
+    Get paginated list of diagnoses
+    
+    Args:
+        services: Injected services
+        current_user: Current authenticated user
+        pagination: Pagination parameters
+        episode_id: Episode ID filter
+        patient_id: Patient ID filter
+        status: Diagnosis status filter
+        confidence_min: Minimum confidence threshold
+        
+    Returns:
+        Paginated list of diagnoses
+    """
+    # Authorization check
+    if not current_user:
+        raise AuthenticationException(message="Authentication required")
+    
+    # Get diagnoses through service layer
+    diagnoses = services.diagnosis.get_diagnoses(
+        pagination=pagination,
+        episode_id=str(episode_id) if episode_id else None,
+        patient_id=str(patient_id) if patient_id else None,
+        status=status,
+        confidence_min=confidence_min
+    )
+    
+    return diagnoses
+
+
 @router.get("/{diagnosis_id}", response_model=DiagnosisResponse)
 async def get_diagnosis(
-    diagnosis_id: UUID = Path(..., description="Diagnosis ID"),
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    diagnosis_id: UUID = Path(..., description="Diagnosis ID")
 ):
     """
     Get diagnosis by ID
     
     Args:
-        diagnosis_id: Diagnosis UUID
         services: Injected services
         current_user: Current authenticated user
+        diagnosis_id: Diagnosis UUID
         
     Returns:
-        Diagnosis data with confidence and evidence
-        
-    Raises:
-        ResourceNotFoundException: Diagnosis not found
-        AuthorizationException: User lacks permission
+        Diagnosis data
     """
     # Authorization check
-    if not current_user or not current_user.get("permissions", {}).get("diagnosis.read", False):
-        raise AuthorizationException(
-            message="Insufficient permissions to view diagnoses",
-            required_permission="diagnosis.read"
-        )
+    if not current_user:
+        raise AuthenticationException(message="Authentication required")
     
     # Get diagnosis through service layer
     diagnosis = services.diagnosis.get_diagnosis(str(diagnosis_id))
@@ -122,79 +156,24 @@ async def get_diagnosis(
     return diagnosis
 
 
-@router.get("/", response_model=List[DiagnosisListResponse])
-async def list_diagnoses(
-    episode_id: Optional[UUID] = Query(None, description="Filter by episode ID"),
-    patient_id: Optional[UUID] = Query(None, description="Filter by patient ID"),
-    diagnosis_type: Optional[str] = Query(None, description="Filter by diagnosis type"),
-    status: Optional[str] = Query(None, description="Filter by status"),
-    final_diagnosis: Optional[bool] = Query(None, description="Filter final diagnoses"),
-    pagination: PaginationDep = Depends(),
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
-):
-    """
-    List diagnoses with filtering options
-    
-    Args:
-        episode_id: Filter by episode
-        patient_id: Filter by patient
-        diagnosis_type: Filter by type
-        status: Filter by status
-        final_diagnosis: Filter final diagnoses
-        pagination: Pagination parameters
-        services: Injected services
-        current_user: Current authenticated user
-        
-    Returns:
-        List of diagnoses
-    """
-    # Authorization check
-    if not current_user or not current_user.get("permissions", {}).get("diagnosis.read", False):
-        raise AuthorizationException(
-            message="Insufficient permissions to list diagnoses",
-            required_permission="diagnosis.read"
-        )
-    
-    # Get diagnoses through service layer
-    diagnoses = services.diagnosis.search_diagnoses(
-        episode_id=str(episode_id) if episode_id else None,
-        patient_id=str(patient_id) if patient_id else None,
-        diagnosis_type=diagnosis_type,
-        status=status,
-        final_diagnosis=final_diagnosis,
-        offset=pagination.offset,
-        limit=pagination.limit
-    )
-    
-    return diagnoses
-
-
 @router.put("/{diagnosis_id}", response_model=DiagnosisResponse)
 async def update_diagnosis(
-    diagnosis_id: UUID = Path(..., description="Diagnosis ID"),
-    diagnosis_data: DiagnosisUpdate = ...,
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    diagnosis_data: DiagnosisUpdate,
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    diagnosis_id: UUID = Path(..., description="Diagnosis ID")
 ):
     """
     Update diagnosis information
     
     Args:
-        diagnosis_id: Diagnosis UUID
         diagnosis_data: Updated diagnosis data
         services: Injected services
         current_user: Current authenticated user
+        diagnosis_id: Diagnosis UUID
         
     Returns:
         Updated diagnosis data
-        
-    Raises:
-        ResourceNotFoundException: Diagnosis not found
-        ValidationException: Invalid update data
-        DiagnosisException: Diagnosis validation error
-        PatientSafetyException: Safety rule violation
-        AuthorizationException: User lacks permission
     """
     # Authorization check
     if not current_user or not current_user.get("permissions", {}).get("diagnosis.update", False):
@@ -215,25 +194,20 @@ async def update_diagnosis(
 
 @router.delete("/{diagnosis_id}", response_model=StatusResponse)
 async def delete_diagnosis(
-    diagnosis_id: UUID = Path(..., description="Diagnosis ID"),
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    diagnosis_id: UUID = Path(..., description="Diagnosis ID")
 ):
     """
     Delete diagnosis (soft delete)
     
     Args:
-        diagnosis_id: Diagnosis UUID
         services: Injected services
         current_user: Current authenticated user
+        diagnosis_id: Diagnosis UUID
         
     Returns:
         Deletion status
-        
-    Raises:
-        ResourceNotFoundException: Diagnosis not found
-        PatientSafetyException: Diagnosis has linked treatments
-        AuthorizationException: User lacks permission
     """
     # Authorization check
     if not current_user or not current_user.get("permissions", {}).get("diagnosis.delete", False):
@@ -249,7 +223,7 @@ async def delete_diagnosis(
     )
     
     return StatusResponse(
-        status="success",
+        success=True,
         message=f"Diagnosis {diagnosis_id} deleted successfully"
     )
 
@@ -258,105 +232,63 @@ async def delete_diagnosis(
 # AI-Powered Diagnosis Operations
 # =============================================================================
 
-@router.post("/analyze", response_model=AIAnalysisResult)
+@router.post("/analyze-symptoms", response_model=AIAnalysisResult)
 async def analyze_symptoms(
-    analysis_data: SymptomAnalysisInput = ...,
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    analysis_input: SymptomAnalysisInput,
+    services: ServiceDep,
+    current_user: CurrentUserDep
 ):
     """
-    Generate AI-powered differential diagnosis
+    AI-powered symptom analysis for differential diagnosis
     
     Args:
-        analysis_data: Symptoms and clinical data for analysis
+        analysis_input: Symptom analysis input data
         services: Injected services
         current_user: Current authenticated user
         
     Returns:
-        AI analysis with differential diagnoses
-        
-    Raises:
-        ValidationException: Invalid analysis data
-        ClinicalDataException: Insufficient clinical data
-        DiagnosisException: AI analysis error
-        AuthorizationException: User lacks permission
+        AI analysis results with suggested diagnoses
     """
     # Authorization check
-    if not current_user or not current_user.get("permissions", {}).get("diagnosis.ai_analyze", False):
+    if not current_user or not current_user.get("permissions", {}).get("diagnosis.ai_analysis", False):
         raise AuthorizationException(
-            message="Insufficient permissions to use AI diagnosis",
-            required_permission="diagnosis.ai_analyze"
+            message="Insufficient permissions for AI analysis",
+            required_permission="diagnosis.ai_analysis"
         )
     
     # Perform AI analysis through service layer
     analysis_result = services.diagnosis.analyze_symptoms(
-        analysis_data=analysis_data,
-        analyzed_by=current_user["user_id"]
+        analysis_input=analysis_input,
+        requested_by=current_user["user_id"]
     )
     
     return analysis_result
 
 
-@router.post("/{episode_id}/generate-differential")
-async def generate_differential_diagnosis(
-    episode_id: UUID = Path(..., description="Episode ID"),
-    include_ai: bool = Query(True, description="Include AI-generated suggestions"),
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
-):
-    """
-    Generate differential diagnosis for episode
-    
-    Args:
-        episode_id: Episode UUID
-        include_ai: Whether to include AI suggestions
-        services: Injected services
-        current_user: Current authenticated user
-        
-    Returns:
-        Differential diagnosis list with confidence scores
-    """
-    # Authorization check
-    if not current_user or not current_user.get("permissions", {}).get("diagnosis.create", False):
-        raise AuthorizationException(
-            message="Insufficient permissions to generate differential diagnosis",
-            required_permission="diagnosis.create"
-        )
-    
-    # Generate differential through service layer
-    differential = services.diagnosis.generate_differential_diagnosis(
-        episode_id=str(episode_id),
-        include_ai=include_ai,
-        generated_by=current_user["user_id"]
-    )
-    
-    return differential
-
-
-@router.post("/{diagnosis_id}/refine")
+@router.post("/{diagnosis_id}/refine", response_model=DiagnosisResponse)
 async def refine_diagnosis(
-    diagnosis_id: UUID = Path(..., description="Diagnosis ID"),
-    refinement_data: DiagnosisRefinement = ...,
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    refinement_data: DiagnosisRefinement,
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    diagnosis_id: UUID = Path(..., description="Diagnosis ID")
 ):
     """
-    Refine diagnosis with additional evidence
+    Refine diagnosis using additional clinical data
     
     Args:
-        diagnosis_id: Diagnosis UUID
-        refinement_data: Additional clinical evidence
+        refinement_data: Diagnosis refinement data
         services: Injected services
         current_user: Current authenticated user
+        diagnosis_id: Diagnosis UUID
         
     Returns:
-        Refined diagnosis with updated confidence
+        Refined diagnosis data
     """
     # Authorization check
-    if not current_user or not current_user.get("permissions", {}).get("diagnosis.update", False):
+    if not current_user or not current_user.get("permissions", {}).get("diagnosis.refine", False):
         raise AuthorizationException(
             message="Insufficient permissions to refine diagnoses",
-            required_permission="diagnosis.update"
+            required_permission="diagnosis.refine"
         )
     
     # Refine diagnosis through service layer
@@ -369,30 +301,26 @@ async def refine_diagnosis(
     return refined_diagnosis
 
 
-# =============================================================================
-# Diagnosis Clinical Operations
-# =============================================================================
-
 @router.post("/{diagnosis_id}/confirm", response_model=DiagnosisResponse)
 async def confirm_diagnosis(
-    diagnosis_id: UUID = Path(..., description="Diagnosis ID"),
-    confirmation_data: DiagnosisConfirmation = ...,
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    confirmation_data: DiagnosisConfirmation,
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    diagnosis_id: UUID = Path(..., description="Diagnosis ID")
 ):
     """
-    Confirm diagnosis as final
+    Confirm diagnosis with clinical validation
     
     Args:
-        diagnosis_id: Diagnosis UUID
-        confirmation_data: Confirmation details and evidence
+        confirmation_data: Diagnosis confirmation data
         services: Injected services
         current_user: Current authenticated user
+        diagnosis_id: Diagnosis UUID
         
     Returns:
         Confirmed diagnosis data
     """
-    # Authorization check - requires higher privilege
+    # Authorization check
     if not current_user or not current_user.get("permissions", {}).get("diagnosis.confirm", False):
         raise AuthorizationException(
             message="Insufficient permissions to confirm diagnoses",
@@ -409,19 +337,23 @@ async def confirm_diagnosis(
     return confirmed_diagnosis
 
 
+# =============================================================================
+# Diagnosis Information and Evidence
+# =============================================================================
+
 @router.get("/{diagnosis_id}/evidence")
 async def get_diagnosis_evidence(
-    diagnosis_id: UUID = Path(..., description="Diagnosis ID"),
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    diagnosis_id: UUID = Path(..., description="Diagnosis ID")
 ):
     """
     Get supporting evidence for diagnosis
     
     Args:
-        diagnosis_id: Diagnosis UUID
         services: Injected services
         current_user: Current authenticated user
+        diagnosis_id: Diagnosis UUID
         
     Returns:
         Evidence summary with sources and confidence
@@ -438,17 +370,17 @@ async def get_diagnosis_evidence(
 
 @router.get("/episode/{episode_id}/differential")
 async def get_episode_differential(
-    episode_id: UUID = Path(..., description="Episode ID"),
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    episode_id: UUID = Path(..., description="Episode ID")
 ):
     """
     Get differential diagnosis for episode
     
     Args:
-        episode_id: Episode UUID
         services: Injected services
         current_user: Current authenticated user
+        episode_id: Episode UUID
         
     Returns:
         Current differential diagnosis list
@@ -465,19 +397,19 @@ async def get_episode_differential(
 
 @router.post("/{diagnosis_id}/add-evidence")
 async def add_supporting_evidence(
-    diagnosis_id: UUID = Path(..., description="Diagnosis ID"),
-    evidence_data: DiagnosisEvidence = ...,
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    evidence_data: DiagnosisEvidence,
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    diagnosis_id: UUID = Path(..., description="Diagnosis ID")
 ):
     """
     Add supporting evidence to diagnosis
     
     Args:
-        diagnosis_id: Diagnosis UUID
         evidence_data: Evidence details
         services: Injected services
         current_user: Current authenticated user
+        diagnosis_id: Diagnosis UUID
         
     Returns:
         Updated diagnosis with new evidence

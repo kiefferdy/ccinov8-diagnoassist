@@ -23,6 +23,36 @@ from schemas.common import HealthCheckResponse, StatusResponse
 api_router = APIRouter(prefix="/api/v1", tags=["api"])
 
 # =============================================================================
+# Include all CRUD routers
+# =============================================================================
+
+try:
+    # Import individual routers
+    from api.patients import router as patients_router
+    from api.episodes import router as episodes_router  
+    from api.treatments import router as treatments_router
+    
+    # Include routers in main API router
+    api_router.include_router(patients_router)
+    api_router.include_router(episodes_router)
+    api_router.include_router(treatments_router)
+    
+    print("✅ All CRUD routers included successfully")
+    CRUD_ROUTERS_AVAILABLE = True
+    
+except ImportError as e:
+    print(f"⚠️  Some CRUD routers not available: {e}")
+    CRUD_ROUTERS_AVAILABLE = False
+
+# Try to include diagnosis router if available
+try:
+    from api.diagnoses import router as diagnoses_router
+    api_router.include_router(diagnoses_router)
+    print("✅ Diagnoses router included")
+except ImportError:
+    print("⚠️  Diagnoses router not available")
+
+# =============================================================================
 # Health Check Endpoints
 # =============================================================================
 
@@ -85,7 +115,8 @@ async def system_info(
         "version": getattr(settings, 'app_version', '1.0.0'),
         "fhir_base_url": getattr(settings, 'fhir_base_url', 'http://localhost:8000/fhir'),
         "debug_mode": getattr(settings, 'debug', False),
-        "authenticated": current_user is not None
+        "authenticated": current_user is not None,
+        "crud_routers_available": CRUD_ROUTERS_AVAILABLE
     }
     
     # Add user info if authenticated
@@ -107,137 +138,7 @@ async def get_version(settings: SettingsDep):
     }
 
 # =============================================================================
-# Service Status Endpoints
-# =============================================================================
-
-@api_router.get("/services/status")
-async def services_status(services: ServiceDep):
-    """
-    Get status of all business services
-    
-    Returns:
-        Status of each service component
-    """
-    status = {}
-    
-    # Check each service
-    service_names = ['patient', 'episode', 'diagnosis', 'treatment', 'fhir', 'clinical']
-    
-    for service_name in service_names:
-        try:
-            service = getattr(services, service_name, None)
-            status[service_name] = {
-                "available": service is not None,
-                "type": type(service).__name__ if service else None
-            }
-        except Exception as e:
-            status[service_name] = {
-                "available": False,
-                "error": str(e)
-            }
-    
-    return {
-        "services": status,
-        "total_services": len(service_names),
-        "available_services": sum(1 for s in status.values() if s.get("available", False))
-    }
-
-# =============================================================================
-# Testing Endpoints (Development Only)
-# =============================================================================
-
-@api_router.get("/test/dependencies")
-async def test_dependencies(
-    services: ServiceDep,
-    current_user: CurrentUserDep,
-    pagination: PaginationDep,
-    settings: SettingsDep
-):
-    """
-    Test endpoint to verify all dependencies are working
-    This endpoint should only be available in development
-    """
-    # Only allow in debug mode
-    if not getattr(settings, 'debug', False):
-        from fastapi import HTTPException, status
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Endpoint not available in production"
-        )
-    
-    return {
-        "dependencies_test": "success",
-        "services": {
-            "available": services is not None,
-            "type": type(services).__name__,
-            "patient_service": hasattr(services, 'patient'),
-            "episode_service": hasattr(services, 'episode'),
-            "diagnosis_service": hasattr(services, 'diagnosis'),
-            "treatment_service": hasattr(services, 'treatment')
-        },
-        "authentication": {
-            "authenticated": current_user is not None,
-            "user_info": current_user if current_user else None
-        },
-        "pagination": {
-            "page": pagination.page,
-            "size": pagination.size,
-            "offset": pagination.offset
-        },
-        "settings": {
-            "app_name": getattr(settings, 'app_name', 'Unknown'),
-            "debug_mode": getattr(settings, 'debug', False)
-        }
-    }
-
-@api_router.get("/test/repositories")
-async def test_repositories(services: ServiceDep, settings: SettingsDep):
-    """
-    Test endpoint to verify repository access through services
-    """
-    # Only allow in debug mode
-    if not getattr(settings, 'debug', False):
-        from fastapi import HTTPException, status
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Endpoint not available in production"
-        )
-    
-    repository_status = {}
-    
-    try:
-        # Test repository access through services
-        if hasattr(services, 'repos'):
-            repos = services.repos
-            
-            # Check each repository
-            repo_names = ['patient', 'episode', 'diagnosis', 'treatment', 'fhir_resource']
-            
-            for repo_name in repo_names:
-                try:
-                    repo = getattr(repos, repo_name, None)
-                    repository_status[repo_name] = {
-                        "available": repo is not None,
-                        "type": type(repo).__name__ if repo else None
-                    }
-                except Exception as e:
-                    repository_status[repo_name] = {
-                        "available": False,
-                        "error": str(e)
-                    }
-        else:
-            repository_status["error"] = "Services do not expose repositories"
-            
-    except Exception as e:
-        repository_status["error"] = f"Failed to access repositories: {str(e)}"
-    
-    return {
-        "repositories_test": "completed",
-        "repositories": repository_status
-    }
-
-# =============================================================================
-# API Documentation Endpoints
+# API Documentation Endpoints  
 # =============================================================================
 
 @api_router.get("/docs/endpoints")
@@ -248,27 +149,49 @@ async def list_endpoints():
     Returns:
         Summary of all available endpoints
     """
-    return {
-        "endpoints": {
-            "health": {
-                "GET /api/v1/health": "Comprehensive health check",
-                "GET /api/v1/health/database": "Database health check",
-                "GET /api/v1/health/services": "Services health check"
-            },
-            "system": {
-                "GET /api/v1/info": "System information",
-                "GET /api/v1/version": "API version",
-                "GET /api/v1/services/status": "Service status"
-            },
-            "testing": {
-                "GET /api/v1/test/dependencies": "Test dependencies (debug only)",
-                "GET /api/v1/test/repositories": "Test repositories (debug only)"
-            },
-            "documentation": {
-                "GET /api/v1/docs/endpoints": "This endpoint list"
-            }
+    endpoints = {
+        "health": {
+            "GET /api/v1/health": "Comprehensive health check",
+            "GET /api/v1/health/database": "Database health check", 
+            "GET /api/v1/health/services": "Services health check"
         },
-        "note": "Full CRUD endpoints for patients, episodes, diagnoses, and treatments will be available after Step 8"
+        "system": {
+            "GET /api/v1/info": "System information",
+            "GET /api/v1/version": "API version"
+        },
+        "documentation": {
+            "GET /api/v1/docs/endpoints": "This endpoint list"
+        }
+    }
+    
+    # Add CRUD endpoints if available
+    if CRUD_ROUTERS_AVAILABLE:
+        endpoints["patients"] = {
+            "POST /api/v1/patients/": "Create patient",
+            "GET /api/v1/patients/": "List patients", 
+            "GET /api/v1/patients/{id}": "Get patient",
+            "PUT /api/v1/patients/{id}": "Update patient",
+            "DELETE /api/v1/patients/{id}": "Delete patient"
+        }
+        endpoints["episodes"] = {
+            "POST /api/v1/episodes/": "Create episode",
+            "GET /api/v1/episodes/": "List episodes",
+            "GET /api/v1/episodes/{id}": "Get episode", 
+            "PUT /api/v1/episodes/{id}": "Update episode",
+            "DELETE /api/v1/episodes/{id}": "Delete episode"
+        }
+        endpoints["treatments"] = {
+            "POST /api/v1/treatments/": "Create treatment",
+            "GET /api/v1/treatments/": "List treatments",
+            "GET /api/v1/treatments/{id}": "Get treatment",
+            "PUT /api/v1/treatments/{id}": "Update treatment", 
+            "DELETE /api/v1/treatments/{id}": "Delete treatment"
+        }
+    
+    return {
+        "endpoints": endpoints,
+        "crud_available": CRUD_ROUTERS_AVAILABLE,
+        "note": "CRUD endpoints are now available!" if CRUD_ROUTERS_AVAILABLE else "CRUD endpoints need router integration"
     }
 
 # =============================================================================

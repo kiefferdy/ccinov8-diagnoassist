@@ -21,7 +21,6 @@ from schemas.episode import (
 )
 from schemas.common import StatusResponse
 from schemas.clinical_data import ClinicalNoteCreate
-from schemas.clinical_data import ClinicalNoteCreate
 
 # Import exceptions - using the global exception system
 from exceptions import (
@@ -84,17 +83,17 @@ async def create_episode(
 
 @router.get("/{episode_id}", response_model=EpisodeResponse)
 async def get_episode(
-    episode_id: UUID = Path(..., description="Episode ID"),
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    episode_id: UUID = Path(..., description="Episode ID")
 ):
     """
     Get episode by ID
     
     Args:
-        episode_id: Episode UUID
         services: Injected services
         current_user: Current authenticated user
+        episode_id: Episode UUID
         
     Returns:
         Episode data with related information
@@ -118,25 +117,25 @@ async def get_episode(
 
 @router.get("/", response_model=List[EpisodeListResponse])
 async def list_episodes(
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    pagination: PaginationDep,
     patient_id: Optional[UUID] = Query(None, description="Filter by patient ID"),
     status: Optional[str] = Query(None, description="Filter by episode status"),
     encounter_type: Optional[str] = Query(None, description="Filter by encounter type"),
-    provider_id: Optional[str] = Query(None, description="Filter by provider"),
-    pagination: PaginationDep = Depends(),
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    provider_id: Optional[str] = Query(None, description="Filter by provider")
 ):
     """
     List episodes with filtering options
     
     Args:
+        services: Injected services
+        current_user: Current authenticated user
+        pagination: Pagination parameters
         patient_id: Filter by patient
         status: Filter by status
         encounter_type: Filter by encounter type
         provider_id: Filter by provider
-        pagination: Pagination parameters
-        services: Injected services
-        current_user: Current authenticated user
         
     Returns:
         List of episodes
@@ -155,7 +154,7 @@ async def list_episodes(
         encounter_type=encounter_type,
         provider_id=provider_id,
         offset=pagination.offset,
-        limit=pagination.limit
+        limit=pagination.page_size
     )
     
     return episodes
@@ -163,29 +162,22 @@ async def list_episodes(
 
 @router.put("/{episode_id}", response_model=EpisodeResponse)
 async def update_episode(
-    episode_id: UUID = Path(..., description="Episode ID"),
-    episode_data: EpisodeUpdate = ...,
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    episode_data: EpisodeUpdate,
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    episode_id: UUID = Path(..., description="Episode ID")
 ):
     """
     Update episode information
     
     Args:
-        episode_id: Episode UUID
         episode_data: Updated episode data
         services: Injected services
         current_user: Current authenticated user
+        episode_id: Episode UUID
         
     Returns:
         Updated episode data
-        
-    Raises:
-        ResourceNotFoundException: Episode not found
-        ValidationException: Invalid update data
-        ClinicalDataException: Clinical validation error
-        PatientSafetyException: Safety rule violation
-        AuthorizationException: User lacks permission
     """
     # Authorization check
     if not current_user or not current_user.get("permissions", {}).get("episode.update", False):
@@ -206,25 +198,20 @@ async def update_episode(
 
 @router.delete("/{episode_id}", response_model=StatusResponse)
 async def delete_episode(
-    episode_id: UUID = Path(..., description="Episode ID"),
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    episode_id: UUID = Path(..., description="Episode ID")
 ):
     """
     Delete episode (soft delete)
     
     Args:
-        episode_id: Episode UUID
         services: Injected services
         current_user: Current authenticated user
+        episode_id: Episode UUID
         
     Returns:
         Deletion status
-        
-    Raises:
-        ResourceNotFoundException: Episode not found
-        PatientSafetyException: Episode has active treatments
-        AuthorizationException: User lacks permission
     """
     # Authorization check
     if not current_user or not current_user.get("permissions", {}).get("episode.delete", False):
@@ -240,82 +227,28 @@ async def delete_episode(
     )
     
     return StatusResponse(
-        status="success",
+        success=True,
         message=f"Episode {episode_id} deleted successfully"
     )
 
 
 # =============================================================================
-# Episode Clinical Operations
+# Episode Status Management
 # =============================================================================
-
-@router.get("/{episode_id}/timeline")
-async def get_episode_timeline(
-    episode_id: UUID = Path(..., description="Episode ID"),
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
-):
-    """
-    Get complete clinical timeline for episode
-    
-    Args:
-        episode_id: Episode UUID
-        services: Injected services
-        current_user: Current authenticated user
-        
-    Returns:
-        Episode timeline with diagnoses and treatments
-    """
-    # Authorization check
-    if not current_user:
-        raise AuthenticationException(message="Authentication required")
-    
-    # Get timeline through service layer
-    timeline = services.episode.get_episode_timeline(str(episode_id))
-    
-    return timeline
-
-
-@router.get("/{episode_id}/summary")
-async def get_episode_summary(
-    episode_id: UUID = Path(..., description="Episode ID"),
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
-):
-    """
-    Get episode summary with clinical insights
-    
-    Args:
-        episode_id: Episode UUID
-        services: Injected services
-        current_user: Current authenticated user
-        
-    Returns:
-        Episode summary with insights
-    """
-    # Authorization check
-    if not current_user:
-        raise AuthenticationException(message="Authentication required")
-    
-    # Get summary through clinical service
-    summary = services.clinical.get_episode_summary(str(episode_id))
-    
-    return summary
-
 
 @router.post("/{episode_id}/start", response_model=EpisodeResponse)
 async def start_episode(
-    episode_id: UUID = Path(..., description="Episode ID"),
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    episode_id: UUID = Path(..., description="Episode ID")
 ):
     """
     Start an episode (change status to active)
     
     Args:
-        episode_id: Episode UUID
         services: Injected services
         current_user: Current authenticated user
+        episode_id: Episode UUID
         
     Returns:
         Updated episode data
@@ -338,17 +271,17 @@ async def start_episode(
 
 @router.post("/{episode_id}/complete", response_model=EpisodeResponse)
 async def complete_episode(
-    episode_id: UUID = Path(..., description="Episode ID"),
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    episode_id: UUID = Path(..., description="Episode ID")
 ):
     """
     Complete an episode (change status to completed)
     
     Args:
-        episode_id: Episode UUID
         services: Injected services
         current_user: Current authenticated user
+        episode_id: Episode UUID
         
     Returns:
         Updated episode data
@@ -375,19 +308,19 @@ async def complete_episode(
 
 @router.put("/{episode_id}/vital-signs", response_model=EpisodeResponse)
 async def update_vital_signs(
-    episode_id: UUID = Path(..., description="Episode ID"),
-    vital_signs: VitalSigns = ...,
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    vital_signs: VitalSigns,
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    episode_id: UUID = Path(..., description="Episode ID")
 ):
     """
     Update vital signs for episode
     
     Args:
-        episode_id: Episode UUID
         vital_signs: Vital signs data
         services: Injected services
         current_user: Current authenticated user
+        episode_id: Episode UUID
         
     Returns:
         Updated episode data
@@ -411,19 +344,19 @@ async def update_vital_signs(
 
 @router.put("/{episode_id}/physical-exam", response_model=EpisodeResponse)
 async def update_physical_exam(
-    episode_id: UUID = Path(..., description="Episode ID"),
-    physical_exam: PhysicalExamFindings = ...,
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    exam_findings: PhysicalExamFindings,
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    episode_id: UUID = Path(..., description="Episode ID")
 ):
     """
-    Update physical examination findings for episode
+    Update physical exam findings for episode
     
     Args:
-        episode_id: Episode UUID
-        physical_exam: Physical exam findings
+        exam_findings: Physical exam findings
         services: Injected services
         current_user: Current authenticated user
+        episode_id: Episode UUID
         
     Returns:
         Updated episode data
@@ -438,47 +371,146 @@ async def update_physical_exam(
     # Update physical exam through service layer
     episode = services.episode.update_physical_exam(
         episode_id=str(episode_id),
-        physical_exam=physical_exam,
+        exam_findings=exam_findings,
         updated_by=current_user["user_id"]
     )
     
     return episode
 
 
-@router.post("/{episode_id}/notes")
+@router.post("/{episode_id}/notes", status_code=201)
 async def add_clinical_note(
-    episode_id: UUID = Path(..., description="Episode ID"),
-    note_data: ClinicalNoteCreate = ...,
-    services: ServiceDep = Depends(),
-    current_user: CurrentUserDep = Depends()
+    note_data: ClinicalNoteCreate,
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    episode_id: UUID = Path(..., description="Episode ID")
 ):
     """
     Add clinical note to episode
     
     Args:
-        episode_id: Episode UUID
         note_data: Clinical note data
         services: Injected services
         current_user: Current authenticated user
+        episode_id: Episode UUID
         
     Returns:
-        Updated episode with note
+        Created clinical note
     """
     # Authorization check
-    if not current_user or not current_user.get("permissions", {}).get("episode.update", False):
+    if not current_user or not current_user.get("permissions", {}).get("episode.note", False):
         raise AuthorizationException(
             message="Insufficient permissions to add clinical notes",
-            required_permission="episode.update"
+            required_permission="episode.note"
         )
     
-    # Add note through service layer
-    episode = services.episode.add_clinical_note(
+    # Add clinical note through service layer
+    note = services.episode.add_clinical_note(
         episode_id=str(episode_id),
         note_data=note_data,
-        author=current_user["user_id"]
+        created_by=current_user["user_id"]
     )
     
-    return episode
+    return note
+
+
+@router.get("/{episode_id}/notes")
+async def get_clinical_notes(
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    episode_id: UUID = Path(..., description="Episode ID"),
+    note_type: Optional[str] = Query(None, description="Filter by note type")
+):
+    """
+    Get clinical notes for episode
+    
+    Args:
+        services: Injected services
+        current_user: Current authenticated user
+        episode_id: Episode UUID
+        note_type: Filter by note type
+        
+    Returns:
+        List of clinical notes for the episode
+    """
+    # Authorization check
+    if not current_user or not current_user.get("permissions", {}).get("episode.read", False):
+        raise AuthorizationException(
+            message="Insufficient permissions to view clinical notes",
+            required_permission="episode.read"
+        )
+    
+    # Get clinical notes through service layer
+    notes = services.episode.get_clinical_notes(
+        episode_id=str(episode_id),
+        note_type=note_type
+    )
+    
+    return notes
+
+
+# =============================================================================
+# Episode Summary and Analytics
+# =============================================================================
+
+@router.get("/{episode_id}/summary")
+async def get_episode_summary(
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    episode_id: UUID = Path(..., description="Episode ID")
+):
+    """
+    Get comprehensive episode summary
+    
+    Args:
+        services: Injected services
+        current_user: Current authenticated user
+        episode_id: Episode UUID
+        
+    Returns:
+        Episode summary with diagnoses, treatments, and outcomes
+    """
+    # Authorization check
+    if not current_user or not current_user.get("permissions", {}).get("episode.read", False):
+        raise AuthorizationException(
+            message="Insufficient permissions to view episode summary",
+            required_permission="episode.read"
+        )
+    
+    # Get episode summary through service layer
+    summary = services.episode.get_episode_summary(str(episode_id))
+    
+    return summary
+
+
+@router.get("/{episode_id}/timeline")
+async def get_episode_timeline(
+    services: ServiceDep,
+    current_user: CurrentUserDep,
+    episode_id: UUID = Path(..., description="Episode ID")
+):
+    """
+    Get episode timeline with chronological events
+    
+    Args:
+        services: Injected services
+        current_user: Current authenticated user
+        episode_id: Episode UUID
+        
+    Returns:
+        Chronological timeline of episode events
+    """
+    # Authorization check
+    if not current_user or not current_user.get("permissions", {}).get("episode.read", False):
+        raise AuthorizationException(
+            message="Insufficient permissions to view episode timeline",
+            required_permission="episode.read"
+        )
+    
+    # Get episode timeline through service layer
+    timeline = services.episode.get_episode_timeline(str(episode_id))
+    
+    return timeline
 
 
 # Export router
