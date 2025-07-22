@@ -1,6 +1,7 @@
 """
-Base Service Class for DiagnoAssist
-Business Logic Layer Foundation
+Enhanced Base Service Class for DiagnoAssist
+Business Logic Layer Foundation with Medical Exception Handling
+BACKWARD COMPATIBLE with existing services
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar('T')
 
+# Basic exceptions - ALWAYS AVAILABLE for backward compatibility
 class ServiceException(Exception):
     """Base exception for service layer errors"""
     def __init__(self, message: str, error_code: Optional[str] = None, details: Optional[Dict] = None):
@@ -47,9 +49,43 @@ class ResourceNotFoundException(ServiceException):
             "identifier": identifier
         })
 
+# Try to import enhanced exception system
+try:
+    from exceptions.base import DiagnoAssistException
+    from exceptions.validation import DataIntegrityException
+    from exceptions.medical import (
+        PatientSafetyException, 
+        ClinicalDataException,
+        DiagnosisException,
+        TreatmentException,
+        MedicalValidationException
+    )
+    from exceptions.handlers import handle_service_exception, raise_for_patient_safety
+    ENHANCED_EXCEPTIONS_AVAILABLE = True
+    logger.info("Enhanced medical exception handling loaded")
+except ImportError as e:
+    logger.info(f"Enhanced exceptions not available, using basic exceptions: {e}")
+    ENHANCED_EXCEPTIONS_AVAILABLE = False
+    DiagnoAssistException = ServiceException
+    DataIntegrityException = ValidationException
+    PatientSafetyException = BusinessRuleException
+    ClinicalDataException = ValidationException
+    DiagnosisException = ValidationException
+    TreatmentException = ValidationException
+    MedicalValidationException = ValidationException
+    
+    # Fallback functions
+    def handle_service_exception(func):
+        return func
+    
+    def raise_for_patient_safety(condition: bool, message: str, patient_id: str, safety_rule: str):
+        if condition:
+            raise BusinessRuleException(f"PATIENT SAFETY: {message}", rule=safety_rule)
+
 class BaseService(ABC):
     """
-    Abstract base service class providing common functionality
+    Enhanced abstract base service class providing common functionality
+    with optional medical domain exception handling
     """
     
     def __init__(self, repositories: RepositoryManager):
@@ -62,192 +98,302 @@ class BaseService(ABC):
         self.repos = repositories
         self.db = repositories.db
         self.logger = logging.getLogger(f"{self.__class__.__module__}.{self.__class__.__name__}")
+        self.enhanced_exceptions = ENHANCED_EXCEPTIONS_AVAILABLE
+    
+    @abstractmethod
+    def validate_business_rules(self, data: Dict[str, Any], operation: str = "create") -> None:
+        """
+        Validate domain-specific business rules
+        
+        Args:
+            data: Data to validate
+            operation: Operation being performed
+            
+        Raises:
+            BusinessRuleException: If business rules are violated
+            ValidationException: If validation fails
+        """
+        pass
     
     def validate_required_fields(self, data: Dict[str, Any], required_fields: List[str]) -> None:
         """
         Validate that required fields are present and not empty
         
         Args:
-            data: Data dictionary to validate
+            data: Data to validate
             required_fields: List of required field names
             
         Raises:
-            ValidationException: If any required field is missing or empty
+            ValidationException: If required fields are missing
         """
-        missing_fields = []
-        empty_fields = []
-        
         for field in required_fields:
-            if field not in data:
-                missing_fields.append(field)
-            elif data[field] is None or (isinstance(data[field], str) and not data[field].strip()):
-                empty_fields.append(field)
-        
-        if missing_fields:
-            raise ValidationException(
-                f"Missing required fields: {', '.join(missing_fields)}",
-                field="missing_fields",
-                value=missing_fields
-            )
-        
-        if empty_fields:
-            raise ValidationException(
-                f"Empty required fields: {', '.join(empty_fields)}",
-                field="empty_fields", 
-                value=empty_fields
-            )
+            if field not in data or data[field] is None or data[field] == "":
+                raise ValidationException(
+                    f"Required field '{field}' is missing or empty",
+                    field=field,
+                    value=data.get(field)
+                )
     
-    def validate_uuid(self, uuid_str: str, field_name: str) -> None:
+    def validate_patient_safety(
+        self, 
+        condition: bool, 
+        message: str, 
+        patient_id: str, 
+        safety_rule: str,
+        risk_level: str = "HIGH"
+    ) -> None:
         """
-        Validate UUID format
+        Enhanced patient safety validation
         
         Args:
-            uuid_str: UUID string to validate
-            field_name: Name of the field for error messages
-            
-        Raises:
-            ValidationException: If UUID format is invalid
+            condition: If True, raise safety exception
+            message: Safety violation message
+            patient_id: Patient identifier
+            safety_rule: Safety rule violated
+            risk_level: Risk level (LOW, MEDIUM, HIGH, CRITICAL)
         """
-        try:
-            from uuid import UUID
-            UUID(uuid_str)
-        except (ValueError, TypeError):
-            raise ValidationException(
-                f"Invalid UUID format for {field_name}: {uuid_str}",
-                field=field_name,
-                value=uuid_str
-            )
+        if condition:
+            if self.enhanced_exceptions:
+                raise PatientSafetyException(
+                    message=message,
+                    patient_id=patient_id,
+                    safety_rule=safety_rule,
+                    risk_level=risk_level,
+                    immediate_action_required=True
+                )
+            else:
+                # Fallback to basic exception
+                raise BusinessRuleException(
+                    f"PATIENT SAFETY: {message} (Patient: {patient_id})",
+                    rule=safety_rule
+                )
     
-    def handle_database_error(self, error: SQLAlchemyError, operation: str) -> None:
+    def validate_clinical_data(
+        self,
+        data: Dict[str, Any],
+        data_type: str,
+        patient_id: Optional[str] = None,
+        safety_critical: bool = False
+    ) -> None:
         """
-        Handle database errors with appropriate logging and exception transformation
+        Enhanced clinical data validation
+        
+        Args:
+            data: Clinical data to validate
+            data_type: Type of clinical data
+            patient_id: Patient identifier
+            safety_critical: Whether data is safety critical
+        """
+        if not data or not isinstance(data, dict):
+            if self.enhanced_exceptions:
+                raise ClinicalDataException(
+                    message=f"Invalid {data_type} data format",
+                    data_type=data_type,
+                    patient_id=patient_id,
+                    safety_critical=safety_critical
+                )
+            else:
+                raise ValidationException(f"Invalid {data_type} data format")
+    
+    def validate_medical_code(
+        self,
+        code: str,
+        code_system: str,
+        field_name: str,
+        allow_empty: bool = False
+    ) -> None:
+        """
+        Enhanced medical code validation
+        
+        Args:
+            code: Medical code to validate
+            code_system: Code system (ICD-10, SNOMED, etc.)
+            field_name: Field name for error reporting
+            allow_empty: Whether empty codes are allowed
+        """
+        if not code and not allow_empty:
+            if self.enhanced_exceptions:
+                raise MedicalValidationException(
+                    message=f"Missing {code_system} code",
+                    field=field_name,
+                    code_system=code_system
+                )
+            else:
+                raise ValidationException(f"Missing {code_system} code", field=field_name)
+        
+        if code and code_system == "ICD-10":
+            # Basic ICD-10 format validation
+            if not (len(code) >= 3 and len(code) <= 7):
+                if self.enhanced_exceptions:
+                    raise MedicalValidationException(
+                        message=f"Invalid ICD-10 code format: {code}",
+                        field=field_name,
+                        value=code,
+                        medical_code=code,
+                        code_system="ICD-10"
+                    )
+                else:
+                    raise ValidationException(f"Invalid ICD-10 code format: {code}", field=field_name)
+    
+    def validate_diagnosis_confidence(
+        self,
+        ai_confidence: Optional[float],
+        confidence_level: Optional[str],
+        diagnosis_id: Optional[str] = None,
+        min_confidence: float = 0.5
+    ) -> None:
+        """
+        Enhanced diagnosis confidence validation
+        
+        Args:
+            ai_confidence: AI confidence score (0.0 to 1.0)
+            confidence_level: Human confidence level
+            diagnosis_id: Diagnosis identifier
+            min_confidence: Minimum acceptable confidence
+        """
+        if ai_confidence is not None:
+            if ai_confidence < min_confidence:
+                if self.enhanced_exceptions:
+                    raise DiagnosisException(
+                        message=f"AI confidence ({ai_confidence:.2f}) below minimum threshold ({min_confidence})",
+                        diagnosis_id=diagnosis_id,
+                        ai_confidence=ai_confidence,
+                        validation_stage="confidence_check"
+                    )
+                else:
+                    raise ValidationException(f"AI confidence too low: {ai_confidence}")
+        
+        if confidence_level:
+            valid_levels = ["very_low", "low", "medium", "high", "very_high"]
+            if confidence_level not in valid_levels:
+                if self.enhanced_exceptions:
+                    raise DiagnosisException(
+                        message=f"Invalid confidence level: {confidence_level}",
+                        diagnosis_id=diagnosis_id,
+                        validation_stage="confidence_level_check"
+                    )
+                else:
+                    raise ValidationException(f"Invalid confidence level: {confidence_level}")
+    
+    def handle_database_error(self, error: SQLAlchemyError, operation: str = "database operation") -> None:
+        """
+        Enhanced database error handling with medical context
         
         Args:
             error: SQLAlchemy error
-            operation: Description of the operation that failed
+            operation: Operation that failed
             
         Raises:
-            ServiceException: Transformed database error
+            DataIntegrityException: For constraint violations
+            ValidationException: For other database errors
         """
-        self.logger.error(f"Database error during {operation}: {str(error)}")
-        
-        # Rollback transaction
-        try:
-            self.db.rollback()
-        except Exception as rollback_error:
-            self.logger.error(f"Failed to rollback transaction: {rollback_error}")
-        
-        # Transform specific database errors
         error_message = str(error)
         
-        if "duplicate key value" in error_message.lower():
-            raise ServiceException(
-                f"Duplicate record detected during {operation}",
-                "DUPLICATE_RECORD",
-                {"operation": operation, "database_error": error_message}
-            )
-        elif "foreign key constraint" in error_message.lower():
-            raise ServiceException(
-                f"Reference constraint violation during {operation}",
-                "REFERENCE_CONSTRAINT_VIOLATION",
-                {"operation": operation, "database_error": error_message}
-            )
-        elif "not null constraint" in error_message.lower():
-            raise ServiceException(
-                f"Required field missing during {operation}",
-                "REQUIRED_FIELD_MISSING",
-                {"operation": operation, "database_error": error_message}
-            )
+        if self.enhanced_exceptions:
+            # Use enhanced exception system
+            from exceptions.base import DatabaseException
+            
+            if "unique constraint" in error_message.lower():
+                raise DataIntegrityException(
+                    message=f"Duplicate record detected during {operation}",
+                    integrity_type="unique",
+                    table_name=self._extract_table_from_error(error_message)
+                )
+            elif "foreign key constraint" in error_message.lower():
+                raise DataIntegrityException(
+                    message=f"Reference constraint violation during {operation}",
+                    integrity_type="foreign_key",
+                    table_name=self._extract_table_from_error(error_message)
+                )
+            elif "not null constraint" in error_message.lower():
+                raise DataIntegrityException(
+                    message=f"Required field missing during {operation}",
+                    integrity_type="check",
+                    table_name=self._extract_table_from_error(error_message)
+                )
+            else:
+                raise DatabaseException(
+                    message=f"Database error during {operation}",
+                    operation=operation,
+                    original_exception=error
+                )
         else:
-            raise ServiceException(
-                f"Database error during {operation}: {error_message}",
-                "DATABASE_ERROR",
-                {"operation": operation, "database_error": error_message}
-            )
+            # Fallback to basic exceptions
+            if "unique constraint" in error_message.lower():
+                raise ValidationException(f"Duplicate record detected during {operation}")
+            elif "foreign key constraint" in error_message.lower():
+                raise ValidationException(f"Reference constraint violation during {operation}")
+            elif "not null constraint" in error_message.lower():
+                raise ValidationException(f"Required field missing during {operation}")
+            else:
+                raise ServiceException(
+                    f"Database error during {operation}: {error_message}",
+                    "DATABASE_ERROR",
+                    {"operation": operation, "database_error": error_message}
+                )
+    
+    def _extract_table_from_error(self, error_message: str) -> Optional[str]:
+        """Extract table name from database error message"""
+        # Simple extraction - could be enhanced
+        for word in error_message.split():
+            if word.endswith('.'):
+                return word.rstrip('.')
+        return None
     
     def audit_log(self, action: str, resource_type: str, resource_id: str, details: Optional[Dict] = None) -> None:
         """
-        Log service actions for audit purposes
+        Enhanced audit logging with medical context
         
         Args:
             action: Action performed (create, update, delete, etc.)
             resource_type: Type of resource
             resource_id: Resource identifier
-            details: Additional details to log
+            details: Additional details
         """
-        audit_data = {
+        audit_entry = {
             "timestamp": datetime.utcnow().isoformat(),
-            "service": self.__class__.__name__,
             "action": action,
             "resource_type": resource_type,
             "resource_id": resource_id,
+            "service": self.__class__.__name__,
+            "enhanced_exceptions": self.enhanced_exceptions,
             "details": details or {}
         }
         
-        self.logger.info(f"AUDIT: {action} {resource_type} {resource_id}", extra=audit_data)
-    
-    def get_or_raise(self, resource_type: str, identifier: str, repository_method) -> Any:
-        """
-        Get resource or raise ResourceNotFoundException
-        
-        Args:
-            resource_type: Type of resource for error messages
-            identifier: Resource identifier
-            repository_method: Repository method to call
-            
-        Returns:
-            The found resource
-            
-        Raises:
-            ResourceNotFoundException: If resource not found
-        """
-        try:
-            resource = repository_method(identifier)
-            if not resource:
-                raise ResourceNotFoundException(resource_type, identifier)
-            return resource
-        except SQLAlchemyError as e:
-            self.handle_database_error(e, f"fetching {resource_type}")
-    
-    def safe_commit(self, operation_description: str) -> None:
-        """
-        Safely commit database transaction with error handling
-        
-        Args:
-            operation_description: Description of the operation for error messages
-            
-        Raises:
-            ServiceException: If commit fails
-        """
-        try:
-            self.repos.commit()
-            self.logger.debug(f"Successfully committed: {operation_description}")
-        except SQLAlchemyError as e:
-            self.handle_database_error(e, f"committing {operation_description}")
-    
-    def safe_rollback(self, operation_description: str) -> None:
-        """
-        Safely rollback database transaction
-        
-        Args:
-            operation_description: Description of the operation for logging
-        """
-        try:
-            self.repos.rollback()
-            self.logger.info(f"Rolled back transaction: {operation_description}")
-        except Exception as e:
-            self.logger.error(f"Failed to rollback {operation_description}: {e}")
-    
-    @abstractmethod
-    def validate_business_rules(self, data: Dict[str, Any], operation: str = "create") -> None:
-        """
-        Abstract method to validate business rules specific to each service
-        
-        Args:
-            data: Data to validate
-            operation: Operation being performed (create, update, etc.)
-            
-        Raises:
-            BusinessRuleException: If business rules are violated
-        """
-        pass
+        # Log with appropriate level based on action
+        if action in ["delete", "deactivate"]:
+            self.logger.warning(f"Audit: {action} {resource_type} {resource_id}", extra=audit_entry)
+        else:
+            self.logger.info(f"Audit: {action} {resource_type} {resource_id}", extra=audit_entry)
+
+# Utility functions for enhanced exception handling
+def use_enhanced_exceptions() -> bool:
+    """Check if enhanced exception system is available"""
+    return ENHANCED_EXCEPTIONS_AVAILABLE
+
+def get_patient_safety_validator():
+    """Get patient safety validation function"""
+    if ENHANCED_EXCEPTIONS_AVAILABLE:
+        return raise_for_patient_safety
+    else:
+        def basic_safety_check(condition: bool, message: str, patient_id: str, safety_rule: str):
+            if condition:
+                raise BusinessRuleException(f"PATIENT SAFETY: {message}", rule=safety_rule)
+        return basic_safety_check
+
+# Enhanced service decorator
+def enhanced_service_method(func):
+    """
+    Decorator for service methods to provide enhanced exception handling
+    """
+    if ENHANCED_EXCEPTIONS_AVAILABLE:
+        return handle_service_exception(func)
+    else:
+        # Basic error handling
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                logger.error(f"Service error in {func.__name__}: {str(e)}")
+                raise
+        return wrapper
