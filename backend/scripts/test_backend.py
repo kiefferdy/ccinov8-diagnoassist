@@ -1,6 +1,6 @@
 """
-DiagnoAssist Backend Test Script - No Typing Version
-Replace your entire test_backend.py with this version
+DiagnoAssist Backend Test Script - Updated with Services Layer
+Comprehensive testing including the new business logic layer
 """
 
 import os
@@ -105,22 +105,53 @@ def check_file_structure():
     print(f"   Backend directory: {backend_dir}")
     
     required_files = [
+        # Core files
         'main.py',
+        
+        # Config layer
         'config/__init__.py',
         'config/database.py',
         'config/settings.py',
+        
+        # Models layer
         'models/__init__.py',
         'models/patient.py',
         'models/episode.py',
         'models/diagnosis.py',
         'models/treatment.py',
         'models/fhir_resource.py',
+        
+        # Repositories layer
         'repositories/__init__.py',
         'repositories/base_repository.py',
         'repositories/patient_repository.py',
+        'repositories/episode_repository.py',
+        'repositories/diagnosis_repository.py',
+        'repositories/treatment_repository.py',
+        'repositories/fhir_repository.py',
         'repositories/repository_manager.py',
+        
+        # Schemas layer
         'schemas/__init__.py',
         'schemas/patient.py',
+        'schemas/episode.py',
+        'schemas/diagnosis.py',
+        'schemas/treatment.py',
+        'schemas/fhir_resource.py',
+        'schemas/common.py',
+        
+        # Services layer (NEW)
+        'services/__init__.py',
+        'services/base_service.py',
+        'services/patient_service.py',
+        'services/episode_service.py',
+        'services/diagnosis_service.py',
+        'services/treatment_service.py',
+        'services/fhir_service.py',
+        'services/clinical_service.py',
+        'services/service_manager.py',
+        
+        # API layer
         'api/__init__.py'
     ]
     
@@ -140,14 +171,14 @@ def check_file_structure():
     
     if missing_files:
         print(f"❌ Missing files: {len(missing_files)}")
-        print("💡 You may need to create these files from our previous artifacts")
-        return len(existing_files) >= len(required_files) // 2
+        print("💡 You may need to create these files from our artifacts")
+        return len(existing_files) >= len(required_files) * 0.7  # 70% threshold
     
     print("✅ All required files present")
     return True
 
 def test_imports():
-    """Test critical imports - NO TYPING VERSION"""
+    """Test critical imports including services layer"""
     print("🔍 Testing Critical Imports...")
     
     try:
@@ -166,43 +197,21 @@ def test_imports():
             print(f"❌ Database config issue: {e}")
             config_ok = False
         
-        # Test model imports - SIMPLE VERSION
+        # Test model imports
         models_imported = 0
+        model_names = ['patient', 'episode', 'diagnosis', 'treatment', 'fhir_resource']
         
-        try:
-            from models.patient import Patient
-            print("✅ models.patient imported")
-            models_imported += 1
-        except ImportError as e:
-            print(f"❌ models.patient import failed: {e}")
-        
-        try:
-            from models.episode import Episode
-            print("✅ models.episode imported")
-            models_imported += 1
-        except ImportError as e:
-            print(f"❌ models.episode import failed: {e}")
-        
-        try:
-            from models.diagnosis import Diagnosis
-            print("✅ models.diagnosis imported")
-            models_imported += 1
-        except ImportError as e:
-            print(f"❌ models.diagnosis import failed: {e}")
-        
-        try:
-            from models.treatment import Treatment
-            print("✅ models.treatment imported")
-            models_imported += 1
-        except ImportError as e:
-            print(f"❌ models.treatment import failed: {e}")
-        
-        try:
-            from models.fhir_resource import FHIRResource
-            print("✅ models.fhir_resource imported")
-            models_imported += 1
-        except ImportError as e:
-            print(f"❌ models.fhir_resource import failed: {e}")
+        for model_name in model_names:
+            try:
+                # Fix the FHIRResource import issue
+                if model_name == 'fhir_resource':
+                    exec(f"from models.{model_name} import FHIRResource")
+                else:
+                    exec(f"from models.{model_name} import {model_name.title().replace('_', '')}")
+                print(f"✅ models.{model_name} imported")
+                models_imported += 1
+            except ImportError as e:
+                print(f"❌ models.{model_name} import failed: {e}")
         
         # Test repository imports
         repos_imported = 0
@@ -229,11 +238,26 @@ def test_imports():
         except ImportError as e:
             print(f"❌ Schema import failed: {e}")
         
-        # Calculate success rate
-        total_components = 1 + models_imported + repos_imported + schemas_imported
-        print(f"\n📊 Import success: {total_components}/8+ components")
+        # Test service imports (NEW)
+        services_imported = 0
+        service_names = ['base_service', 'patient_service', 'episode_service', 
+                        'diagnosis_service', 'treatment_service', 'service_manager']
         
-        return config_ok and models_imported >= 3 and repos_imported >= 1
+        for service_name in service_names:
+            try:
+                exec(f"from services.{service_name} import *")
+                print(f"✅ services.{service_name} imported")
+                services_imported += 1
+            except ImportError as e:
+                print(f"❌ services.{service_name} import failed: {e}")
+        
+        # Calculate success rate
+        total_components = 1 + models_imported + repos_imported + schemas_imported + services_imported
+        expected_components = 1 + len(model_names) + 2 + 1 + len(service_names)
+        print(f"\n📊 Import success: {total_components}/{expected_components} components")
+        
+        return (config_ok and models_imported >= 3 and repos_imported >= 1 and 
+                schemas_imported >= 1 and services_imported >= 4)
         
     except ImportError as e:
         print(f"❌ Critical dependency missing: {e}")
@@ -283,40 +307,22 @@ def test_models():
         models_imported = []
         model_classes = []
         
-        try:
-            from models.patient import Patient
-            models_imported.append('Patient')
-            model_classes.append(Patient)
-        except ImportError:
-            pass
-            
-        try:
-            from models.episode import Episode
-            models_imported.append('Episode')
-            model_classes.append(Episode)
-        except ImportError:
-            pass
-            
-        try:
-            from models.diagnosis import Diagnosis
-            models_imported.append('Diagnosis')
-            model_classes.append(Diagnosis)
-        except ImportError:
-            pass
-            
-        try:
-            from models.treatment import Treatment
-            models_imported.append('Treatment')
-            model_classes.append(Treatment)
-        except ImportError:
-            pass
-            
-        try:
-            from models.fhir_resource import FHIRResource
-            models_imported.append('FHIRResource')
-            model_classes.append(FHIRResource)
-        except ImportError:
-            pass
+        model_imports = [
+            ('models.patient', 'Patient'),
+            ('models.episode', 'Episode'),
+            ('models.diagnosis', 'Diagnosis'),
+            ('models.treatment', 'Treatment'),
+            ('models.fhir_resource', 'FHIRResource')
+        ]
+        
+        for module_name, class_name in model_imports:
+            try:
+                module = __import__(module_name, fromlist=[class_name])
+                model_class = getattr(module, class_name)
+                models_imported.append(class_name)
+                model_classes.append(model_class)
+            except ImportError:
+                pass
         
         print(f"✅ Models imported: {', '.join(models_imported)}")
         
@@ -338,7 +344,7 @@ def test_models():
         
         print(f"✅ Tables found: {', '.join(found_tables)}")
         
-        return len(found_tables) >= 2
+        return len(found_tables) >= 3
         
     except Exception as e:
         print(f"❌ Model testing failed: {e}")
@@ -358,19 +364,21 @@ def test_repositories():
         # Test repository access
         repositories_tested = []
         
-        try:
-            patient_repo = repos.patient
-            repositories_tested.append('patient')
-            print(f"✅ Patient repository accessible")
-        except Exception as e:
-            print(f"❌ Patient repository failed: {e}")
+        repo_tests = [
+            ('patient', 'Patient repository'),
+            ('episode', 'Episode repository'),
+            ('diagnosis', 'Diagnosis repository'),
+            ('treatment', 'Treatment repository'),
+            ('fhir_resource', 'FHIR repository')
+        ]
         
-        try:
-            episode_repo = repos.episode
-            repositories_tested.append('episode')
-            print(f"✅ Episode repository accessible")
-        except Exception as e:
-            print(f"❌ Episode repository failed: {e}")
+        for repo_name, description in repo_tests:
+            try:
+                repo = getattr(repos, repo_name)
+                repositories_tested.append(repo_name)
+                print(f"✅ {description} accessible")
+            except Exception as e:
+                print(f"❌ {description} failed: {e}")
         
         # Test basic operation if patient repo works
         if 'patient' in repositories_tested:
@@ -381,10 +389,80 @@ def test_repositories():
                 print(f"⚠️  Repository operation warning: {e}")
         
         db.close()
-        return len(repositories_tested) >= 1
+        return len(repositories_tested) >= 3
         
     except Exception as e:
         print(f"❌ Repository testing failed: {e}")
+        return False
+
+def test_services():
+    """Test services layer (NEW)"""
+    print("🔍 Testing Services Layer...")
+    
+    try:
+        from config.database import SessionLocal
+        from repositories import RepositoryManager
+        
+        # Test basic service imports first
+        try:
+            from services import ServiceManager, get_services
+            print("✅ Service manager imports successful")
+        except ImportError as e:
+            print(f"❌ Service manager import failed: {e}")
+            return False
+        
+        # Test service manager creation
+        db = SessionLocal()
+        repos = RepositoryManager(db)
+        services = ServiceManager(repos)
+        
+        # Test individual service access
+        services_tested = []
+        
+        service_tests = [
+            ('patient', 'Patient service'),
+            ('episode', 'Episode service'), 
+            ('diagnosis', 'Diagnosis service'),
+            ('treatment', 'Treatment service'),
+            ('fhir', 'FHIR service'),
+            ('clinical', 'Clinical service')
+        ]
+        
+        for service_name, description in service_tests:
+            try:
+                service = getattr(services, service_name)
+                if service and hasattr(service, 'repos'):
+                    services_tested.append(service_name)
+                    print(f"✅ {description} accessible")
+                else:
+                    print(f"❌ {description} not properly initialized")
+            except Exception as e:
+                print(f"❌ {description} failed: {e}")
+        
+        # Test service health check
+        try:
+            health = services.health_check()
+            if health.get('overall_status') == 'healthy':
+                print("✅ Service health check passed")
+            else:
+                print(f"⚠️  Service health check: {health.get('overall_status')}")
+        except Exception as e:
+            print(f"⚠️  Service health check failed: {e}")
+        
+        # Test business rule validation
+        try:
+            from services.base_service import ValidationException, BusinessRuleException
+            print("✅ Service exceptions available")
+        except ImportError as e:
+            print(f"❌ Service exceptions not available: {e}")
+        
+        db.close()
+        return len(services_tested) >= 4
+        
+    except Exception as e:
+        print(f"❌ Services testing failed: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def test_api_structure():
@@ -413,54 +491,67 @@ def test_api_structure():
         print(f"❌ API structure test failed: {e}")
         return False
 
-def create_sample_data():
-    """Create sample data if repositories work"""
-    print("🔍 Testing Sample Data Creation...")
+def test_service_integration():
+    """Test service integration with sample operations (NEW)"""
+    print("🔍 Testing Service Integration...")
     
     try:
         from config.database import SessionLocal
         from repositories import RepositoryManager
-        from datetime import datetime, date
+        
+        # Test basic imports first
+        try:
+            from services import ServiceManager
+            print("✅ Service manager import working")
+        except ImportError as e:
+            print(f"❌ Service manager import failed: {e}")
+            return False
         
         db = SessionLocal()
         repos = RepositoryManager(db)
+        services = ServiceManager(repos)
         
-        # Check if sample data already exists
+        # Test service dependency injection function
         try:
-            existing = repos.patient.search_by_name("Sample")
-            if existing:
-                print("✅ Sample data already exists")
+            from services import get_services
+            service_instance = get_services(repos)
+            if hasattr(service_instance, 'patient'):
+                print("✅ Service dependency injection working")
+            else:
+                print("❌ Service dependency injection failed")
                 db.close()
-                return True
-        except:
-            pass
+                return False
+        except Exception as e:
+            print(f"❌ Service dependency injection failed: {e}")
+            db.close()
+            return False
         
-        # Create sample patient
-        patient_data = {
-            "medical_record_number": f"SAMPLE-{datetime.now().strftime('%Y%m%d')}",
-            "first_name": "Sample",
-            "last_name": "Patient",
-            "date_of_birth": date(1985, 6, 15),
-            "gender": "male",
-            "email": "sample@example.com",
-            "phone": "+1234567890"
-        }
-        
-        patient = repos.patient.create(patient_data)
-        if patient:
-            print(f"✅ Sample patient created: {patient.first_name} {patient.last_name}")
-            repos.commit()
+        # Test patient service basic validation (without creating data)
+        try:
+            # Test that service has required methods
+            if hasattr(services.patient, 'validate_business_rules'):
+                print("✅ Patient service validation methods available")
+            else:
+                print("❌ Patient service validation methods missing")
+                db.close()
+                return False
+        except Exception as e:
+            print(f"❌ Patient service validation test failed: {e}")
+            db.close()
+            return False
         
         db.close()
         return True
         
     except Exception as e:
-        print(f"❌ Sample data creation failed: {e}")
+        print(f"❌ Service integration test failed: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def run_comprehensive_test():
-    """Run comprehensive test suite"""
-    print("🏥 DiagnoAssist Backend - Comprehensive Test Suite")
+    """Run comprehensive test suite including services layer"""
+    print("🏥 DiagnoAssist Backend - Comprehensive Test Suite v2.0")
     print("=" * 60)
     print(f"Running from: {scripts_dir}")
     print(f"Backend root: {backend_dir}")
@@ -474,8 +565,9 @@ def run_comprehensive_test():
         ("Database Connection", test_database),
         ("Models & Tables", test_models),
         ("Repository Layer", test_repositories),
-        ("API Structure", test_api_structure),
-        ("Sample Data", create_sample_data)
+        ("Services Layer", test_services),           # NEW
+        ("Service Integration", test_service_integration),  # NEW  
+        ("API Structure", test_api_structure)
     ]
     
     results = []
@@ -505,23 +597,29 @@ def run_comprehensive_test():
     print("=" * 60)
     print(f"Overall Result: {passed}/{total} tests passed")
     
-    if passed >= 7:
-        print("\n🎉 EXCELLENT! Backend is ready!")
-        print("✅ All core components working")
+    if passed >= 8:
+        print("\n🎉 EXCELLENT! Backend with Services Layer is ready!")
+        print("✅ All core components including business logic working")
+        print("✅ Services layer successfully implemented")
         print("\n🚀 Next steps:")
-        print("   1. Run: python start.py")
-        print("   2. Visit: http://localhost:8000/docs")
-    elif passed >= 5:
-        print("\n✅ GOOD! Core functionality working")
-        print("Some minor issues but ready to proceed")
-        print("\n🚀 You can start the server:")
-        print("   python start.py")
+        print("   1. Implement API Dependencies (Step 6)")
+        print("   2. Run: python start.py")
+        print("   3. Visit: http://localhost:8000/docs")
+    elif passed >= 6:
+        print("\n✅ GOOD! Core functionality with services working")
+        print("Most components ready, minor issues to resolve")
+        print("\n🚀 Ready for next development step:")
+        print("   API Dependencies and Exception Handling")
+    elif passed >= 4:
+        print("\n⚠️  PARTIAL SUCCESS")
+        print("Basic functionality working, services need attention")
+        print("\n💡 Focus on fixing service layer issues")
     else:
         print("\n❌ NEEDS WORK")
-        print("Please check the failing components")
-        print("\n💡 Most likely missing files - check our artifacts")
+        print("Multiple components need fixing")
+        print("\n💡 Check missing files and dependencies")
     
-    return passed >= 5
+    return passed >= 6
 
 if __name__ == "__main__":
     try:

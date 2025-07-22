@@ -1,4 +1,3 @@
-# backend/schemas/fhir_resource.py
 """
 FHIR Resource Pydantic Schemas
 """

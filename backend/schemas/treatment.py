@@ -2,7 +2,7 @@
 Treatment Pydantic Schemas
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from datetime import datetime
 from pydantic import BaseModel, Field, validator
 from uuid import UUID
@@ -58,11 +58,17 @@ class TreatmentUpdate(BaseModel):
     treatment_name: Optional[str] = Field(None, min_length=1, max_length=300)
     description: Optional[str] = None
     instructions: Optional[str] = None
+    
+    # Status and approval
     status: Optional[str] = Field(None, regex="^(planned|approved|active|completed|discontinued)$")
-    approved_by: Optional[str] = Field(None, max_length=100)
+    approved_by: Optional[str] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
+    
+    # Medication details
     medication_details: Optional[MedicationTreatment] = None
+    
+    # Non-pharmacological details
     non_pharm_details: Optional[NonPharmacologicalTreatment] = None
 
 class TreatmentResponse(TreatmentBase):
@@ -70,13 +76,29 @@ class TreatmentResponse(TreatmentBase):
     id: UUID
     episode_id: UUID
     diagnosis_id: Optional[UUID] = None
+    
+    # Status and approval
     status: str
     approved_by: Optional[str] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
+    
+    # Metadata
     created_at: datetime
     updated_at: datetime
     created_by: str
+    
+    # Computed fields
+    is_active: Optional[bool] = None
+    is_medication: Optional[bool] = None
+    
+    @validator('is_active', always=True)
+    def calculate_is_active(cls, v, values):
+        return values.get('status') in ['approved', 'active']
+    
+    @validator('is_medication', always=True)
+    def calculate_is_medication(cls, v, values):
+        return values.get('treatment_type') == 'medication'
 
 class TreatmentListResponse(PaginatedResponse[TreatmentResponse]):
     """Paginated list of treatments"""

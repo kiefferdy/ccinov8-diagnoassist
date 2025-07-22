@@ -2,7 +2,7 @@
 Diagnosis Pydantic Schemas
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime  
 from pydantic import BaseModel, Field, validator
 from uuid import UUID
@@ -40,7 +40,7 @@ class DiagnosisBase(BaseSchema):
     
     # Supporting data
     supporting_symptoms: Optional[List[str]] = Field(default_factory=list)
-    differential_diagnoses: Optional[List[Dict]] = Field(default_factory=list)
+    differential_diagnoses: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
     red_flags: Optional[List[str]] = Field(default_factory=list)
     next_steps: Optional[List[str]] = Field(default_factory=list)
 
@@ -54,14 +54,20 @@ class DiagnosisUpdate(BaseModel):
     condition_name: Optional[str] = Field(None, min_length=1, max_length=300)
     icd10_code: Optional[str] = Field(None, max_length=20)
     snomed_code: Optional[str] = Field(None, max_length=50)
+    
+    # AI analysis data
     ai_probability: Optional[float] = Field(None, ge=0.0, le=1.0)
     confidence_level: Optional[str] = Field(None, regex="^(low|moderate|high)$")
     ai_reasoning: Optional[str] = None
+    
+    # Clinical validation
     physician_confirmed: Optional[bool] = None
     physician_notes: Optional[str] = None
     final_diagnosis: Optional[bool] = None
+    
+    # Supporting data
     supporting_symptoms: Optional[List[str]] = None
-    differential_diagnoses: Optional[List[Dict]] = None
+    differential_diagnoses: Optional[List[Dict[str, Any]]] = None
     red_flags: Optional[List[str]] = None
     next_steps: Optional[List[str]] = None
 
@@ -69,16 +75,26 @@ class DiagnosisResponse(DiagnosisBase):
     """Schema for diagnosis response"""
     id: UUID
     episode_id: UUID
-    physician_confirmed: bool = False
+    
+    # Clinical validation
+    physician_confirmed: bool
     physician_notes: Optional[str] = None
-    final_diagnosis: bool = False
-    probability_percentage: Optional[float] = None
+    final_diagnosis: bool
+    confirmed_at: Optional[datetime] = None
+    
+    # Metadata
     created_at: datetime
     updated_at: datetime
     created_by: str
     
     # Computed fields
-    treatments_count: Optional[int] = 0
+    probability_percentage: Optional[float] = None
+    
+    @validator('probability_percentage', always=True)
+    def calculate_percentage(cls, v, values):
+        if not v and values.get('ai_probability') is not None:
+            return round(values['ai_probability'] * 100, 1)
+        return v
 
 class DiagnosisListResponse(PaginatedResponse[DiagnosisResponse]):
     """Paginated list of diagnoses"""

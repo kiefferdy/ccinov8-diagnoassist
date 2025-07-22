@@ -1,4 +1,3 @@
-# backend/schemas/common.py
 """
 Common Pydantic Schemas
 Shared schemas used across the application
