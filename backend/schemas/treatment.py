@@ -2,104 +2,78 @@
 Treatment Pydantic Schemas
 """
 
-from typing import Dict, List, Optional, Any
-from datetime import datetime
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, validator, EmailStr
+from typing import Optional, List
+from datetime import datetime, date
 from uuid import UUID
 
 from .common import BaseSchema, PaginatedResponse
 
-class MedicationTreatment(BaseModel):
-    """Medication-specific treatment details"""
-    medication_name: str = Field(..., max_length=200)
-    dosage: str = Field(..., max_length=100)
-    frequency: str = Field(..., max_length=100)
-    route: str = Field(..., max_length=50, regex="^(oral|IV|IM|subcutaneous|topical|inhalation|rectal|other)$")
-    duration: str = Field(..., max_length=100)
-    contraindications: Optional[List[str]] = Field(default_factory=list)
-    side_effects: Optional[List[str]] = Field(default_factory=list)
-    drug_interactions: Optional[List[str]] = Field(default_factory=list)
-
-class NonPharmacologicalTreatment(BaseModel):
-    """Non-pharmacological treatment details"""
-    lifestyle_modifications: Optional[List[str]] = Field(default_factory=list)
-    patient_education: Optional[List[str]] = Field(default_factory=list)
-    follow_up_instructions: Optional[str] = None
-    monitoring_requirements: Optional[List[str]] = Field(default_factory=list)
-
-class TreatmentBase(BaseSchema):
-    """Base treatment schema"""
-    treatment_type: str = Field(..., regex="^(medication|procedure|therapy|lifestyle|other)$")
-    treatment_name: str = Field(..., min_length=1, max_length=300)
-    description: Optional[str] = None
-    instructions: Optional[str] = None
-    
-    # Medication details (optional, used when treatment_type = "medication")
-    medication_details: Optional[MedicationTreatment] = None
-    
-    # Non-pharmacological details
-    non_pharm_details: Optional[NonPharmacologicalTreatment] = None
-    
-    @validator('medication_details')
-    def validate_medication_details(cls, v, values):
-        if values.get('treatment_type') == 'medication' and not v:
-            raise ValueError('Medication details required for medication treatments')
-        return v
-
-class TreatmentCreate(TreatmentBase):
-    """Schema for creating a new treatment"""
+class TreatmentBase(BaseModel):
+    """Base treatment fields"""
     episode_id: UUID
     diagnosis_id: Optional[UUID] = None
-    created_by: Optional[str] = "ai_system"
+    treatment_type: str = "medication"
+    name: str
+    description: Optional[str] = None
+    dosage: Optional[str] = None
+    frequency: Optional[str] = None
+    route: Optional[str] = None
+    duration: Optional[str] = None
+    instructions: Optional[str] = None
+    monitoring_requirements: Optional[str] = ""
+    contraindications: Optional[str] = ""
+    side_effects: Optional[str] = ""
+    drug_interactions: Optional[str] = ""
+    lifestyle_modifications: Optional[str] = ""
+    follow_up_instructions: Optional[str] = ""
+    patient_education: Optional[str] = ""
+    prescriber: Optional[str] = None
+    approved_by: Optional[str] = None
+
+class TreatmentCreate(TreatmentBase):
+    """Schema for creating a treatment"""
+    pass
 
 class TreatmentUpdate(BaseModel):
     """Schema for updating a treatment"""
-    treatment_type: Optional[str] = Field(None, regex="^(medication|procedure|therapy|lifestyle|other)$")
-    treatment_name: Optional[str] = Field(None, min_length=1, max_length=300)
+    treatment_type: Optional[str] = None
+    name: Optional[str] = None
     description: Optional[str] = None
+    dosage: Optional[str] = None
+    frequency: Optional[str] = None
+    route: Optional[str] = None
+    duration: Optional[str] = None
     instructions: Optional[str] = None
-    
-    # Status and approval
-    status: Optional[str] = Field(None, regex="^(planned|approved|active|completed|discontinued)$")
+    monitoring_requirements: Optional[str] = None
+    contraindications: Optional[str] = None
+    side_effects: Optional[str] = None
+    drug_interactions: Optional[str] = None
+    lifestyle_modifications: Optional[str] = None
+    follow_up_instructions: Optional[str] = None
+    patient_education: Optional[str] = None
+    prescriber: Optional[str] = None
     approved_by: Optional[str] = None
+    status: Optional[str] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
-    
-    # Medication details
-    medication_details: Optional[MedicationTreatment] = None
-    
-    # Non-pharmacological details
-    non_pharm_details: Optional[NonPharmacologicalTreatment] = None
 
 class TreatmentResponse(TreatmentBase):
-    """Schema for treatment response"""
+    """Schema for treatment responses"""
     id: UUID
-    episode_id: UUID
-    diagnosis_id: Optional[UUID] = None
-    
-    # Status and approval
-    status: str
-    approved_by: Optional[str] = None
+    status: str = "active"
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
-    
-    # Metadata
     created_at: datetime
     updated_at: datetime
-    created_by: str
+    created_by: Optional[str] = "system"
     
-    # Computed fields
-    is_active: Optional[bool] = None
-    is_medication: Optional[bool] = None
-    
-    @validator('is_active', always=True)
-    def calculate_is_active(cls, v, values):
-        return values.get('status') in ['approved', 'active']
-    
-    @validator('is_medication', always=True)
-    def calculate_is_medication(cls, v, values):
-        return values.get('treatment_type') == 'medication'
+    class Config:
+        from_attributes = True
 
-class TreatmentListResponse(PaginatedResponse[TreatmentResponse]):
-    """Paginated list of treatments"""
-    pass
+class TreatmentListResponse(BaseModel):
+    """Schema for paginated treatment list"""
+    data: List[TreatmentResponse]
+    total: int
+    page: int = 1
+    size: int = 20

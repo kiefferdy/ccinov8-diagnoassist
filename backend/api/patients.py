@@ -1,9 +1,9 @@
 """
-Patient API Router for DiagnoAssist
-CRUD operations for patient management with comprehensive exception handling
+Patient API Router for DiagnoAssist - FIXED VERSION
+CRUD operations for patient management with proper FastAPI exceptions
 """
 
-from fastapi import APIRouter, Depends, Query, Path
+from fastapi import APIRouter, Depends, Query, Path, HTTPException, status
 from typing import List, Optional
 from uuid import UUID
 
@@ -18,25 +18,14 @@ from schemas.patient import (
     PatientListResponse
 )
 from schemas.episode import EpisodeCreate
-from schemas.common import StatusResponse, PaginatedResponse
-
-# Import exceptions - using the global exception system
-from exceptions import (
-    ValidationException,
-    ResourceNotFoundException,
-    ResourceConflictException,
-    BusinessRuleException,
-    PatientSafetyException,
-    AuthenticationException,
-    AuthorizationException
-)
+from schemas.common import StatusResponse
 
 # Create router
 router = APIRouter(prefix="/patients", tags=["patients"])
 
 
 # =============================================================================
-# Patient CRUD Operations
+# Patient CRUD Operations - FIXED WITH HTTPException
 # =============================================================================
 
 @router.post("/", response_model=PatientResponse, status_code=201)
@@ -57,26 +46,42 @@ async def create_patient(
         Created patient data
         
     Raises:
-        ValidationException: Invalid patient data
-        ResourceConflictException: Email/MRN already exists
-        BusinessRuleException: Business rule violation
-        AuthenticationException: User not authenticated
-        AuthorizationException: User lacks permission
+        HTTPException: Various HTTP errors based on the issue
     """
     # Authorization check - can create patients
     if not current_user or not current_user.get("permissions", {}).get("patient.create", False):
-        raise AuthorizationException(
-            message="Insufficient permissions to create patients",
-            required_permission="patient.create"
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to create patients"
         )
     
-    # Create patient through service layer
-    patient = services.patient.create_patient(
-        patient_data=patient_data,
-        created_by=current_user["user_id"]
-    )
-    
-    return patient
+    try:
+        # Create patient through service layer
+        patient = services.patient.create_patient(
+            patient_data=patient_data,
+            created_by=current_user["user_id"]
+        )
+        
+        return patient
+    except Exception as e:
+        # Convert service exceptions to HTTP exceptions
+        error_message = str(e)
+        
+        if "already exists" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=error_message
+            )
+        elif "validation" in error_message.lower() or "invalid" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=error_message
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to create patient: {error_message}"
+            )
 
 
 @router.get("/", response_model=PatientListResponse)
@@ -100,18 +105,28 @@ async def get_patients(
     Returns:
         Paginated list of patients
     """
-    # Authorization check
+    # Authorization check - FIXED to use HTTPException
     if not current_user:
-        raise AuthenticationException(message="Authentication required")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
     
-    # Get patients through service layer
-    patients = services.patient.get_patients(
-        pagination=pagination,
-        search=search,
-        status=status
-    )
-    
-    return patients
+    try:
+        # Get patients through service layer
+        patients = services.patient.get_patients(
+            pagination=pagination,
+            search=search,
+            status=status
+        )
+        
+        return patients
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve patients: {str(e)}"
+        )
 
 
 @router.get("/{patient_id}", response_model=PatientResponse)
@@ -133,12 +148,29 @@ async def get_patient(
     """
     # Authorization check
     if not current_user:
-        raise AuthenticationException(message="Authentication required")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
     
-    # Get patient through service layer
-    patient = services.patient.get_patient(str(patient_id))
-    
-    return patient
+    try:
+        # Get patient through service layer
+        patient = services.patient.get_patient(str(patient_id))
+        return patient
+    except Exception as e:
+        error_message = str(e)
+        
+        if "not found" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Patient {patient_id} not found"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to retrieve patient: {error_message}"
+            )
 
 
 @router.put("/{patient_id}", response_model=PatientResponse)
@@ -152,7 +184,7 @@ async def update_patient(
     Update patient information
     
     Args:
-        patient_data: Updated patient data
+        patient_data: Patient update data
         services: Injected services
         current_user: Current authenticated user
         patient_id: Patient UUID
@@ -162,55 +194,88 @@ async def update_patient(
     """
     # Authorization check
     if not current_user or not current_user.get("permissions", {}).get("patient.update", False):
-        raise AuthorizationException(
-            message="Insufficient permissions to update patients",
-            required_permission="patient.update"
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to update patients"
         )
     
-    # Update patient through service layer
-    patient = services.patient.update_patient(
-        patient_id=str(patient_id),
-        patient_data=patient_data,
-        updated_by=current_user["user_id"]
-    )
-    
-    return patient
+    try:
+        # Update patient through service layer
+        updated_patient = services.patient.update_patient(
+            patient_id=str(patient_id),
+            patient_data=patient_data,
+            updated_by=current_user["user_id"]
+        )
+        
+        return updated_patient
+    except Exception as e:
+        error_message = str(e)
+        
+        if "not found" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Patient {patient_id} not found"
+            )
+        elif "already exists" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=error_message
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to update patient: {error_message}"
+            )
 
 
-@router.delete("/{patient_id}", response_model=StatusResponse)
+@router.delete("/{patient_id}", status_code=204)
 async def delete_patient(
     services: ServiceDep,
     current_user: CurrentUserDep,
     patient_id: UUID = Path(..., description="Patient ID")
 ):
     """
-    Delete patient (soft delete)
+    Delete patient
     
     Args:
         services: Injected services
         current_user: Current authenticated user
         patient_id: Patient UUID
-        
-    Returns:
-        Deletion status
     """
     # Authorization check
     if not current_user or not current_user.get("permissions", {}).get("patient.delete", False):
-        raise AuthorizationException(
-            message="Insufficient permissions to delete patients",
-            required_permission="patient.delete"
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to delete patients"
         )
     
-    # Delete patient through service layer
-    services.patient.delete_patient(
-        patient_id=str(patient_id),
-        deleted_by=current_user["user_id"]
-    )
-    
-    return StatusResponse(
-        success=True,
-        message=f"Patient {patient_id} deleted successfully"
-    )
+    try:
+        # Delete patient through service layer
+        services.patient.delete_patient(
+            patient_id=str(patient_id),
+            deleted_by=current_user["user_id"]
+        )
+        
+        # Return 204 No Content (successful deletion)
+        return None
+    except Exception as e:
+        error_message = str(e)
+        
+        if "not found" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Patient {patient_id} not found"
+            )
+        elif "active episodes" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Cannot delete patient with active episodes"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to delete patient: {error_message}"
+            )
 
 
 @router.get("/{patient_id}/summary")
@@ -232,15 +297,28 @@ async def get_patient_summary(
     """
     # Authorization check
     if not current_user or not current_user.get("permissions", {}).get("patient.read", False):
-        raise AuthorizationException(
-            message="Insufficient permissions to view patient summary",
-            required_permission="patient.read"
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to view patient summary"
         )
     
-    # Get patient summary through service layer
-    summary = services.patient.get_patient_summary(str(patient_id))
-    
-    return summary
+    try:
+        # Get patient summary through service layer
+        summary = services.patient.get_patient_summary(str(patient_id))
+        return summary
+    except Exception as e:
+        error_message = str(e)
+        
+        if "not found" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Patient {patient_id} not found"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to get patient summary: {error_message}"
+            )
 
 
 @router.get("/{patient_id}/episodes")
@@ -264,15 +342,25 @@ async def get_patient_episodes(
     """
     # Authorization check
     if not current_user:
-        raise AuthenticationException(message="Authentication required")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
     
-    # Get episodes through episode service
-    episodes = services.episode.get_episodes_by_patient(
-        patient_id=str(patient_id),
-        status=status
-    )
-    
-    return episodes
+    try:
+        # Get episodes through episode service
+        episodes = services.episode.get_episodes_by_patient(
+            patient_id=str(patient_id),
+            status=status
+        )
+        
+        return episodes
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get patient episodes: {str(e)}"
+        )
 
 
 @router.post("/{patient_id}/episodes", status_code=201)
@@ -296,24 +384,38 @@ async def create_patient_episode(
     """
     # Authorization check
     if not current_user or not current_user.get("permissions", {}).get("episode.create", False):
-        raise AuthorizationException(
-            message="Insufficient permissions to create episodes",
-            required_permission="episode.create"
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to create episodes"
         )
     
-    # Verify patient exists first
-    services.patient.get_patient(str(patient_id))  # Will raise if not found
-    
-    # Ensure patient_id is set correctly in episode data
-    episode_data.patient_id = patient_id
-    
-    # Create episode through service layer
-    episode = services.episode.create_episode(
-        episode_data=episode_data,
-        created_by=current_user["user_id"]
-    )
-    
-    return episode
+    try:
+        # Verify patient exists first
+        services.patient.get_patient(str(patient_id))  # Will raise if not found
+        
+        # Ensure patient_id is set correctly in episode data
+        episode_data.patient_id = patient_id
+        
+        # Create episode through service layer
+        episode = services.episode.create_episode(
+            episode_data=episode_data,
+            created_by=current_user["user_id"]
+        )
+        
+        return episode
+    except Exception as e:
+        error_message = str(e)
+        
+        if "not found" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Patient {patient_id} not found"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to create episode: {error_message}"
+            )
 
 
 # =============================================================================
@@ -339,12 +441,29 @@ async def get_patient_by_mrn(
     """
     # Authorization check
     if not current_user:
-        raise AuthenticationException(message="Authentication required")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
     
-    # Search by MRN through service layer
-    patient = services.patient.get_patient_by_mrn(mrn)
-    
-    return patient
+    try:
+        # Search by MRN through service layer
+        patient = services.patient.get_patient_by_mrn(mrn)
+        return patient
+    except Exception as e:
+        error_message = str(e)
+        
+        if "not found" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Patient with MRN {mrn} not found"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to search patient: {error_message}"
+            )
 
 
 @router.get("/search/by-email/{email}")
@@ -366,12 +485,29 @@ async def get_patient_by_email(
     """
     # Authorization check
     if not current_user:
-        raise AuthenticationException(message="Authentication required")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
     
-    # Search by email through service layer
-    patient = services.patient.get_patient_by_email(email)
-    
-    return patient
+    try:
+        # Search by email through service layer
+        patient = services.patient.get_patient_by_email(email)
+        return patient
+    except Exception as e:
+        error_message = str(e)
+        
+        if "not found" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Patient with email {email} not found"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to search patient: {error_message}"
+            )
 
 
 # Export router

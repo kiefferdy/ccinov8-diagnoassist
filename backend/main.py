@@ -1,7 +1,7 @@
 """
 DiagnoAssist FastAPI Application Entry Point
 FHIR R4 Compliant Medical Diagnosis Assistant API
-FIXED: Environment variables loading
+UPDATED: Added proper exception handling for CRUD tests
 """
 
 import os
@@ -11,6 +11,8 @@ from typing import Dict, Any, Optional
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
 import uvicorn
 
 # FIXED: Load .env file first
@@ -81,6 +83,42 @@ logging.basicConfig(
 )
 logger = logging.getLogger("diagnoassist")
 
+# ===========================================================================
+# ADDED: Exception Handlers for Proper Error Codes
+# ===========================================================================
+
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle Pydantic validation errors properly (422 instead of 500)"""
+    logger.warning(f"Validation error for {request.method} {request.url}: {exc.errors()}")
+    
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": exc.errors(),
+            "body": exc.body if hasattr(exc, 'body') else None
+        }
+    )
+
+async def pydantic_validation_exception_handler(request: Request, exc: ValidationError):
+    """Handle Pydantic ValidationError exceptions"""
+    logger.warning(f"Pydantic validation error for {request.method} {request.url}: {exc.errors()}")
+    
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": exc.errors()
+        }
+    )
+
+async def general_exception_handler(request: Request, exc: Exception):
+    """Handle unexpected exceptions"""
+    logger.error(f"Unexpected error for {request.method} {request.url}: {str(exc)}", exc_info=True)
+    
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"}
+    )
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan with safe startup"""
@@ -132,6 +170,17 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan
 )
+
+# ===========================================================================
+# ADDED: Register Exception Handlers
+# ===========================================================================
+
+# Register exception handlers for proper error codes
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(ValidationError, pydantic_validation_exception_handler)
+app.add_exception_handler(Exception, general_exception_handler)
+
+print("✅ Exception handlers registered - validation errors will now return 422")
 
 # Add CORS middleware
 app.add_middleware(
@@ -233,6 +282,26 @@ async def exception_system_health():
             }
         )
 
+# ===========================================================================
+# ADDED: Development Auth Test Endpoint
+# ===========================================================================
+
+@app.get("/test/auth", tags=["Development"])
+async def test_auth_endpoint():
+    """Test endpoint to verify authentication setup for development"""
+    return {
+        "message": "This endpoint tests authentication",
+        "instructions": [
+            "Send a request with 'Authorization: Bearer any-token' header",
+            "The API will return a mock user in development mode",
+            "This allows CRUD tests to work without real authentication"
+        ],
+        "example_headers": {
+            "Authorization": "Bearer dev-token-123",
+            "Content-Type": "application/json"
+        }
+    }
+
 @app.get("/", tags=["Health"])
 async def root():
     """Root endpoint"""
@@ -245,7 +314,8 @@ async def root():
             "documentation": "/docs",
             "health_check": "/health",
             "fhir_metadata": "/fhir/R4/metadata",
-            "fhir_patients": "/fhir/R4/Patient"
+            "fhir_patients": "/fhir/R4/Patient",
+            "test_auth": "/test/auth"  # Added for development
         }
     }
 
@@ -256,6 +326,7 @@ def start_server():
     print(f"📍 Host: 0.0.0.0")
     print(f"🔌 Port: 8000")
     print(f"🔄 Reload: True")
+    print("🔧 Exception handlers enabled for proper validation errors")
     
     try:
         # Use string format to fix uvicorn warning and ensure server stays up

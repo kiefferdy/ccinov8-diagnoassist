@@ -1,101 +1,102 @@
 """
 Episode Pydantic Schemas
 """
-
-from typing import Dict, List, Optional, Any
-from datetime import datetime
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, validator, EmailStr
+from typing import Optional, List
+from datetime import datetime, date
 from uuid import UUID
 
 from .common import BaseSchema, PaginatedResponse
 
 class VitalSigns(BaseModel):
-    """Vital signs sub-schema"""
-    blood_pressure_systolic: Optional[int] = Field(None, ge=50, le=300)
-    blood_pressure_diastolic: Optional[int] = Field(None, ge=30, le=200) 
-    heart_rate: Optional[int] = Field(None, ge=30, le=250)
-    respiratory_rate: Optional[int] = Field(None, ge=5, le=60)
-    temperature: Optional[float] = Field(None, ge=30.0, le=45.0)  # Celsius
-    oxygen_saturation: Optional[int] = Field(None, ge=50, le=100)
-    weight: Optional[float] = Field(None, ge=0, le=1000)  # kg
-    height: Optional[float] = Field(None, ge=0, le=300)  # cm
-    bmi: Optional[float] = Field(None, ge=10, le=100)
+    """Simplified vital signs"""
+    blood_pressure_systolic: Optional[int] = None
+    blood_pressure_diastolic: Optional[int] = None
+    heart_rate: Optional[int] = None
+    temperature: Optional[float] = None
+    respiratory_rate: Optional[int] = None
+    oxygen_saturation: Optional[int] = None
+
+class EpisodeBase(BaseModel):
+    """Base episode fields"""
+    patient_id: UUID
+    chief_complaint: str
+    encounter_type: str = "outpatient"
+    priority: str = "routine"
     
-    @validator('bmi', always=True)
-    def calculate_bmi(cls, v, values):
-        if not v and values.get('weight') and values.get('height'):
-            weight_kg = values['weight']
-            height_m = values['height'] / 100
-            return round(weight_kg / (height_m ** 2), 1)
+    # Vital signs as individual fields
+    blood_pressure_systolic: Optional[int] = None
+    blood_pressure_diastolic: Optional[int] = None
+    heart_rate: Optional[int] = None
+    temperature: Optional[float] = None
+    respiratory_rate: Optional[int] = None
+    oxygen_saturation: Optional[int] = None
+    
+    # Notes as simple strings
+    symptoms: Optional[str] = ""
+    physical_exam_findings: Optional[str] = ""
+    clinical_notes: Optional[str] = ""
+    assessment_notes: Optional[str] = ""
+    plan_notes: Optional[str] = ""
+    
+    # Provider and location
+    provider_id: Optional[str] = None
+    location: Optional[str] = None
+    
+    @validator('encounter_type')
+    def validate_encounter_type(cls, v):
+        valid_types = ['outpatient', 'inpatient', 'emergency']
+        if v not in valid_types:
+            return 'outpatient'
+        return v
+    
+    @validator('priority')
+    def validate_priority(cls, v):
+        valid_priorities = ['routine', 'urgent', 'emergent']
+        if v not in valid_priorities:
+            return 'routine'
         return v
 
-class PhysicalExamFindings(BaseModel):
-    """Physical examination findings sub-schema"""
-    general_appearance: Optional[str] = None
-    skin: Optional[str] = None
-    head_neck: Optional[str] = None
-    cardiovascular: Optional[str] = None
-    respiratory: Optional[str] = None
-    abdominal: Optional[str] = None
-    neurological: Optional[str] = None
-    musculoskeletal: Optional[str] = None
-    psychiatric: Optional[str] = None
-    additional_findings: Optional[Dict[str, Any]] = Field(default_factory=dict)
-
-class EpisodeBase(BaseSchema):
-    """Base episode schema"""
-    chief_complaint: str = Field(..., min_length=1, max_length=500)
-    encounter_type: str = Field("outpatient", regex="^(outpatient|inpatient|emergency)$")
-    priority: str = Field("routine", regex="^(routine|urgent|emergent)$")
-    provider_id: Optional[str] = Field(None, max_length=100)
-    location: Optional[str] = Field(None, max_length=200)
-    
-    # Clinical data
-    vital_signs: Optional[VitalSigns] = None
-    symptoms: Optional[List[str]] = Field(default_factory=list)
-    physical_exam_findings: Optional[PhysicalExamFindings] = None
-    
-    # Notes
-    clinical_notes: Optional[str] = None
-    assessment_notes: Optional[str] = None  
-    plan_notes: Optional[str] = None
-
 class EpisodeCreate(EpisodeBase):
-    """Schema for creating a new episode"""
-    patient_id: UUID
+    """Schema for creating an episode"""
+    pass
 
 class EpisodeUpdate(BaseModel):
     """Schema for updating an episode"""
-    chief_complaint: Optional[str] = Field(None, min_length=1, max_length=500)
-    status: Optional[str] = Field(None, regex="^(in-progress|completed|cancelled)$")
-    encounter_type: Optional[str] = Field(None, regex="^(outpatient|inpatient|emergency)$")
-    priority: Optional[str] = Field(None, regex="^(routine|urgent|emergent)$") 
-    provider_id: Optional[str] = Field(None, max_length=100)
-    location: Optional[str] = Field(None, max_length=200)
-    end_time: Optional[datetime] = None
-    vital_signs: Optional[VitalSigns] = None
-    symptoms: Optional[List[str]] = None
-    physical_exam_findings: Optional[PhysicalExamFindings] = None
+    chief_complaint: Optional[str] = None
+    encounter_type: Optional[str] = None
+    priority: Optional[str] = None
+    blood_pressure_systolic: Optional[int] = None
+    blood_pressure_diastolic: Optional[int] = None
+    heart_rate: Optional[int] = None
+    temperature: Optional[float] = None
+    respiratory_rate: Optional[int] = None
+    oxygen_saturation: Optional[int] = None
+    symptoms: Optional[str] = None
+    physical_exam_findings: Optional[str] = None
     clinical_notes: Optional[str] = None
     assessment_notes: Optional[str] = None
     plan_notes: Optional[str] = None
+    provider_id: Optional[str] = None
+    location: Optional[str] = None
+    status: Optional[str] = None
 
 class EpisodeResponse(EpisodeBase):
-    """Schema for episode response"""
+    """Schema for episode responses"""
     id: UUID
-    patient_id: UUID
-    status: str
-    start_time: datetime
-    end_time: Optional[datetime] = None
-    duration_seconds: Optional[float] = None
-    is_active: bool
+    status: str = "active"
+    start_date: datetime
+    end_date: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+    created_by: Optional[str] = "system"
     
-    # Counts for related data
-    diagnoses_count: Optional[int] = 0
-    treatments_count: Optional[int] = 0
+    class Config:
+        from_attributes = True
 
-class EpisodeListResponse(PaginatedResponse[EpisodeResponse]):
-    """Paginated list of episodes"""
-    pass
+class EpisodeListResponse(BaseModel):
+    """Schema for paginated episode list"""
+    data: List[EpisodeResponse]
+    total: int
+    page: int = 1
+    size: int = 20
