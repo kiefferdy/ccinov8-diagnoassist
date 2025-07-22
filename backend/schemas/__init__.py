@@ -56,6 +56,36 @@ from .common import (
     HealthCheckResponse
 )
 
+from .clinical_data import (
+    # Clinical notes
+    ClinicalNoteCreate,
+    ClinicalNoteResponse,
+    
+    # Evidence and refinement
+    DiagnosisEvidence,
+    DiagnosisRefinement, 
+    DiagnosisConfirmation,
+    
+    # AI analysis
+    SymptomAnalysisInput,
+    
+    # Treatment planning
+    TreatmentPlanGeneration,
+    TreatmentPlanResponse,
+    
+    # Monitoring
+    TreatmentMonitoring,
+    TreatmentMonitoringResponse,
+    
+    # Treatment lifecycle
+    TreatmentStart,
+    TreatmentCompletion,
+    TreatmentDiscontinuation,
+    
+    # Safety
+    SafetyAlert
+)
+
 __all__ = [
     # Patient schemas
     "PatientBase", "PatientCreate", "PatientUpdate", "PatientResponse", "PatientListResponse",
@@ -76,5 +106,14 @@ __all__ = [
     "FHIRResourceBase", "FHIRResourceCreate", "FHIRResourceResponse", "FHIRResourceListResponse",
     
     # Common schemas
-    "StatusResponse", "ErrorResponse", "PaginationParams", "PaginatedResponse", "HealthCheckResponse"
+    "StatusResponse", "ErrorResponse", "PaginationParams", "PaginatedResponse", "HealthCheckResponse",
+    
+    # Clinical data schemas
+    "ClinicalNoteCreate", "ClinicalNoteResponse",
+    "DiagnosisEvidence", "DiagnosisRefinement", "DiagnosisConfirmation",
+    "SymptomAnalysisInput",
+    "TreatmentPlanGeneration", "TreatmentPlanResponse",
+    "TreatmentMonitoring", "TreatmentMonitoringResponse",
+    "TreatmentStart", "TreatmentCompletion", "TreatmentDiscontinuation",
+    "SafetyAlert"
 ]
