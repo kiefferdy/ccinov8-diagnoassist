@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from schemas.diagnosis import DiagnosisCreate, DiagnosisUpdate, DiagnosisResponse
     from repositories.repository_manager import RepositoryManager
 
-from services.base_service import BaseService, ValueError
+from services.base_service import BaseService
 
 class DiagnosisService(BaseService):
     """
@@ -141,8 +141,7 @@ class DiagnosisService(BaseService):
                 existing_final = self.repos.diagnosis.get_final_diagnosis_by_episode(episode_id)
                 if existing_final and str(existing_final.id) != diagnosis_id:
                     raise RuntimeError(
-                        "Episode already has a final diagnosis. Clear existing final diagnosis first",
-                        rule="one_final_diagnosis_per_episode"
+                        "Episode already has a final diagnosis. Clear existing final diagnosis first"
                     )
             
             # Update diagnosis
@@ -191,8 +190,7 @@ class DiagnosisService(BaseService):
             if active_treatments:
                 raise RuntimeError(
                     f"Cannot delete diagnosis with {len(active_treatments)} active treatments. "
-                    "Complete or cancel treatments first.",
-                    rule="no_active_treatments_for_diagnosis_deletion"
+                    "Complete or cancel treatments first."
                 )
             
             # Soft delete by setting status to inactive
@@ -300,8 +298,7 @@ class DiagnosisService(BaseService):
             
             if str(diagnosis.episode_id) != episode_id:
                 raise RuntimeError(
-                    "Diagnosis does not belong to the specified episode",
-                    rule="diagnosis_episode_match"
+                    "Diagnosis does not belong to the specified episode"
                 )
             
             # Clear any existing final diagnosis

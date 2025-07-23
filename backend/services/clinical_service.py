@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from schemas.diagnosis import DiagnosisResponse
     from schemas.treatment import TreatmentResponse
 
-from services.base_service import BaseService, ValueError
+from services.base_service import BaseService
 from services.patient_service import PatientService
 from services.episode_service import EpisodeService
 from services.diagnosis_service import DiagnosisService
@@ -125,8 +125,7 @@ class ClinicalService(BaseService):
             episode = self.episode_service.get_episode(episode_id)
             if episode.status != "in-progress":
                 raise RuntimeError(
-                    "Cannot complete assessment for non-active episode",
-                    rule="active_episode_required"
+                    "Cannot complete assessment for non-active episode"
                 )
             
             created_diagnoses = []
@@ -217,8 +216,7 @@ class ClinicalService(BaseService):
             episode = self.episode_service.get_episode(episode_id)
             if episode.status != "in-progress":
                 raise RuntimeError(
-                    "Cannot finalize non-active episode",
-                    rule="active_episode_required"
+                    "Cannot finalize non-active episode"
                 )
             
             # Set final diagnosis if provided

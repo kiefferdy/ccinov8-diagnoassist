@@ -4,7 +4,7 @@ FHIR Resource Pydantic Schemas - CORRECTED to match SQL schema
 
 from pydantic import BaseModel, validator, Field
 from typing import Optional, List, Dict, Any
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from uuid import UUID
 import json
 
@@ -121,4 +121,4 @@ class FHIRResourceStatistics(BaseModel):
     active_resources: int
     inactive_resources: int
     resource_type_distribution: Dict[str, int]
-    last_updated: datetime = Field(default_factory=datetime.utcnow)
+    last_updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

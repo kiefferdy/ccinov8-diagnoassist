@@ -6,7 +6,7 @@ from sqlalchemy import Column, String, DateTime, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy import ForeignKey
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 try:
@@ -48,7 +48,7 @@ class Treatment(Base):
     
     # Treatment timing
     status = Column(String(50), default="active", nullable=False)
-    start_date = Column(DateTime, default=datetime.utcnow)
+    start_date = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     end_date = Column(DateTime)
     
     # Patient care
@@ -61,8 +61,8 @@ class Treatment(Base):
     approved_by = Column(String(100))
     
     # System fields
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
     created_by = Column(String(100), default="system")
     
     # Relationships

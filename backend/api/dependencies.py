@@ -17,6 +17,10 @@ from services.dependencies import (
     check_database_health
 )
 
+# Import types for annotations
+from repositories.repository_manager import RepositoryManager
+from services.service_manager import ServiceManager
+
 # Import common schemas
 from schemas.common import PaginationParams
 
@@ -155,8 +159,15 @@ def validate_uuid(uuid_str: str) -> str:
 # FIXED: Dependency Aliases - These are the key fixes!
 # =============================================================================
 
+# Alias for backward compatibility
+get_database = get_database_session
+
+# Database and repository dependencies  
+DatabaseDep = Annotated[Session, Depends(get_database_session)]
+RepositoryDep = Annotated[RepositoryManager, Depends(get_repository_manager)]
+
 # Service dependencies
-ServiceDep = Depends(get_service_manager)
+ServiceDep = Annotated[ServiceManager, Depends(get_service_manager)]
 
 # FIXED: Authentication dependencies with proper typing
 # The key is that these should NOT be used as response model types
@@ -176,8 +187,11 @@ ServicesHealthDep = Annotated[bool, Depends(check_services_health)]
 __all__ = [
     # Core service dependencies
     "get_database_session",
+    "get_database",  # Alias for backward compatibility
     "get_repository_manager",
     "get_service_manager", 
+    "DatabaseDep",
+    "RepositoryDep",
     "ServiceDep",
     "check_services_health",
     "check_database_health",

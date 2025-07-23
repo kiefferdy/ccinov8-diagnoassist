@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from schemas.fhir_resource import FHIRResourceCreate, FHIRResourceResponse
     from repositories.repository_manager import RepositoryManager
 
-from services.base_service import BaseService, ValueError
+from services.base_service import BaseService
 
 class FHIRService(BaseService):
     """
@@ -44,9 +44,7 @@ class FHIRService(BaseService):
         if "resource_type" in data and data["resource_type"]:
             if data["resource_type"] not in self.supported_resource_types:
                 raise ValueError(
-                    f"Unsupported resource type: {data['resource_type']}. Supported types: {', '.join(self.supported_resource_types)}",
-                    field="resource_type",
-                    value=data["resource_type"]
+                    f"Unsupported resource type: {data['resource_type']}. Supported types: {', '.join(self.supported_resource_types)}"
                 )
         
         # Validate FHIR data structure
@@ -60,8 +58,7 @@ class FHIRService(BaseService):
             )
             if existing:
                 raise RuntimeError(
-                    f"FHIR resource {data['resource_type']}/{data['resource_id']} already exists",
-                    rule="unique_resource_id_per_type"
+                    f"FHIR resource {data['resource_type']}/{data['resource_id']} already exists"
                 )
     
     def create_fhir_resource(self, fhir_data: Dict[str, Any]) -> FHIRResourceResponse:
@@ -123,7 +120,7 @@ class FHIRService(BaseService):
             
             return FHIRResourceResponse.model_validate(fhir_resource)
             
-        except (ValueError, RuntimeError):
+        except (RuntimeError):
             self.safe_rollback("FHIR resource creation")
             raise
         except Exception as e:

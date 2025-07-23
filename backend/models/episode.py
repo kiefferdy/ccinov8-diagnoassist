@@ -6,7 +6,7 @@ from sqlalchemy import Column, String, DateTime, Text, Integer, Numeric
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy import ForeignKey
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 try:
@@ -49,7 +49,7 @@ class Episode(Base):
     plan_notes = Column(Text, default="")
     
     # Episode timing
-    start_date = Column(DateTime, default=datetime.utcnow, nullable=False)
+    start_date = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     end_date = Column(DateTime)
     
     # Provider and location
@@ -57,8 +57,8 @@ class Episode(Base):
     location = Column(String(200))
     
     # System fields
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
     created_by = Column(String(100), default="system")
     
     # Relationships

@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from schemas.treatment import TreatmentCreate, TreatmentUpdate, TreatmentResponse, MedicationTreatment
     from repositories.repository_manager import RepositoryManager
 
-from services.base_service import BaseService, ValueError
+from services.base_service import BaseService
 
 class TreatmentService(BaseService):
     """
@@ -54,8 +54,7 @@ class TreatmentService(BaseService):
             
             if episode.status != "in-progress":
                 raise RuntimeError(
-                    "Cannot add treatment to completed or cancelled episode",
-                    rule="active_episode_required"
+                    "Cannot add treatment to completed or cancelled episode"
                 )
             
             # Validate diagnosis if provided
@@ -67,8 +66,7 @@ class TreatmentService(BaseService):
                 # Verify diagnosis belongs to same episode
                 if str(diagnosis.episode_id) != str(data_dict["episode_id"]):
                     raise RuntimeError(
-                        "Diagnosis must belong to the same episode as the treatment",
-                        rule="diagnosis_episode_match"
+                        "Diagnosis must belong to the same episode as the treatment"
                     )
             
             # Validate business rules
@@ -80,8 +78,7 @@ class TreatmentService(BaseService):
                 if (existing.treatment_name.lower().strip() == data_dict["treatment_name"].lower().strip() and
                     existing.status in ["planned", "approved", "active"]):
                     raise RuntimeError(
-                        f"Active treatment '{data_dict['treatment_name']}' already exists for this episode",
-                        rule="unique_active_treatment_per_episode"
+                        f"Active treatment '{data_dict['treatment_name']}' already exists for this episode"
                     )
             
             # Set default values
@@ -141,8 +138,7 @@ class TreatmentService(BaseService):
                 if not update_fields.issubset(allowed_fields):
                     disallowed = update_fields - allowed_fields
                     raise RuntimeError(
-                        f"Cannot modify fields {disallowed} on completed treatment",
-                        rule="completed_treatment_limited_updates"
+                        f"Cannot modify fields {disallowed} on completed treatment"
                     )
             
             # Auto-set end_date if status is being changed to completed
@@ -243,8 +239,7 @@ class TreatmentService(BaseService):
             # Business rule: Can only approve planned treatments
             if treatment.status != "planned":
                 raise RuntimeError(
-                    f"Cannot approve treatment with status '{treatment.status}'. Only planned treatments can be approved.",
-                    rule="approve_planned_only"
+                    f"Cannot approve treatment with status '{treatment.status}'. Only planned treatments can be approved."
                 )
             
             # Prepare update data
@@ -296,8 +291,7 @@ class TreatmentService(BaseService):
             # Business rule: Can only activate approved treatments
             if treatment.status != "approved":
                 raise RuntimeError(
-                    f"Cannot activate treatment with status '{treatment.status}'. Only approved treatments can be activated.",
-                    rule="activate_approved_only"
+                    f"Cannot activate treatment with status '{treatment.status}'. Only approved treatments can be activated."
                 )
             
             # Check for drug interactions with other active treatments
@@ -305,8 +299,7 @@ class TreatmentService(BaseService):
                 conflicts = self._check_drug_interactions(treatment)
                 if conflicts:
                     raise RuntimeError(
-                        f"Drug interactions detected: {', '.join(conflicts)}",
-                        rule="drug_interaction_check"
+                        f"Drug interactions detected: {', '.join(conflicts)}"
                     )
             
             # Update treatment
@@ -352,8 +345,7 @@ class TreatmentService(BaseService):
             # Business rule: Can only discontinue active or approved treatments
             if treatment.status not in ["active", "approved"]:
                 raise RuntimeError(
-                    f"Cannot discontinue treatment with status '{treatment.status}'",
-                    rule="discontinue_active_or_approved_only"
+                    f"Cannot discontinue treatment with status '{treatment.status}'"
                 )
             
             # Update treatment

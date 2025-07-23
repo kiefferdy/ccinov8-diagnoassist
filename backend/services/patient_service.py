@@ -55,8 +55,7 @@ class PatientService(BaseService):
             existing_patient = self.repos.patient.get_by_mrn(data["medical_record_number"])
             if existing_patient:
                 raise RuntimeError(
-                    f"Medical Record Number '{data['medical_record_number']}' already exists",
-                    rule="unique_mrn"
+                    f"Medical Record Number '{data['medical_record_number']}' already exists"
                 )
             
             # Check for duplicate email if provided
@@ -64,8 +63,7 @@ class PatientService(BaseService):
                 existing_email = self.repos.patient.get_by_email(data["email"])
                 if existing_email:
                     raise RuntimeError(
-                        f"Email '{data['email']}' already registered to another patient",
-                        rule="unique_email"
+                        f"Email '{data['email']}' already registered to another patient"
                     )
             
             # Create patient
@@ -159,8 +157,7 @@ class PatientService(BaseService):
                 existing_mrn = self.repos.patient.get_by_mrn(data["medical_record_number"])
                 if existing_mrn and str(existing_mrn.id) != patient_id:
                     raise RuntimeError(
-                        f"Medical Record Number '{data['medical_record_number']}' already exists",
-                        rule="unique_mrn"
+                        f"Medical Record Number '{data['medical_record_number']}' already exists"
                     )
             
             # Check for duplicate email if changing
@@ -168,8 +165,7 @@ class PatientService(BaseService):
                 existing_email = self.repos.patient.get_by_email(data["email"])
                 if existing_email and str(existing_email.id) != patient_id:
                     raise RuntimeError(
-                        f"Email '{data['email']}' already registered to another patient",
-                        rule="unique_email"
+                        f"Email '{data['email']}' already registered to another patient"
                     )
             
             # Update patient
@@ -211,8 +207,7 @@ class PatientService(BaseService):
             active_episodes = self.repos.episode.get_by_patient_id(patient_id, status="active")
             if active_episodes:
                 raise RuntimeError(
-                    "Cannot delete patient with active episodes. Complete or cancel episodes first.",
-                    rule="no_active_episodes_for_deletion"
+                    "Cannot delete patient with active episodes. Complete or cancel episodes first."
                 )
             
             # Soft delete by setting status to inactive

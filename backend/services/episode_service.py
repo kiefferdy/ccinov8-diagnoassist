@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from schemas.episode import EpisodeCreate, EpisodeUpdate, EpisodeResponse, VitalSigns
     from repositories.repository_manager import RepositoryManager
 
-from services.base_service import BaseService, ValueError
+from services.base_service import BaseService
 
 class EpisodeService(BaseService):
     """
@@ -54,8 +54,7 @@ class EpisodeService(BaseService):
             
             if patient.status != "active":
                 raise RuntimeError(
-                    "Cannot create episode for inactive patient",
-                    rule="active_patient_required"
+                    "Cannot create episode for inactive patient"
                 )
             
             # Validate business rules
@@ -66,8 +65,7 @@ class EpisodeService(BaseService):
             for episode in active_episodes:
                 if episode.chief_complaint.lower().strip() == data_dict["chief_complaint"].lower().strip():
                     raise RuntimeError(
-                        f"Patient already has an active episode with the same chief complaint: '{data_dict['chief_complaint']}'",
-                        rule="unique_active_chief_complaint"
+                        f"Patient already has an active episode with the same chief complaint: '{data_dict['chief_complaint']}'"
                     )
             
             # Set default values
@@ -126,8 +124,7 @@ class EpisodeService(BaseService):
                 if not update_fields.issubset(allowed_fields):
                     disallowed = update_fields - allowed_fields
                     raise RuntimeError(
-                        f"Cannot modify fields {disallowed} on completed episode",
-                        rule="completed_episode_limited_updates"
+                        f"Cannot modify fields {disallowed} on completed episode"
                     )
             
             # Auto-set end_time if status is being changed to completed
@@ -215,8 +212,7 @@ class EpisodeService(BaseService):
             # Business rule: Can only complete in-progress episodes
             if episode.status != "in-progress":
                 raise RuntimeError(
-                    f"Cannot complete episode with status '{episode.status}'. Only in-progress episodes can be completed.",
-                    rule="complete_in_progress_only"
+                    f"Cannot complete episode with status '{episode.status}'. Only in-progress episodes can be completed."
                 )
             
             # Prepare update data
@@ -265,8 +261,7 @@ class EpisodeService(BaseService):
             # Business rule: Cannot cancel completed episodes
             if episode.status == "completed":
                 raise RuntimeError(
-                    "Cannot cancel a completed episode",
-                    rule="no_cancel_completed"
+                    "Cannot cancel a completed episode"
                 )
             
             # Update episode

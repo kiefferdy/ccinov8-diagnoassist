@@ -96,7 +96,7 @@ class BaseService(ABC):
         """
         try:
             uuid.UUID(value)
-        except (ValueError, TypeError):
+        except (TypeError):
             raise ValueError(f"Invalid UUID format for {field_name}: {value}")
     
     def get_or_raise(self, resource_type: str, resource_id: str, getter_func) -> Any:
@@ -194,7 +194,6 @@ class BaseService(ABC):
             "resource_type": resource_type,
             "resource_id": resource_id,
             "service": self.__class__.__name__,
-            "enhanced_exceptions": self.enhanced_exceptions,
             "details": details or {}
         }
         

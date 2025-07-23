@@ -71,10 +71,10 @@ class SymptomAnalysisInput(BaseModel):
     symptoms: List[str] = Field(..., min_items=1)
     duration: Optional[str] = None
     severity: Optional[str] = Field(None, pattern="^(mild|moderate|severe)$")  # FIXED: regex -> pattern
-    patient_demographics: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    patient_demographics: Optional[Dict[str, Any]] = Field(default_factory=lambda: {})
     medical_history: Optional[List[str]] = Field(default_factory=list)
     current_medications: Optional[List[str]] = Field(default_factory=list)
-    vital_signs: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    vital_signs: Optional[Dict[str, Any]] = Field(default_factory=lambda: {})
 
 
 # =============================================================================
@@ -86,7 +86,7 @@ class TreatmentPlanGeneration(BaseModel):
     patient_id: UUID
     episode_id: UUID
     diagnosis_id: UUID
-    patient_preferences: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    patient_preferences: Optional[Dict[str, Any]] = Field(default_factory=lambda: {})
     contraindications: Optional[List[str]] = Field(default_factory=list)
     current_medications: Optional[List[str]] = Field(default_factory=list)
     severity: str = Field(..., pattern="^(mild|moderate|severe)$")  # FIXED: regex -> pattern

@@ -4,7 +4,7 @@ FHIR Resource Database Model - CORRECTED to match SQL schema exactly
 
 from sqlalchemy import Column, String, DateTime, Text, Integer, Index
 from sqlalchemy.dialects.postgresql import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 import json
 
@@ -34,8 +34,8 @@ class FHIRResource(Base):
     fhir_data = Column(Text, nullable=False)  # Complete FHIR resource as JSON string
     
     # Metadata
-    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_updated = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     
     # Optional fields for easier querying
     patient_reference = Column(String(100), index=True)  # Patient/[id] for quick patient filtering

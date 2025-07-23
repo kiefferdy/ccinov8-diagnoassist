@@ -64,7 +64,7 @@ class HealthCheckResponse(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now)
     database: str = Field(default="unknown", description="Database connection status")
     fhir_server: str = Field(default="unknown", description="FHIR server status")
-    services: Optional[dict] = Field(default_factory=dict, description="Individual service statuses")
+    services: Optional[dict] = Field(default_factory=lambda: {}, description="Individual service statuses")
     uptime: Optional[str] = None
 
 class MessageResponse(BaseModel):

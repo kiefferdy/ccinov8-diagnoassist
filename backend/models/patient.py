@@ -5,7 +5,7 @@ Patient Database Model - Matches SQL Schema Exactly
 from sqlalchemy import Column, String, Date, DateTime, Boolean, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 import uuid
 
 try:
@@ -49,8 +49,8 @@ class Patient(Base):
     
     # System fields - matches SQL exactly
     status = Column(String, nullable=False, default="active")
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     created_by = Column(String, default="system")
     
     # Relationships
