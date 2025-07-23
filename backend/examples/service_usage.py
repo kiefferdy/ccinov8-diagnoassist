@@ -2,7 +2,8 @@
 DiagnoAssist Services Layer - Usage Examples
 """
 
-from services.dependencies import ServiceContext, get_service_manager
+from services.service_manager import ServiceContext
+from api.dependencies import get_service_manager
 from schemas.patient import PatientCreate
 from schemas.episode import EpisodeCreate
 from datetime import date

@@ -1,23 +1,16 @@
 """
-Fixed API Dependencies for DiagnoAssist API
-Single source of truth - fixes FastAPI response model issues
+Consolidated API Dependencies for DiagnoAssist API
+Single source of truth for all FastAPI dependencies
 """
 
 from fastapi import Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import Generator, Dict, Any, Optional, Annotated
 import logging
 
-# Import from services layer
-from services.dependencies import (
-    get_database_session,
-    get_repository_manager, 
-    get_service_manager,
-    check_services_health,
-    check_database_health
-)
-
-# Import types for annotations
+# Import database and managers directly
+from config.database import SessionLocal
 from repositories.repository_manager import RepositoryManager
 from services.service_manager import ServiceManager
 
@@ -25,6 +18,44 @@ from services.service_manager import ServiceManager
 from schemas.common import PaginationParams
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# CORE INFRASTRUCTURE DEPENDENCIES
+# =============================================================================
+
+def get_database_session() -> Generator[Session, None, None]:
+    """FastAPI dependency for database session"""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+def get_repository_manager(db: Session = Depends(get_database_session)) -> RepositoryManager:
+    """FastAPI dependency for repository manager"""
+    return RepositoryManager(db)
+
+def get_service_manager(repos: RepositoryManager = Depends(get_repository_manager)) -> ServiceManager:
+    """FastAPI dependency for service manager"""
+    return ServiceManager(repos)
+
+def check_services_health(services: ServiceManager = Depends(get_service_manager)) -> bool:
+    """Check health of all services"""
+    try:
+        health_status = services.health_check()
+        return health_status.get("status") == "healthy"
+    except Exception as e:
+        logger.error(f"Services health check failed: {e}")
+        return False
+
+def check_database_health(db: Session = Depends(get_database_session)) -> bool:
+    """Check database health"""
+    try:
+        db.execute(text("SELECT 1"))
+        return True
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        return False
 
 # =============================================================================
 # FIXED: Authentication Dependencies with proper type annotations
