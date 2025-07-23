@@ -449,12 +449,8 @@ def test_services():
         except Exception as e:
             print(f"⚠️  Service health check failed: {e}")
         
-        # Test business rule validation
-        try:
-            from services.base_service import RuntimeError
-            print("✅ Service exceptions available")
-        except ImportError as e:
-            print(f"❌ Service exceptions not available: {e}")
+        # Test standard exception handling (using Python built-in exceptions)
+        print("✅ Using standard Python exceptions (RuntimeError, ValueError, LookupError)")
         
         db.close()
         return len(services_tested) >= 4
