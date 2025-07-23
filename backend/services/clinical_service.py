@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from schemas.diagnosis import DiagnosisResponse
     from schemas.treatment import TreatmentResponse
 
-from services.base_service import BaseService, ValidationException, BusinessRuleException, ResourceNotFoundException
+from services.base_service import BaseService, ValueError
 from services.patient_service import PatientService
 from services.episode_service import EpisodeService
 from services.diagnosis_service import DiagnosisService
@@ -70,7 +70,7 @@ class ClinicalService(BaseService):
             # Find patient by MRN
             patient = self.patient_service.get_patient_by_mrn(patient_mrn)
             if not patient:
-                raise ResourceNotFoundException("Patient", f"MRN: {patient_mrn}")
+                raise LookupError("Patient", f"MRN: {patient_mrn}")
             
             # Create new episode
             from schemas.episode import EpisodeCreate, VitalSigns
@@ -124,7 +124,7 @@ class ClinicalService(BaseService):
             # Validate episode exists and is active
             episode = self.episode_service.get_episode(episode_id)
             if episode.status != "in-progress":
-                raise BusinessRuleException(
+                raise RuntimeError(
                     "Cannot complete assessment for non-active episode",
                     rule="active_episode_required"
                 )
@@ -216,7 +216,7 @@ class ClinicalService(BaseService):
             # Get episode and validate
             episode = self.episode_service.get_episode(episode_id)
             if episode.status != "in-progress":
-                raise BusinessRuleException(
+                raise RuntimeError(
                     "Cannot finalize non-active episode",
                     rule="active_episode_required"
                 )

@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from schemas.fhir_resource import FHIRResourceCreate, FHIRResourceResponse
     from repositories.repository_manager import RepositoryManager
 
-from services.base_service import BaseService, ValidationException, BusinessRuleException, ResourceNotFoundException
+from services.base_service import BaseService, ValueError
 
 class FHIRService(BaseService):
     """
@@ -37,13 +37,13 @@ class FHIRService(BaseService):
             operation: Operation being performed
             
         Raises:
-            BusinessRuleException: If business rules are violated
-            ValidationException: If validation fails
+            RuntimeError: If business rules are violated
+            ValueError: If validation fails
         """
         # Validate resource type
         if "resource_type" in data and data["resource_type"]:
             if data["resource_type"] not in self.supported_resource_types:
-                raise ValidationException(
+                raise ValueError(
                     f"Unsupported resource type: {data['resource_type']}. Supported types: {', '.join(self.supported_resource_types)}",
                     field="resource_type",
                     value=data["resource_type"]
@@ -59,7 +59,7 @@ class FHIRService(BaseService):
                 data["resource_type"], data["resource_id"]
             )
             if existing:
-                raise BusinessRuleException(
+                raise RuntimeError(
                     f"FHIR resource {data['resource_type']}/{data['resource_id']} already exists",
                     rule="unique_resource_id_per_type"
                 )
@@ -80,7 +80,7 @@ class FHIRService(BaseService):
             resource_id = fhir_data.get("id")
             
             if not resource_type:
-                raise ValidationException(
+                raise ValueError(
                     "FHIR resource must have a resourceType",
                     field="resourceType",
                     value=None
@@ -123,7 +123,7 @@ class FHIRService(BaseService):
             
             return FHIRResourceResponse.model_validate(fhir_resource)
             
-        except (ValidationException, BusinessRuleException):
+        except (ValueError, RuntimeError):
             self.safe_rollback("FHIR resource creation")
             raise
         except Exception as e:
@@ -463,10 +463,10 @@ class FHIRService(BaseService):
             resource_type: Expected resource type
             
         Raises:
-            ValidationException: If structure is invalid
+            ValueError: If structure is invalid
         """
         if not isinstance(fhir_data, dict):
-            raise ValidationException(
+            raise ValueError(
                 "FHIR resource data must be a JSON object",
                 field="fhir_data",
                 value=type(fhir_data).__name__
@@ -474,7 +474,7 @@ class FHIRService(BaseService):
         
         # Check resourceType matches
         if fhir_data.get("resourceType") != resource_type:
-            raise ValidationException(
+            raise ValueError(
                 f"Resource type mismatch. Expected: {resource_type}, Got: {fhir_data.get('resourceType')}",
                 field="resourceType",
                 value=fhir_data.get("resourceType")
@@ -491,7 +491,7 @@ class FHIRService(BaseService):
         if resource_type in required_fields:
             for field in required_fields[resource_type]:
                 if field not in fhir_data:
-                    raise ValidationException(
+                    raise ValueError(
                         f"Required field '{field}' missing from {resource_type} resource",
                         field=field,
                         value=None

@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from schemas.treatment import TreatmentCreate, TreatmentUpdate, TreatmentResponse, MedicationTreatment
     from repositories.repository_manager import RepositoryManager
 
-from services.base_service import BaseService, ValidationException, BusinessRuleException, ResourceNotFoundException
+from services.base_service import BaseService, ValueError
 
 class TreatmentService(BaseService):
     """
@@ -53,7 +53,7 @@ class TreatmentService(BaseService):
                                       self.repos.episode.get_by_id)
             
             if episode.status != "in-progress":
-                raise BusinessRuleException(
+                raise RuntimeError(
                     "Cannot add treatment to completed or cancelled episode",
                     rule="active_episode_required"
                 )
@@ -66,7 +66,7 @@ class TreatmentService(BaseService):
                 
                 # Verify diagnosis belongs to same episode
                 if str(diagnosis.episode_id) != str(data_dict["episode_id"]):
-                    raise BusinessRuleException(
+                    raise RuntimeError(
                         "Diagnosis must belong to the same episode as the treatment",
                         rule="diagnosis_episode_match"
                     )
@@ -79,7 +79,7 @@ class TreatmentService(BaseService):
             for existing in existing_treatments:
                 if (existing.treatment_name.lower().strip() == data_dict["treatment_name"].lower().strip() and
                     existing.status in ["planned", "approved", "active"]):
-                    raise BusinessRuleException(
+                    raise RuntimeError(
                         f"Active treatment '{data_dict['treatment_name']}' already exists for this episode",
                         rule="unique_active_treatment_per_episode"
                     )
@@ -104,7 +104,7 @@ class TreatmentService(BaseService):
             
             return TreatmentResponse.model_validate(treatment)
             
-        except (ValidationException, BusinessRuleException, ResourceNotFoundException):
+        except (ValueError):
             self.safe_rollback("treatment creation")
             raise
         except Exception as e:
@@ -140,7 +140,7 @@ class TreatmentService(BaseService):
                 update_fields = set(update_dict.keys())
                 if not update_fields.issubset(allowed_fields):
                     disallowed = update_fields - allowed_fields
-                    raise BusinessRuleException(
+                    raise RuntimeError(
                         f"Cannot modify fields {disallowed} on completed treatment",
                         rule="completed_treatment_limited_updates"
                     )
@@ -167,7 +167,7 @@ class TreatmentService(BaseService):
             
             return TreatmentResponse.model_validate(updated_treatment)
             
-        except (ValidationException, BusinessRuleException, ResourceNotFoundException):
+        except (ValueError):
             self.safe_rollback("treatment update")
             raise
         except Exception as e:
@@ -242,7 +242,7 @@ class TreatmentService(BaseService):
             
             # Business rule: Can only approve planned treatments
             if treatment.status != "planned":
-                raise BusinessRuleException(
+                raise RuntimeError(
                     f"Cannot approve treatment with status '{treatment.status}'. Only planned treatments can be approved.",
                     rule="approve_planned_only"
                 )
@@ -272,7 +272,7 @@ class TreatmentService(BaseService):
             
             return TreatmentResponse.model_validate(updated_treatment)
             
-        except (ValidationException, BusinessRuleException, ResourceNotFoundException):
+        except (ValueError):
             self.safe_rollback("treatment approval")
             raise
         except Exception as e:
@@ -295,7 +295,7 @@ class TreatmentService(BaseService):
             
             # Business rule: Can only activate approved treatments
             if treatment.status != "approved":
-                raise BusinessRuleException(
+                raise RuntimeError(
                     f"Cannot activate treatment with status '{treatment.status}'. Only approved treatments can be activated.",
                     rule="activate_approved_only"
                 )
@@ -304,7 +304,7 @@ class TreatmentService(BaseService):
             if treatment.treatment_type == "medication":
                 conflicts = self._check_drug_interactions(treatment)
                 if conflicts:
-                    raise BusinessRuleException(
+                    raise RuntimeError(
                         f"Drug interactions detected: {', '.join(conflicts)}",
                         rule="drug_interaction_check"
                     )
@@ -326,7 +326,7 @@ class TreatmentService(BaseService):
             
             return TreatmentResponse.model_validate(updated_treatment)
             
-        except (ValidationException, BusinessRuleException, ResourceNotFoundException):
+        except (ValueError):
             self.safe_rollback("treatment activation")
             raise
         except Exception as e:
@@ -351,7 +351,7 @@ class TreatmentService(BaseService):
             
             # Business rule: Can only discontinue active or approved treatments
             if treatment.status not in ["active", "approved"]:
-                raise BusinessRuleException(
+                raise RuntimeError(
                     f"Cannot discontinue treatment with status '{treatment.status}'",
                     rule="discontinue_active_or_approved_only"
                 )
@@ -375,7 +375,7 @@ class TreatmentService(BaseService):
             
             return TreatmentResponse.model_validate(updated_treatment)
             
-        except (ValidationException, BusinessRuleException, ResourceNotFoundException):
+        except (ValueError):
             self.safe_rollback("treatment discontinuation")
             raise
         except Exception as e:

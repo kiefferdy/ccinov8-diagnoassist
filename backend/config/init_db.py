@@ -1,6 +1,6 @@
 """
 Database Initialization for DiagnoAssist
-Handles database setup, migrations, and table creation
+Handles database setup and table creation
 """
 
 import logging

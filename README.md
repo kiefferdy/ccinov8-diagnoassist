@@ -101,7 +101,7 @@ The startup script handles everything for you:
 - ✅ **Validates environment variables**
 - ✅ **Tests database connection**
 - ✅ **Creates database tables** (if they don't exist)
-- ✅ **Runs migrations** (Alembic or direct table creation)
+- ✅ **Creates database tables** (via SQLAlchemy)
 - ✅ **Starts FHIR-compliant FastAPI server**
 
 No manual database setup required! 🎉
@@ -158,7 +158,6 @@ No manual database setup required! 🎉
 - **FastAPI** - Modern Python web framework
 - **SQLAlchemy** - Database ORM with PostgreSQL
 - **FHIR.resources** - FHIR R4 resource validation
-- **Alembic** - Database migrations
 - **Pydantic** - Data validation and serialization
 
 ### Frontend Stack
@@ -245,7 +244,7 @@ python start.py  # This will start Docker PostgreSQL automatically
 
 1. **Make changes** to your code
 2. **Server auto-reloads** (thanks to `--reload` flag)
-3. **Database changes** are handled by Alembic migrations
+3. **Database changes** are managed through Supabase
 4. **Test FHIR endpoints** at `http://localhost:8000/docs`
 
 ---

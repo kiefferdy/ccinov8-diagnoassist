@@ -451,7 +451,7 @@ def test_services():
         
         # Test business rule validation
         try:
-            from services.base_service import ValidationException, BusinessRuleException
+            from services.base_service import ValueError, RuntimeError
             print("✅ Service exceptions available")
         except ImportError as e:
             print(f"❌ Service exceptions not available: {e}")

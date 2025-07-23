@@ -25,13 +25,7 @@ Usage:
         # Auto-commit on success, rollback on exception
 """
 
-from .base_service import (
-    BaseService,
-    ServiceException,
-    ValidationException,
-    BusinessRuleException,
-    ResourceNotFoundException
-)
+from .base_service import BaseService
 
 from .patient_service import PatientService
 from .episode_service import EpisodeService
@@ -53,12 +47,8 @@ __author__ = "DiagnoAssist Team"
 
 # Export all service classes and utilities
 __all__ = [
-    # Base service and exceptions
+    # Base service
     "BaseService",
-    "ServiceException",
-    "ValidationException",
-    "BusinessRuleException",
-    "ResourceNotFoundException",
     
     # Core domain services
     "PatientService",

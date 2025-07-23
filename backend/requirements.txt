@@ -10,7 +10,6 @@ python-multipart>=0.0.5
 
 # Database & ORM
 sqlalchemy[asyncio]>=2.0.0,<3.0.0
-alembic>=1.10.0,<2.0.0
 psycopg2-binary>=2.9.0,<3.0.0
 
 # Supabase Integration

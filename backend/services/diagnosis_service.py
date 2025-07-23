@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from schemas.diagnosis import DiagnosisCreate, DiagnosisUpdate, DiagnosisResponse
     from repositories.repository_manager import RepositoryManager
 
-from services.base_service import BaseService, ValidationException, BusinessRuleException, ResourceNotFoundException
+from services.base_service import BaseService, ValueError
 
 class DiagnosisService(BaseService):
     """
@@ -41,8 +41,8 @@ class DiagnosisService(BaseService):
             Created diagnosis response
             
         Raises:
-            ValidationException: If validation fails
-            BusinessRuleException: If business rules violated
+            ValueError: If validation fails
+            RuntimeError: If business rules violated
         """
         try:
             # Convert to dict for validation
@@ -54,7 +54,7 @@ class DiagnosisService(BaseService):
             # Verify episode exists
             episode = self.repos.episode.get_by_id(str(data["episode_id"]))
             if not episode:
-                raise ResourceNotFoundException("Episode", str(data["episode_id"]))
+                raise LookupError("Episode", str(data["episode_id"]))
             
             # If this is AI-generated, set appropriate metadata
             if data.get("ai_probability") and not data.get("created_by"):
@@ -96,11 +96,11 @@ class DiagnosisService(BaseService):
             Diagnosis response
             
         Raises:
-            ResourceNotFoundException: If diagnosis not found
+            LookupError: If diagnosis not found
         """
         diagnosis = self.repos.diagnosis.get_by_id(diagnosis_id)
         if not diagnosis:
-            raise ResourceNotFoundException("Diagnosis", diagnosis_id)
+            raise LookupError("Diagnosis", diagnosis_id)
         
         from schemas.diagnosis import DiagnosisResponse
         return DiagnosisResponse.model_validate(diagnosis)
@@ -117,15 +117,15 @@ class DiagnosisService(BaseService):
             Updated diagnosis response
             
         Raises:
-            ResourceNotFoundException: If diagnosis not found
-            ValidationException: If validation fails
-            BusinessRuleException: If business rules violated
+            LookupError: If diagnosis not found
+            ValueError: If validation fails
+            RuntimeError: If business rules violated
         """
         try:
             # Get existing diagnosis
             existing_diagnosis = self.repos.diagnosis.get_by_id(diagnosis_id)
             if not existing_diagnosis:
-                raise ResourceNotFoundException("Diagnosis", diagnosis_id)
+                raise LookupError("Diagnosis", diagnosis_id)
             
             # Convert to dict for validation (exclude None values)
             data = diagnosis_data.model_dump(exclude_none=True)
@@ -140,7 +140,7 @@ class DiagnosisService(BaseService):
                 episode_id = str(existing_diagnosis.episode_id)
                 existing_final = self.repos.diagnosis.get_final_diagnosis_by_episode(episode_id)
                 if existing_final and str(existing_final.id) != diagnosis_id:
-                    raise BusinessRuleException(
+                    raise RuntimeError(
                         "Episode already has a final diagnosis. Clear existing final diagnosis first",
                         rule="one_final_diagnosis_per_episode"
                     )
@@ -176,20 +176,20 @@ class DiagnosisService(BaseService):
             Deletion confirmation
             
         Raises:
-            ResourceNotFoundException: If diagnosis not found
-            BusinessRuleException: If diagnosis has dependent treatments
+            LookupError: If diagnosis not found
+            RuntimeError: If diagnosis has dependent treatments
         """
         try:
             # Get existing diagnosis
             existing_diagnosis = self.repos.diagnosis.get_by_id(diagnosis_id)
             if not existing_diagnosis:
-                raise ResourceNotFoundException("Diagnosis", diagnosis_id)
+                raise LookupError("Diagnosis", diagnosis_id)
             
             # Check for dependent treatments
             treatments = self.repos.treatment.get_by_diagnosis_id(diagnosis_id)
             active_treatments = [t for t in treatments if t.status == "active"]
             if active_treatments:
-                raise BusinessRuleException(
+                raise RuntimeError(
                     f"Cannot delete diagnosis with {len(active_treatments)} active treatments. "
                     "Complete or cancel treatments first.",
                     rule="no_active_treatments_for_diagnosis_deletion"
@@ -289,17 +289,17 @@ class DiagnosisService(BaseService):
             Updated diagnosis response
             
         Raises:
-            ResourceNotFoundException: If diagnosis not found
-            BusinessRuleException: If diagnosis doesn't belong to episode
+            LookupError: If diagnosis not found
+            RuntimeError: If diagnosis doesn't belong to episode
         """
         try:
             # Get and validate diagnosis
             diagnosis = self.repos.diagnosis.get_by_id(diagnosis_id)
             if not diagnosis:
-                raise ResourceNotFoundException("Diagnosis", diagnosis_id)
+                raise LookupError("Diagnosis", diagnosis_id)
             
             if str(diagnosis.episode_id) != episode_id:
-                raise BusinessRuleException(
+                raise RuntimeError(
                     "Diagnosis does not belong to the specified episode",
                     rule="diagnosis_episode_match"
                 )
@@ -352,7 +352,7 @@ class DiagnosisService(BaseService):
             
             if confidence_level:
                 if confidence_level not in ["low", "medium", "high"]:
-                    raise ValidationException(
+                    raise ValueError(
                         "Confidence level must be low, medium, or high",
                         field="confidence_level",
                         value=confidence_level
@@ -400,7 +400,7 @@ class DiagnosisService(BaseService):
             # Verify episode exists
             episode = self.repos.episode.get_by_id(episode_id)
             if not episode:
-                raise ResourceNotFoundException("Episode", episode_id)
+                raise LookupError("Episode", episode_id)
             
             # Placeholder AI differential diagnosis generation
             # In production, this would integrate with medical AI service

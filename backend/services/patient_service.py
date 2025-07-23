@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from schemas.patient import PatientCreate, PatientUpdate, PatientResponse
     from repositories.repository_manager import RepositoryManager
 
-from services.base_service import BaseService, ValidationException, BusinessRuleException, ResourceNotFoundException
+from services.base_service import BaseService
 
 class PatientService(BaseService):
     """
@@ -41,8 +41,8 @@ class PatientService(BaseService):
             Created patient response
             
         Raises:
-            ValidationException: If validation fails
-            BusinessRuleException: If business rules violated
+            ValueError: If validation fails
+            RuntimeError: If business rules violated
         """
         try:
             # Convert to dict for validation
@@ -54,7 +54,7 @@ class PatientService(BaseService):
             # Check for duplicate MRN
             existing_patient = self.repos.patient.get_by_mrn(data["medical_record_number"])
             if existing_patient:
-                raise BusinessRuleException(
+                raise RuntimeError(
                     f"Medical Record Number '{data['medical_record_number']}' already exists",
                     rule="unique_mrn"
                 )
@@ -63,7 +63,7 @@ class PatientService(BaseService):
             if data.get("email"):
                 existing_email = self.repos.patient.get_by_email(data["email"])
                 if existing_email:
-                    raise BusinessRuleException(
+                    raise RuntimeError(
                         f"Email '{data['email']}' already registered to another patient",
                         rule="unique_email"
                     )
@@ -98,11 +98,11 @@ class PatientService(BaseService):
             Patient response
             
         Raises:
-            ResourceNotFoundException: If patient not found
+            LookupError: If patient not found
         """
         patient = self.repos.patient.get_by_id(patient_id)
         if not patient:
-            raise ResourceNotFoundException("Patient", patient_id)
+            raise LookupError(f"Patient with identifier {patient_id} not found")
         
         from schemas.patient import PatientResponse
         return PatientResponse.model_validate(patient)
@@ -136,15 +136,15 @@ class PatientService(BaseService):
             Updated patient response
             
         Raises:
-            ResourceNotFoundException: If patient not found
-            ValidationException: If validation fails
-            BusinessRuleException: If business rules violated
+            LookupError: If patient not found
+            ValueError: If validation fails
+            RuntimeError: If business rules violated
         """
         try:
             # Get existing patient
             existing_patient = self.repos.patient.get_by_id(patient_id)
             if not existing_patient:
-                raise ResourceNotFoundException("Patient", patient_id)
+                raise LookupError(f"Patient with identifier {patient_id} not found")
             
             # Convert to dict for validation (exclude None values)
             data = patient_data.model_dump(exclude_none=True)
@@ -158,7 +158,7 @@ class PatientService(BaseService):
             if "medical_record_number" in data:
                 existing_mrn = self.repos.patient.get_by_mrn(data["medical_record_number"])
                 if existing_mrn and str(existing_mrn.id) != patient_id:
-                    raise BusinessRuleException(
+                    raise RuntimeError(
                         f"Medical Record Number '{data['medical_record_number']}' already exists",
                         rule="unique_mrn"
                     )
@@ -167,7 +167,7 @@ class PatientService(BaseService):
             if "email" in data and data["email"]:
                 existing_email = self.repos.patient.get_by_email(data["email"])
                 if existing_email and str(existing_email.id) != patient_id:
-                    raise BusinessRuleException(
+                    raise RuntimeError(
                         f"Email '{data['email']}' already registered to another patient",
                         rule="unique_email"
                     )
@@ -198,19 +198,19 @@ class PatientService(BaseService):
             Deletion confirmation
             
         Raises:
-            ResourceNotFoundException: If patient not found
-            BusinessRuleException: If patient has active episodes
+            LookupError: If patient not found
+            RuntimeError: If patient has active episodes
         """
         try:
             # Get existing patient
             existing_patient = self.repos.patient.get_by_id(patient_id)
             if not existing_patient:
-                raise ResourceNotFoundException("Patient", patient_id)
+                raise LookupError(f"Patient with identifier {patient_id} not found")
             
             # Check for active episodes
             active_episodes = self.repos.episode.get_by_patient_id(patient_id, status="active")
             if active_episodes:
-                raise BusinessRuleException(
+                raise RuntimeError(
                     "Cannot delete patient with active episodes. Complete or cancel episodes first.",
                     rule="no_active_episodes_for_deletion"
                 )

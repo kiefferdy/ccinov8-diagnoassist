@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from schemas.episode import EpisodeCreate, EpisodeUpdate, EpisodeResponse, VitalSigns
     from repositories.repository_manager import RepositoryManager
 
-from services.base_service import BaseService, ValidationException, BusinessRuleException, ResourceNotFoundException
+from services.base_service import BaseService, ValueError
 
 class EpisodeService(BaseService):
     """
@@ -53,7 +53,7 @@ class EpisodeService(BaseService):
                                       self.repos.patient.get_by_id)
             
             if patient.status != "active":
-                raise BusinessRuleException(
+                raise RuntimeError(
                     "Cannot create episode for inactive patient",
                     rule="active_patient_required"
                 )
@@ -65,7 +65,7 @@ class EpisodeService(BaseService):
             active_episodes = self.repos.episode.get_active_by_patient(str(data_dict["patient_id"]))
             for episode in active_episodes:
                 if episode.chief_complaint.lower().strip() == data_dict["chief_complaint"].lower().strip():
-                    raise BusinessRuleException(
+                    raise RuntimeError(
                         f"Patient already has an active episode with the same chief complaint: '{data_dict['chief_complaint']}'",
                         rule="unique_active_chief_complaint"
                     )
@@ -89,7 +89,7 @@ class EpisodeService(BaseService):
             
             return self._build_episode_response(episode)
             
-        except (ValidationException, BusinessRuleException, ResourceNotFoundException):
+        except (ValueError):
             self.safe_rollback("episode creation")
             raise
         except Exception as e:
@@ -125,7 +125,7 @@ class EpisodeService(BaseService):
                 update_fields = set(update_dict.keys())
                 if not update_fields.issubset(allowed_fields):
                     disallowed = update_fields - allowed_fields
-                    raise BusinessRuleException(
+                    raise RuntimeError(
                         f"Cannot modify fields {disallowed} on completed episode",
                         rule="completed_episode_limited_updates"
                     )
@@ -147,7 +147,7 @@ class EpisodeService(BaseService):
             
             return self._build_episode_response(updated_episode)
             
-        except (ValidationException, BusinessRuleException, ResourceNotFoundException):
+        except (ValueError):
             self.safe_rollback("episode update")
             raise
         except Exception as e:
@@ -214,7 +214,7 @@ class EpisodeService(BaseService):
             
             # Business rule: Can only complete in-progress episodes
             if episode.status != "in-progress":
-                raise BusinessRuleException(
+                raise RuntimeError(
                     f"Cannot complete episode with status '{episode.status}'. Only in-progress episodes can be completed.",
                     rule="complete_in_progress_only"
                 )
@@ -240,7 +240,7 @@ class EpisodeService(BaseService):
             
             return self._build_episode_response(updated_episode)
             
-        except (ValidationException, BusinessRuleException, ResourceNotFoundException):
+        except (ValueError):
             self.safe_rollback("episode completion")
             raise
         except Exception as e:
@@ -264,7 +264,7 @@ class EpisodeService(BaseService):
             
             # Business rule: Cannot cancel completed episodes
             if episode.status == "completed":
-                raise BusinessRuleException(
+                raise RuntimeError(
                     "Cannot cancel a completed episode",
                     rule="no_cancel_completed"
                 )
@@ -287,7 +287,7 @@ class EpisodeService(BaseService):
             
             return self._build_episode_response(updated_episode)
             
-        except (ValidationException, BusinessRuleException, ResourceNotFoundException):
+        except (ValueError):
             self.safe_rollback("episode cancellation")
             raise
         except Exception as e:
@@ -330,7 +330,7 @@ class EpisodeService(BaseService):
             
             return self._build_episode_response(updated_episode)
             
-        except (ValidationException, BusinessRuleException, ResourceNotFoundException):
+        except (ValueError):
             self.safe_rollback("vital signs update")
             raise
         except Exception as e:
@@ -432,7 +432,7 @@ class EpisodeService(BaseService):
             vital_signs: Vital signs dictionary
             
         Raises:
-            ValidationException: If vital signs are out of range
+            ValueError: If vital signs are out of range
         """
         ranges = {
             "temperature_celsius": (30, 45),
@@ -453,7 +453,7 @@ class EpisodeService(BaseService):
                     continue  # Skip non-numeric values
                     
                 if value < min_val or value > max_val:
-                    raise ValidationException(
+                    raise ValueError(
                         f"{field} value {value} is out of acceptable range ({min_val}-{max_val})",
                         field=field,
                         value=value
