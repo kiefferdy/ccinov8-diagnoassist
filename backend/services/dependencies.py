@@ -1,11 +1,12 @@
 """
 Service Dependencies for DiagnoAssist API
-FastAPI dependency injection for services layer
+FastAPI dependency injection for services layer - FIXED VERSION
 """
 
 from fastapi import Depends
 from sqlalchemy.orm import Session
-from typing import Generator, Dict, Any
+from sqlalchemy import text  # ADDED: Import text for SQL queries
+from typing import Generator, Dict, Any, Optional  # ADDED: Optional
 import logging
 
 from config.database import SessionLocal
@@ -33,14 +34,20 @@ def get_service_manager(repos: RepositoryManager = Depends(get_repository_manage
 # Service dependencies aliases
 ServiceDep = Depends(get_service_manager)
 
-def check_services_health(services: ServiceManager = Depends(get_service_manager)) -> Dict[str, Any]:
+def check_services_health(services: ServiceManager = Depends(get_service_manager)) -> bool:
     """Check health of all services"""
-    return services.health_check()
-
-def check_database_health(db: Session = Depends(get_database_session)) -> Dict[str, Any]:
-    """Check database health"""
     try:
-        db.execute("SELECT 1")
-        return {"status": "healthy", "database": "connected"}
+        health_status = services.health_check()
+        return health_status.get("status") == "healthy"
     except Exception as e:
-        return {"status": "unhealthy", "database": "disconnected", "error": str(e)}
+        logger.error(f"Services health check failed: {e}")
+        return False
+
+def check_database_health(db: Session = Depends(get_database_session)) -> bool:
+    """Check database health - FIXED"""
+    try:
+        db.execute(text("SELECT 1"))  # FIXED: Use text() wrapper
+        return True
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        return False

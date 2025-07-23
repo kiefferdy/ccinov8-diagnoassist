@@ -8,6 +8,8 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+from sqlalchemy import text
+
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -72,7 +74,7 @@ logger.info("🚀 DiagnoAssist API starting...")
 try:
     from config.database import SessionLocal
     db = SessionLocal()
-    db.execute("SELECT 1")
+    db.execute(text("SELECT 1"))
     db.close()
     components_status["database"] = True
     logger.info("✅ Database connection successful")
