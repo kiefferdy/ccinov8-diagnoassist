@@ -23,9 +23,27 @@ class PatientRepository(BaseRepository[Patient]):
     def __init__(self, db: Session):
         super().__init__(Patient, db)
     
-    def get_by_medical_record_number(self, mrn: str) -> Optional[Patient]:
+    def get_by_mrn(self, medical_record_number: str) -> Optional[Patient]:
         """
         Get patient by medical record number
+        
+        Args:
+            medical_record_number: Medical record number
+            
+        Returns:
+            Patient instance or None if not found
+        """
+        try:
+            return self.db.query(Patient).filter(
+                Patient.medical_record_number == medical_record_number
+            ).first()
+        except Exception as e:
+            logger.error(f"Error getting patient by MRN {medical_record_number}: {str(e)}")
+            return None
+    
+    def get_by_medical_record_number(self, mrn: str) -> Optional[Patient]:
+        """
+        Alias for get_by_mrn for backward compatibility
         
         Args:
             mrn: Medical record number
@@ -33,10 +51,64 @@ class PatientRepository(BaseRepository[Patient]):
         Returns:
             Patient instance or None if not found
         """
+        return self.get_by_mrn(mrn)
+    
+    def get_by_email(self, email: str) -> Optional[Patient]:
+        """
+        Get patient by email address
+        
+        Args:
+            email: Patient's email address
+            
+        Returns:
+            Patient instance or None if not found
+        """
         try:
-            return self.db.query(Patient).filter(Patient.medical_record_number == mrn).first()
+            return self.db.query(Patient).filter(
+                Patient.email == email
+            ).first()
         except Exception as e:
-            logger.error(f"Error getting patient by MRN {mrn}: {str(e)}")
+            logger.error(f"Error getting patient by email {email}: {str(e)}")
+            return None
+    
+    def get_active_patients(self, skip: int = 0, limit: int = 100) -> List[Patient]:
+        """
+        Get active patients
+        
+        Args:
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+            
+        Returns:
+            List of active patients
+        """
+        try:
+            return self.db.query(Patient).filter(
+                Patient.status == "active"
+            ).order_by(Patient.last_name, Patient.first_name).offset(skip).limit(limit).all()
+        except Exception as e:
+            logger.error(f"Error getting active patients: {str(e)}")
+            return []
+    
+    def get_active_by_patient(self, patient_id: str) -> Optional[Patient]:
+        """
+        Get active patient by ID
+        
+        Args:
+            patient_id: Patient UUID
+            
+        Returns:
+            Patient instance if active, None otherwise
+        """
+        try:
+            return self.db.query(Patient).filter(
+                and_(
+                    Patient.id == patient_id,
+                    Patient.status == "active"
+                )
+            ).first()
+        except Exception as e:
+            logger.error(f"Error getting active patient {patient_id}: {str(e)}")
             return None
     
     def search_by_name(self, first_name: Optional[str] = None, 
@@ -54,7 +126,7 @@ class PatientRepository(BaseRepository[Patient]):
             List of matching patients
         """
         try:
-            query = self.db.query(Patient)
+            query = self.db.query(Patient).filter(Patient.status == "active")
             
             if first_name:
                 query = query.filter(Patient.first_name.ilike(f'%{first_name}%'))
@@ -62,50 +134,90 @@ class PatientRepository(BaseRepository[Patient]):
             if last_name:
                 query = query.filter(Patient.last_name.ilike(f'%{last_name}%'))
             
-            return query.limit(limit).all()
+            return query.order_by(Patient.last_name, Patient.first_name).limit(limit).all()
             
         except Exception as e:
             logger.error(f"Error searching patients by name: {str(e)}")
             return []
     
-    def get_by_date_of_birth(self, birth_date: date) -> List[Patient]:
+    def search_patients(self, search_term: str, limit: int = 50) -> List[Patient]:
         """
-        Get patients by date of birth
+        Search patients by various criteria (name, email, MRN)
         
         Args:
-            birth_date: Date of birth
+            search_term: Search term to match against multiple fields
+            limit: Maximum number of results
             
         Returns:
-            List of patients with matching birth date
+            List of matching patients
         """
         try:
-            return self.db.query(Patient).filter(Patient.date_of_birth == birth_date).all()
+            search_pattern = f"%{search_term}%"
+            
+            return self.db.query(Patient).filter(
+                and_(
+                    Patient.status == "active",
+                    or_(
+                        Patient.first_name.ilike(search_pattern),
+                        Patient.last_name.ilike(search_pattern),
+                        Patient.email.ilike(search_pattern),
+                        Patient.medical_record_number.ilike(search_pattern),
+                        func.concat(Patient.first_name, ' ', Patient.last_name).ilike(search_pattern)
+                    )
+                )
+            ).order_by(Patient.last_name, Patient.first_name).limit(limit).all()
+            
         except Exception as e:
-            logger.error(f"Error getting patients by birth date {birth_date}: {str(e)}")
+            logger.error(f"Error searching patients with term '{search_term}': {str(e)}")
             return []
     
-    def get_by_age_range(self, min_age: int, max_age: int) -> List[Patient]:
+    def get_by_birth_date_range(self, start_date: date, end_date: date, 
+                               skip: int = 0, limit: int = 100) -> List[Patient]:
         """
-        Get patients within age range
+        Get patients born within a specific date range
+        
+        Args:
+            start_date: Start of birth date range
+            end_date: End of birth date range
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+            
+        Returns:
+            List of patients born in the date range
+        """
+        try:
+            return self.db.query(Patient).filter(
+                and_(
+                    Patient.status == "active",
+                    Patient.date_of_birth >= start_date,
+                    Patient.date_of_birth <= end_date
+                )
+            ).order_by(Patient.last_name, Patient.first_name).offset(skip).limit(limit).all()
+            
+        except Exception as e:
+            logger.error(f"Error getting patients by birth date range: {str(e)}")
+            return []
+    
+    def get_by_age_range(self, min_age: int, max_age: int, 
+                        skip: int = 0, limit: int = 100) -> List[Patient]:
+        """
+        Get patients within a specific age range
         
         Args:
             min_age: Minimum age
             max_age: Maximum age
+            skip: Number of records to skip
+            limit: Maximum number of records to return
             
         Returns:
-            List of patients within age range
+            List of patients in the age range
         """
         try:
             today = date.today()
             max_birth_date = date(today.year - min_age, today.month, today.day)
             min_birth_date = date(today.year - max_age, today.month, today.day)
             
-            return self.db.query(Patient).filter(
-                and_(
-                    Patient.date_of_birth >= min_birth_date,
-                    Patient.date_of_birth <= max_birth_date
-                )
-            ).all()
+            return self.get_by_birth_date_range(min_birth_date, max_birth_date, skip, limit)
             
         except Exception as e:
             logger.error(f"Error getting patients by age range {min_age}-{max_age}: {str(e)}")
@@ -118,132 +230,91 @@ class PatientRepository(BaseRepository[Patient]):
         Args:
             gender: Patient gender
             skip: Number of records to skip
-            limit: Maximum number of records
+            limit: Maximum number of records to return
             
         Returns:
-            List of patients with matching gender
+            List of patients with the specified gender
         """
         try:
             return self.db.query(Patient).filter(
-                Patient.gender == gender
-            ).offset(skip).limit(limit).all()
+                and_(
+                    Patient.status == "active",
+                    Patient.gender == gender
+                )
+            ).order_by(Patient.last_name, Patient.first_name).offset(skip).limit(limit).all()
             
         except Exception as e:
             logger.error(f"Error getting patients by gender {gender}: {str(e)}")
             return []
     
-    def search_comprehensive(self, search_term: str, limit: int = 50) -> List[Patient]:
+    def deactivate_patient(self, patient_id: str, reason: Optional[str] = None) -> bool:
         """
-        Comprehensive search across multiple patient fields
+        Deactivate a patient
         
         Args:
-            search_term: Search term to match against multiple fields
-            limit: Maximum number of results
+            patient_id: Patient UUID
+            reason: Deactivation reason
             
         Returns:
-            List of matching patients
+            True if successful, False otherwise
         """
         try:
-            search_pattern = f'%{search_term}%'
+            patient = self.get_by_id(patient_id)
+            if not patient:
+                return False
             
-            return self.db.query(Patient).filter(
-                or_(
-                    Patient.first_name.ilike(search_pattern),
-                    Patient.last_name.ilike(search_pattern),
-                    Patient.medical_record_number.ilike(search_pattern),
-                    Patient.email.ilike(search_pattern),
-                    Patient.phone.ilike(search_pattern)
-                )
-            ).limit(limit).all()
+            patient.status = "inactive"
+            patient.updated_at = datetime.utcnow()
+            
+            self.db.commit()
+            return True
             
         except Exception as e:
-            logger.error(f"Error in comprehensive patient search for '{search_term}': {str(e)}")
-            return []
+            logger.error(f"Error deactivating patient {patient_id}: {str(e)}")
+            self.db.rollback()
+            return False
     
-    def get_patients_with_episodes(self, skip: int = 0, limit: int = 100) -> List[Patient]:
+    def reactivate_patient(self, patient_id: str) -> bool:
         """
-        Get patients who have associated episodes
+        Reactivate a patient
         
         Args:
-            skip: Number of records to skip
-            limit: Maximum number of records
+            patient_id: Patient UUID
             
         Returns:
-            List of patients with episodes
+            True if successful, False otherwise
         """
         try:
-            from models.episode import Episode
+            patient = self.get_by_id(patient_id)
+            if not patient:
+                return False
             
-            return self.db.query(Patient).join(Episode).distinct().offset(skip).limit(limit).all()
+            patient.status = "active"
+            patient.updated_at = datetime.utcnow()
+            
+            self.db.commit()
+            return True
             
         except Exception as e:
-            logger.error(f"Error getting patients with episodes: {str(e)}")
-            return []
+            logger.error(f"Error reactivating patient {patient_id}: {str(e)}")
+            self.db.rollback()
+            return False
     
-    def get_patients_by_emergency_contact(self, contact_name: str) -> List[Patient]:
+    def count_active_patients(self) -> int:
         """
-        Get patients by emergency contact name
+        Count active patients
         
-        Args:
-            contact_name: Emergency contact name to search for
-            
         Returns:
-            List of patients with matching emergency contact
+            Number of active patients
         """
         try:
-            return self.db.query(Patient).filter(
-                Patient.emergency_contact_name.ilike(f'%{contact_name}%')
-            ).all()
+            return self.db.query(func.count(Patient.id)).filter(
+                Patient.status == "active"
+            ).scalar() or 0
             
         except Exception as e:
-            logger.error(f"Error getting patients by emergency contact {contact_name}: {str(e)}")
-            return []
-    
-    def get_recently_created(self, days: int = 30, limit: int = 100) -> List[Patient]:
-        """
-        Get recently created patient records
-        
-        Args:
-            days: Number of days to look back
-            limit: Maximum number of records
-            
-        Returns:
-            List of recently created patients
-        """
-        try:
-            cutoff_date = datetime.utcnow() - timedelta(days=days)
-            
-            return self.db.query(Patient).filter(
-                Patient.created_at >= cutoff_date
-            ).order_by(Patient.created_at.desc()).limit(limit).all()
-            
-        except Exception as e:
-            logger.error(f"Error getting recently created patients: {str(e)}")
-            return []
-    
-    def update_medical_record_number(self, patient_id: UUID, new_mrn: str) -> Optional[Patient]:
-        """
-        Update patient's medical record number with validation
-        
-        Args:
-            patient_id: Patient ID
-            new_mrn: New medical record number
-            
-        Returns:
-            Updated patient or None if failed
-        """
-        try:
-            # Check if MRN is already in use
-            existing = self.get_by_medical_record_number(new_mrn)
-            if existing and existing.id != patient_id:
-                logger.error(f"Medical record number {new_mrn} already in use")
-                return None
-            
-            return self.update(patient_id, {"medical_record_number": new_mrn})
-            
-        except Exception as e:
-            logger.error(f"Error updating MRN for patient {patient_id}: {str(e)}")
-            return None
+            logger.error(f"Error counting active patients: {str(e)}")
+            return 0
     
     def get_patient_statistics(self) -> Dict[str, Any]:
         """
@@ -253,54 +324,120 @@ class PatientRepository(BaseRepository[Patient]):
             Dictionary with patient statistics
         """
         try:
-            total_patients = self.count()
+            total_patients = self.db.query(func.count(Patient.id)).scalar()
+            active_patients = self.count_active_patients()
             
+            # Gender distribution
             gender_stats = self.db.query(
-                Patient.gender, 
-                func.count(Patient.id).label('count')
+                Patient.gender,
+                func.count(Patient.id)
+            ).filter(
+                Patient.status == "active"
             ).group_by(Patient.gender).all()
             
+            gender_distribution = {gender: count for gender, count in gender_stats}
+            
+            # Age distribution (by decades)
+            today = date.today()
+            age_ranges = [
+                ("0-10", 0, 10),
+                ("11-20", 11, 20),
+                ("21-30", 21, 30),
+                ("31-40", 31, 40),
+                ("41-50", 41, 50),
+                ("51-60", 51, 60),
+                ("61-70", 61, 70),
+                ("71-80", 71, 80),
+                ("81+", 81, 150)
+            ]
+            
+            age_distribution = {}
+            for range_name, min_age, max_age in age_ranges:
+                count = len(self.get_by_age_range(min_age, max_age, limit=10000))
+                age_distribution[range_name] = count
+            
             return {
-                "total_patients": total_patients,
-                "gender_distribution": {stat.gender: stat.count for stat in gender_stats},
-                "generated_at": datetime.utcnow().isoformat()
+                "total_patients": total_patients or 0,
+                "active_patients": active_patients,
+                "inactive_patients": (total_patients or 0) - active_patients,
+                "gender_distribution": gender_distribution,
+                "age_distribution": age_distribution
             }
             
         except Exception as e:
             logger.error(f"Error getting patient statistics: {str(e)}")
             return {}
     
-    def validate_unique_mrn(self, mrn: str, exclude_patient_id: Optional[UUID] = None) -> bool:
+    def get_patients_with_allergies(self, skip: int = 0, limit: int = 100) -> List[Patient]:
         """
-        Validate that medical record number is unique
+        Get patients who have recorded allergies
         
         Args:
-            mrn: Medical record number to validate
-            exclude_patient_id: Patient ID to exclude from check (for updates)
+            skip: Number of records to skip
+            limit: Maximum number of records to return
             
         Returns:
-            True if MRN is unique, False otherwise
+            List of patients with allergies
         """
         try:
-            query = self.db.query(Patient).filter(Patient.medical_record_number == mrn)
-            
-            if exclude_patient_id:
-                query = query.filter(Patient.id != exclude_patient_id)
-            
-            return query.first() is None
+            return self.db.query(Patient).filter(
+                and_(
+                    Patient.status == "active",
+                    Patient.allergies.isnot(None),
+                    Patient.allergies != ""
+                )
+            ).order_by(Patient.last_name, Patient.first_name).offset(skip).limit(limit).all()
             
         except Exception as e:
-            logger.error(f"Error validating unique MRN {mrn}: {str(e)}")
-            return False
+            logger.error(f"Error getting patients with allergies: {str(e)}")
+            return []
+    
+    def get_patients_with_medical_history(self, skip: int = 0, limit: int = 100) -> List[Patient]:
+        """
+        Get patients who have recorded medical history
         
-    def get_by_mrn(self, mrn: str) -> Optional[Patient]:
-        """Get patient by medical record number (alias)"""
-        return self.get_by_medical_record_number(mrn)
-
-    def get_by_email(self, email: str) -> Optional[Patient]:
-        """Get patient by email address"""
+        Args:
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+            
+        Returns:
+            List of patients with medical history
+        """
         try:
-            return self.db.query(Patient).filter(Patient.email == email).first()
+            return self.db.query(Patient).filter(
+                and_(
+                    Patient.status == "active",
+                    Patient.medical_history.isnot(None),
+                    Patient.medical_history != ""
+                )
+            ).order_by(Patient.last_name, Patient.first_name).offset(skip).limit(limit).all()
+            
         except Exception as e:
-            logger.error(f"Error getting patient by email {email}: {str(e)}")
-            return None
+            logger.error(f"Error getting patients with medical history: {str(e)}")
+            return []
+    
+    def get_recent_patients(self, days: int = 30, skip: int = 0, limit: int = 100) -> List[Patient]:
+        """
+        Get patients created in the last N days
+        
+        Args:
+            days: Number of days to look back
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+            
+        Returns:
+            List of recently created patients
+        """
+        try:
+            cutoff_date = datetime.utcnow() - timedelta(days=days)
+            
+            return self.db.query(Patient).filter(
+                and_(
+                    Patient.status == "active",
+                    Patient.created_at >= cutoff_date
+                )
+            ).order_by(Patient.created_at.desc()).offset(skip).limit(limit).all()
+            
+        except Exception as e:
+            logger.error(f"Error getting recent patients: {str(e)}")
+            return []

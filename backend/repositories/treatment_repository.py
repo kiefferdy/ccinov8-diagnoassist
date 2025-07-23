@@ -4,13 +4,15 @@ Specialized CRUD operations for Treatment model
 """
 
 from typing import List, Optional, Dict, Any
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_, desc
 from datetime import datetime, date, timedelta
 from uuid import UUID
 import logging
 
 from models.treatment import Treatment
+from models.episode import Episode
+from models.diagnosis import Diagnosis
 from repositories.base_repository import BaseRepository
 
 logger = logging.getLogger(__name__)
@@ -23,14 +25,12 @@ class TreatmentRepository(BaseRepository[Treatment]):
     def __init__(self, db: Session):
         super().__init__(Treatment, db)
     
-    def get_by_episode_id(self, episode_id: UUID, skip: int = 0, limit: int = 100) -> List[Treatment]:
+    def get_by_episode(self, episode_id: str) -> List[Treatment]:
         """
         Get all treatments for a specific episode
         
         Args:
-            episode_id: Episode ID
-            skip: Number of records to skip
-            limit: Maximum number of records
+            episode_id: Episode UUID
             
         Returns:
             List of treatments for the episode
@@ -38,18 +38,80 @@ class TreatmentRepository(BaseRepository[Treatment]):
         try:
             return self.db.query(Treatment).filter(
                 Treatment.episode_id == episode_id
-            ).order_by(desc(Treatment.created_at)).offset(skip).limit(limit).all()
+            ).order_by(desc(Treatment.created_at)).all()
             
         except Exception as e:
             logger.error(f"Error getting treatments for episode {episode_id}: {str(e)}")
             return []
     
-    def get_by_diagnosis_id(self, diagnosis_id: UUID) -> List[Treatment]:
+    def count_by_episode(self, episode_id: str) -> int:
+        """
+        Count treatments for a specific episode
+        
+        Args:
+            episode_id: Episode UUID
+            
+        Returns:
+            Number of treatments for the episode
+        """
+        try:
+            return self.db.query(func.count(Treatment.id)).filter(
+                Treatment.episode_id == episode_id
+            ).scalar() or 0
+            
+        except Exception as e:
+            logger.error(f"Error counting treatments for episode {episode_id}: {str(e)}")
+            return 0
+    
+    def get_by_patient(self, patient_id: str, skip: int = 0, limit: int = 100) -> List[Treatment]:
+        """
+        Get treatments for a specific patient (via episodes)
+        
+        Args:
+            patient_id: Patient UUID
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+            
+        Returns:
+            List of treatments for the patient
+        """
+        try:
+            return self.db.query(Treatment).join(Episode).filter(
+                Episode.patient_id == patient_id
+            ).order_by(desc(Treatment.created_at)).offset(skip).limit(limit).all()
+            
+        except Exception as e:
+            logger.error(f"Error getting treatments for patient {patient_id}: {str(e)}")
+            return []
+    
+    def get_active_by_patient(self, patient_id: str) -> List[Treatment]:
+        """
+        Get active treatments for a specific patient
+        
+        Args:
+            patient_id: Patient UUID
+            
+        Returns:
+            List of active treatments for the patient
+        """
+        try:
+            return self.db.query(Treatment).join(Episode).filter(
+                and_(
+                    Episode.patient_id == patient_id,
+                    Treatment.status == "active"
+                )
+            ).order_by(desc(Treatment.created_at)).all()
+            
+        except Exception as e:
+            logger.error(f"Error getting active treatments for patient {patient_id}: {str(e)}")
+            return []
+    
+    def get_by_diagnosis(self, diagnosis_id: str) -> List[Treatment]:
         """
         Get treatments for a specific diagnosis
         
         Args:
-            diagnosis_id: Diagnosis ID
+            diagnosis_id: Diagnosis UUID
             
         Returns:
             List of treatments for the diagnosis
@@ -68,12 +130,12 @@ class TreatmentRepository(BaseRepository[Treatment]):
         Get treatments by type
         
         Args:
-            treatment_type: Treatment type (medication, procedure, therapy, etc.)
+            treatment_type: Type of treatment (medication, procedure, etc.)
             skip: Number of records to skip
-            limit: Maximum number of records
+            limit: Maximum number of records to return
             
         Returns:
-            List of treatments with matching type
+            List of treatments with the specified type
         """
         try:
             return self.db.query(Treatment).filter(
@@ -89,12 +151,12 @@ class TreatmentRepository(BaseRepository[Treatment]):
         Get treatments by status
         
         Args:
-            status: Treatment status (planned, approved, active, completed, discontinued)
+            status: Treatment status (active, completed, discontinued, etc.)
             skip: Number of records to skip
-            limit: Maximum number of records
+            limit: Maximum number of records to return
             
         Returns:
-            List of treatments with matching status
+            List of treatments with the specified status
         """
         try:
             return self.db.query(Treatment).filter(
@@ -107,11 +169,11 @@ class TreatmentRepository(BaseRepository[Treatment]):
     
     def get_active_treatments(self, skip: int = 0, limit: int = 100) -> List[Treatment]:
         """
-        Get active treatments (status = 'active')
+        Get all active treatments
         
         Args:
             skip: Number of records to skip
-            limit: Maximum number of records
+            limit: Maximum number of records to return
             
         Returns:
             List of active treatments
@@ -119,19 +181,40 @@ class TreatmentRepository(BaseRepository[Treatment]):
         try:
             return self.db.query(Treatment).filter(
                 Treatment.status == "active"
-            ).order_by(desc(Treatment.start_date)).offset(skip).limit(limit).all()
+            ).order_by(desc(Treatment.created_at)).offset(skip).limit(limit).all()
             
         except Exception as e:
             logger.error(f"Error getting active treatments: {str(e)}")
             return []
     
+    def get_by_prescriber(self, prescriber: str, skip: int = 0, limit: int = 100) -> List[Treatment]:
+        """
+        Get treatments by prescriber
+        
+        Args:
+            prescriber: Prescriber identifier
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+            
+        Returns:
+            List of treatments by the specified prescriber
+        """
+        try:
+            return self.db.query(Treatment).filter(
+                Treatment.prescriber == prescriber
+            ).order_by(desc(Treatment.created_at)).offset(skip).limit(limit).all()
+            
+        except Exception as e:
+            logger.error(f"Error getting treatments by prescriber {prescriber}: {str(e)}")
+            return []
+    
     def get_medications(self, skip: int = 0, limit: int = 100) -> List[Treatment]:
         """
-        Get medication treatments
+        Get all medication treatments
         
         Args:
             skip: Number of records to skip
-            limit: Maximum number of records
+            limit: Maximum number of records to return
             
         Returns:
             List of medication treatments
@@ -142,322 +225,339 @@ class TreatmentRepository(BaseRepository[Treatment]):
             ).order_by(desc(Treatment.created_at)).offset(skip).limit(limit).all()
             
         except Exception as e:
-            logger.error(f"Error getting medication treatments: {str(e)}")
+            logger.error(f"Error getting medications: {str(e)}")
             return []
     
-    def search_by_medication_name(self, medication_name: str, limit: int = 50) -> List[Treatment]:
+    def get_by_name(self, name: str, skip: int = 0, limit: int = 100) -> List[Treatment]:
         """
-        Search treatments by medication name
+        Get treatments by name (case-insensitive)
         
         Args:
-            medication_name: Medication name to search for
-            limit: Maximum number of results
-            
-        Returns:
-            List of treatments with matching medication name
-        """
-        try:
-            search_pattern = f'%{medication_name}%'
-            return self.db.query(Treatment).filter(
-                Treatment.medication_name.ilike(search_pattern)
-            ).order_by(desc(Treatment.created_at)).limit(limit).all()
-            
-        except Exception as e:
-            logger.error(f"Error searching treatments by medication '{medication_name}': {str(e)}")
-            return []
-    
-    def search_by_treatment_name(self, treatment_name: str, limit: int = 50) -> List[Treatment]:
-        """
-        Search treatments by treatment name
-        
-        Args:
-            treatment_name: Treatment name to search for
-            limit: Maximum number of results
-            
-        Returns:
-            List of treatments with matching treatment name
-        """
-        try:
-            search_pattern = f'%{treatment_name}%'
-            return self.db.query(Treatment).filter(
-                Treatment.treatment_name.ilike(search_pattern)
-            ).order_by(desc(Treatment.created_at)).limit(limit).all()
-            
-        except Exception as e:
-            logger.error(f"Error searching treatments by name '{treatment_name}': {str(e)}")
-            return []
-    
-    def get_by_approved_by(self, approved_by: str, skip: int = 0, limit: int = 100) -> List[Treatment]:
-        """
-        Get treatments approved by specific healthcare provider
-        
-        Args:
-            approved_by: Healthcare provider identifier
+            name: Treatment name to search for
             skip: Number of records to skip
-            limit: Maximum number of records
+            limit: Maximum number of records to return
             
         Returns:
-            List of treatments approved by the provider
+            List of matching treatments
         """
         try:
             return self.db.query(Treatment).filter(
-                Treatment.approved_by == approved_by
+                Treatment.name.ilike(f'%{name}%')
             ).order_by(desc(Treatment.created_at)).offset(skip).limit(limit).all()
             
         except Exception as e:
-            logger.error(f"Error getting treatments approved by {approved_by}: {str(e)}")
+            logger.error(f"Error getting treatments by name '{name}': {str(e)}")
             return []
     
-    def get_by_date_range(self, start_date: date, end_date: date, 
-                         date_field: str = "start_date") -> List[Treatment]:
+    def get_by_date_range(self, start_date: datetime, end_date: datetime, 
+                         skip: int = 0, limit: int = 100) -> List[Treatment]:
         """
-        Get treatments within date range
+        Get treatments within a specific date range
         
         Args:
-            start_date: Start date for filtering
-            end_date: End date for filtering
-            date_field: Field to filter on ("start_date" or "end_date")
+            start_date: Start of date range
+            end_date: End of date range
+            skip: Number of records to skip
+            limit: Maximum number of records to return
             
         Returns:
-            List of treatments within date range
+            List of treatments in the date range
         """
         try:
-            field = getattr(Treatment, date_field)
             return self.db.query(Treatment).filter(
                 and_(
-                    field >= start_date,
-                    field <= end_date
+                    Treatment.start_date >= start_date,
+                    Treatment.start_date <= end_date
                 )
-            ).order_by(desc(Treatment.created_at)).all()
+            ).order_by(desc(Treatment.start_date)).offset(skip).limit(limit).all()
             
         except Exception as e:
-            logger.error(f"Error getting treatments by {date_field} range {start_date} to {end_date}: {str(e)}")
+            logger.error(f"Error getting treatments in date range: {str(e)}")
             return []
     
-    def get_by_route(self, route: str, skip: int = 0, limit: int = 100) -> List[Treatment]:
+    def get_ongoing_treatments(self, skip: int = 0, limit: int = 100) -> List[Treatment]:
         """
-        Get treatments by route of administration
+        Get ongoing treatments (started but not ended)
         
         Args:
-            route: Route of administration (oral, IV, IM, etc.)
             skip: Number of records to skip
-            limit: Maximum number of records
+            limit: Maximum number of records to return
             
         Returns:
-            List of treatments with matching route
+            List of ongoing treatments
         """
         try:
             return self.db.query(Treatment).filter(
-                Treatment.route == route
-            ).order_by(desc(Treatment.created_at)).offset(skip).limit(limit).all()
+                and_(
+                    Treatment.start_date <= datetime.utcnow(),
+                    Treatment.end_date.is_(None),
+                    Treatment.status == "active"
+                )
+            ).order_by(desc(Treatment.start_date)).offset(skip).limit(limit).all()
             
         except Exception as e:
-            logger.error(f"Error getting treatments by route {route}: {str(e)}")
+            logger.error(f"Error getting ongoing treatments: {str(e)}")
             return []
     
-    def approve_treatment(self, treatment_id: UUID, approved_by: str) -> Optional[Treatment]:
+    def complete_treatment(self, treatment_id: str, end_date: Optional[datetime] = None) -> bool:
         """
-        Approve a treatment plan
+        Complete a treatment by setting end date and status
         
         Args:
-            treatment_id: Treatment ID
-            approved_by: Healthcare provider who approved the treatment
-            
-        Returns:
-            Updated treatment or None if failed
-        """
-        try:
-            return self.update(treatment_id, {
-                "status": "approved",
-                "approved_by": approved_by,
-                "updated_at": datetime.utcnow()
-            })
-            
-        except Exception as e:
-            logger.error(f"Error approving treatment {treatment_id}: {str(e)}")
-            return None
-    
-    def start_treatment(self, treatment_id: UUID, start_date: Optional[datetime] = None) -> Optional[Treatment]:
-        """
-        Start a treatment (change status to active)
-        
-        Args:
-            treatment_id: Treatment ID
-            start_date: Start date (defaults to current time)
-            
-        Returns:
-            Updated treatment or None if failed
-        """
-        try:
-            if start_date is None:
-                start_date = datetime.utcnow()
-            
-            return self.update(treatment_id, {
-                "status": "active",
-                "start_date": start_date,
-                "updated_at": datetime.utcnow()
-            })
-            
-        except Exception as e:
-            logger.error(f"Error starting treatment {treatment_id}: {str(e)}")
-            return None
-    
-    def complete_treatment(self, treatment_id: UUID, end_date: Optional[datetime] = None) -> Optional[Treatment]:
-        """
-        Complete a treatment
-        
-        Args:
-            treatment_id: Treatment ID
+            treatment_id: Treatment UUID
             end_date: End date (defaults to current time)
             
         Returns:
-            Updated treatment or None if failed
+            True if successful, False otherwise
         """
         try:
-            if end_date is None:
-                end_date = datetime.utcnow()
+            treatment = self.get_by_id(treatment_id)
+            if not treatment:
+                return False
             
-            return self.update(treatment_id, {
-                "status": "completed",
-                "end_date": end_date,
-                "updated_at": datetime.utcnow()
-            })
+            treatment.end_date = end_date or datetime.utcnow()
+            treatment.status = "completed"
+            treatment.updated_at = datetime.utcnow()
+            
+            self.db.commit()
+            return True
             
         except Exception as e:
             logger.error(f"Error completing treatment {treatment_id}: {str(e)}")
-            return None
+            self.db.rollback()
+            return False
     
-    def discontinue_treatment(self, treatment_id: UUID, end_date: Optional[datetime] = None) -> Optional[Treatment]:
+    def discontinue_treatment(self, treatment_id: str, reason: Optional[str] = None) -> bool:
         """
         Discontinue a treatment
         
         Args:
-            treatment_id: Treatment ID
-            end_date: End date (defaults to current time)
+            treatment_id: Treatment UUID
+            reason: Discontinuation reason
             
         Returns:
-            Updated treatment or None if failed
+            True if successful, False otherwise
         """
         try:
-            if end_date is None:
-                end_date = datetime.utcnow()
+            treatment = self.get_by_id(treatment_id)
+            if not treatment:
+                return False
             
-            return self.update(treatment_id, {
-                "status": "discontinued",
-                "end_date": end_date,
-                "updated_at": datetime.utcnow()
-            })
+            treatment.status = "discontinued"
+            treatment.end_date = datetime.utcnow()
+            treatment.updated_at = datetime.utcnow()
+            
+            if reason:
+                # Add reason to instructions
+                if treatment.instructions:
+                    treatment.instructions += f"\n\nDiscontinued: {reason}"
+                else:
+                    treatment.instructions = f"Discontinued: {reason}"
+            
+            self.db.commit()
+            return True
             
         except Exception as e:
             logger.error(f"Error discontinuing treatment {treatment_id}: {str(e)}")
-            return None
+            self.db.rollback()
+            return False
+    
+    def search_treatments(self, search_term: str, skip: int = 0, limit: int = 100) -> List[Treatment]:
+        """
+        Search treatments by name, description, or instructions
+        
+        Args:
+            search_term: Search term
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+            
+        Returns:
+            List of matching treatments
+        """
+        try:
+            search_pattern = f"%{search_term}%"
+            
+            return self.db.query(Treatment).filter(
+                or_(
+                    Treatment.name.ilike(search_pattern),
+                    Treatment.description.ilike(search_pattern),
+                    Treatment.instructions.ilike(search_pattern),
+                    Treatment.dosage.ilike(search_pattern)
+                )
+            ).order_by(desc(Treatment.created_at)).offset(skip).limit(limit).all()
+            
+        except Exception as e:
+            logger.error(f"Error searching treatments with term '{search_term}': {str(e)}")
+            return []
     
     def get_treatment_statistics(self) -> Dict[str, Any]:
         """
-        Get comprehensive treatment statistics
+        Get treatment statistics
         
         Returns:
             Dictionary with treatment statistics
         """
         try:
-            total_treatments = self.count()
+            total_treatments = self.db.query(func.count(Treatment.id)).scalar()
+            active_treatments = self.db.query(func.count(Treatment.id)).filter(
+                Treatment.status == "active"
+            ).scalar()
+            completed_treatments = self.db.query(func.count(Treatment.id)).filter(
+                Treatment.status == "completed"
+            ).scalar()
             
-            status_stats = self.db.query(
-                Treatment.status,
-                func.count(Treatment.id).label('count')
-            ).group_by(Treatment.status).all()
-            
+            # Most common treatment types
             type_stats = self.db.query(
                 Treatment.treatment_type,
-                func.count(Treatment.id).label('count')
-            ).group_by(Treatment.treatment_type).all()
+                func.count(Treatment.id)
+            ).group_by(Treatment.treatment_type).order_by(
+                desc(func.count(Treatment.id))
+            ).all()
             
-            route_stats = self.db.query(
-                Treatment.route,
-                func.count(Treatment.id).label('count')
-            ).filter(Treatment.route.isnot(None)).group_by(Treatment.route).all()
+            type_distribution = {treatment_type: count for treatment_type, count in type_stats}
             
-            creator_stats = self.db.query(
-                Treatment.created_by,
-                func.count(Treatment.id).label('count')
-            ).group_by(Treatment.created_by).all()
+            # Most common treatments
+            treatment_stats = self.db.query(
+                Treatment.name,
+                func.count(Treatment.id)
+            ).group_by(Treatment.name).order_by(
+                desc(func.count(Treatment.id))
+            ).limit(10).all()
+            
+            top_treatments = {name: count for name, count in treatment_stats}
+            
+            # Status distribution
+            status_stats = self.db.query(
+                Treatment.status,
+                func.count(Treatment.id)
+            ).group_by(Treatment.status).all()
+            
+            status_distribution = {status: count for status, count in status_stats}
             
             return {
-                "total_treatments": total_treatments,
-                "status_distribution": {stat.status: stat.count for stat in status_stats},
-                "type_distribution": {stat.treatment_type: stat.count for stat in type_stats},
-                "route_distribution": {stat.route: stat.count for stat in route_stats},
-                "creator_distribution": {stat.created_by: stat.count for stat in creator_stats},
-                "generated_at": datetime.utcnow().isoformat()
+                "total_treatments": total_treatments or 0,
+                "active_treatments": active_treatments or 0,
+                "completed_treatments": completed_treatments or 0,
+                "discontinued_treatments": status_distribution.get("discontinued", 0),
+                "type_distribution": type_distribution,
+                "top_treatments": top_treatments,
+                "status_distribution": status_distribution
             }
             
         except Exception as e:
             logger.error(f"Error getting treatment statistics: {str(e)}")
             return {}
     
-    def get_most_common_medications(self, limit: int = 20) -> List[Dict[str, Any]]:
+    def get_recent_treatments(self, days: int = 7, skip: int = 0, limit: int = 100) -> List[Treatment]:
         """
-        Get most commonly prescribed medications
+        Get treatments from the last N days
         
         Args:
-            limit: Maximum number of medications to return
+            days: Number of days to look back
+            skip: Number of records to skip
+            limit: Maximum number of records to return
             
         Returns:
-            List of medications with counts
+            List of recent treatments
         """
         try:
-            medications = self.db.query(
-                Treatment.medication_name,
-                func.count(Treatment.id).label('count')
-            ).filter(
-                Treatment.medication_name.isnot(None)
-            ).group_by(Treatment.medication_name).order_by(
-                desc(func.count(Treatment.id))
-            ).limit(limit).all()
+            cutoff_date = datetime.utcnow() - timedelta(days=days)
             
-            return [
-                {"medication": med.medication_name, "count": med.count}
-                for med in medications
-            ]
+            return self.db.query(Treatment).filter(
+                Treatment.created_at >= cutoff_date
+            ).order_by(desc(Treatment.created_at)).offset(skip).limit(limit).all()
             
         except Exception as e:
-            logger.error(f"Error getting most common medications: {str(e)}")
+            logger.error(f"Error getting recent treatments: {str(e)}")
             return []
     
-    def get_most_common_treatments(self, limit: int = 20) -> List[Dict[str, Any]]:
+    def count_by_patient(self, patient_id: str) -> int:
         """
-        Get most common treatment names
+        Count treatments for a specific patient
         
         Args:
-            limit: Maximum number of treatments to return
+            patient_id: Patient UUID
             
         Returns:
-            List of treatments with counts
+            Number of treatments for the patient
         """
         try:
-            treatments = self.db.query(
-                Treatment.treatment_name,
-                func.count(Treatment.id).label('count')
-            ).group_by(Treatment.treatment_name).order_by(
-                desc(func.count(Treatment.id))
-            ).limit(limit).all()
-            
-            return [
-                {"treatment": treatment.treatment_name, "count": treatment.count}
-                for treatment in treatments
-            ]
+            return self.db.query(func.count(Treatment.id)).join(Episode).filter(
+                Episode.patient_id == patient_id
+            ).scalar() or 0
             
         except Exception as e:
-            logger.error(f"Error getting most common treatments: {str(e)}")
-            return []
-    def get_by_episode(self, episode_id: str, skip: int = 0, limit: int = 100) -> List[Treatment]:
-        """Get all treatments for a specific episode"""
+            logger.error(f"Error counting treatments for patient {patient_id}: {str(e)}")
+            return 0
+    
+    def get_patient_medication_history(self, patient_id: str, skip: int = 0, limit: int = 100) -> List[Treatment]:
+        """
+        Get medication history for a specific patient
+        
+        Args:
+            patient_id: Patient UUID
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+            
+        Returns:
+            List of medication treatments for the patient
+        """
         try:
-            from uuid import UUID  
-            episode_uuid = UUID(episode_id) if isinstance(episode_id, str) else episode_id
-            return self.db.query(Treatment).filter(
-                Treatment.episode_id == episode_uuid
-            ).offset(skip).limit(limit).all()
+            return self.db.query(Treatment).join(Episode).filter(
+                and_(
+                    Episode.patient_id == patient_id,
+                    Treatment.treatment_type == "medication"
+                )
+            ).order_by(desc(Treatment.created_at)).offset(skip).limit(limit).all()
+            
         except Exception as e:
-            logger.error(f"Error getting treatments for episode {episode_id}: {str(e)}")
+            logger.error(f"Error getting medication history for patient {patient_id}: {str(e)}")
+            return []
+    
+    def get_treatments_requiring_monitoring(self, skip: int = 0, limit: int = 100) -> List[Treatment]:
+        """
+        Get treatments that have monitoring requirements
+        
+        Args:
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+            
+        Returns:
+            List of treatments requiring monitoring
+        """
+        try:
+            return self.db.query(Treatment).filter(
+                and_(
+                    Treatment.monitoring_requirements.isnot(None),
+                    Treatment.monitoring_requirements != "",
+                    Treatment.status == "active"
+                )
+            ).order_by(desc(Treatment.created_at)).offset(skip).limit(limit).all()
+            
+        except Exception as e:
+            logger.error(f"Error getting treatments requiring monitoring: {str(e)}")
+            return []
+    
+    def get_treatments_with_interactions(self, skip: int = 0, limit: int = 100) -> List[Treatment]:
+        """
+        Get treatments that have drug interactions noted
+        
+        Args:
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+            
+        Returns:
+            List of treatments with interactions
+        """
+        try:
+            return self.db.query(Treatment).filter(
+                and_(
+                    Treatment.drug_interactions.isnot(None),
+                    Treatment.drug_interactions != "",
+                    Treatment.status == "active"
+                )
+            ).order_by(desc(Treatment.created_at)).offset(skip).limit(limit).all()
+            
+        except Exception as e:
+            logger.error(f"Error getting treatments with interactions: {str(e)}")
             return []

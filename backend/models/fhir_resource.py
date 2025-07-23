@@ -1,11 +1,12 @@
 """
-FHIR Resource Database Model
+FHIR Resource Database Model - CORRECTED to match SQL schema exactly
 """
 
-from sqlalchemy import Column, String, DateTime, Text, JSON, Integer, Index
+from sqlalchemy import Column, String, DateTime, Text, Integer, Index
 from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime
 import uuid
+import json
 
 try:
     from config.database import Base
@@ -17,6 +18,7 @@ class FHIRResource(Base):
     """
     Generic FHIR Resource model for storing any FHIR resource as JSON
     This follows the FHIR R4 specification for resource storage
+    CORRECTED to match SQL schema exactly
     """
     __tablename__ = "fhir_resources"
     
@@ -26,10 +28,10 @@ class FHIRResource(Base):
     # FHIR resource identification
     resource_type = Column(String(100), nullable=False, index=True)  # Patient, Encounter, etc.
     resource_id = Column(String(100), nullable=False, index=True)    # FHIR resource ID
-    version_id = Column(String(50), default="1")                     # FHIR version ID
+    version_id = Column(String(50), default="1", nullable=False)     # FHIR version ID
     
-    # FHIR resource data (stored as JSON)
-    fhir_data = Column(JSON, nullable=False)  # Complete FHIR resource as JSON
+    # FHIR resource data (stored as TEXT to match SQL schema)
+    fhir_data = Column(Text, nullable=False)  # Complete FHIR resource as JSON string
     
     # Metadata
     last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
@@ -40,20 +42,33 @@ class FHIRResource(Base):
     encounter_reference = Column(String(100), index=True)  # Encounter/[id] for encounter filtering
     subject_reference = Column(String(100), index=True)  # Generic subject reference
     
-    # Status and flags
-    active = Column(String(20), default="active")  # active, inactive, deleted
-    source_system = Column(String(100), default="diagnoassist")  # System that created the resource
+    # Status and flags (CORRECTED: use 'status' not 'active' to match SQL)
+    status = Column(String(20), default="active", nullable=False)  # active, inactive, deleted
+    source_system = Column(String(100), default="diagnoassist", nullable=False)  # System that created the resource
     
     # Create composite indexes for common queries
     __table_args__ = (
         Index('idx_resource_type_id', 'resource_type', 'resource_id'),
         Index('idx_patient_type', 'patient_reference', 'resource_type'),
         Index('idx_encounter_type', 'encounter_reference', 'resource_type'),
-        Index('idx_active_resources', 'active', 'resource_type'),
+        Index('idx_status_resources', 'status', 'resource_type'),
     )
     
     def __repr__(self):
         return f"<FHIRResource(resource_type='{self.resource_type}', resource_id='{self.resource_id}', version='{self.version_id}')>"
+    
+    @property
+    def fhir_data_dict(self):
+        """Get FHIR data as dictionary"""
+        try:
+            return json.loads(self.fhir_data) if self.fhir_data else {}
+        except (json.JSONDecodeError, TypeError):
+            return {}
+    
+    @fhir_data_dict.setter
+    def fhir_data_dict(self, value):
+        """Set FHIR data from dictionary"""
+        self.fhir_data = json.dumps(value) if value else "{}"
     
     @classmethod
     def create_from_fhir_resource(cls, fhir_resource_dict, resource_id=None):
@@ -113,7 +128,7 @@ class FHIRResource(Base):
             resource_type=resource_type,
             resource_id=resource_id,
             version_id="1",
-            fhir_data=fhir_data,
+            fhir_data=json.dumps(fhir_data),  # Store as JSON string
             patient_reference=patient_ref,
             encounter_reference=encounter_ref,
             subject_reference=subject_ref or patient_ref
@@ -140,7 +155,7 @@ class FHIRResource(Base):
         fhir_data["meta"]["lastUpdated"] = datetime.utcnow().isoformat() + "Z"
         fhir_data["meta"]["versionId"] = new_version
         
-        self.fhir_data = fhir_data
+        self.fhir_data = json.dumps(fhir_data)
         self.version_id = new_version
         self.last_updated = datetime.utcnow()
     
@@ -151,7 +166,7 @@ class FHIRResource(Base):
         Returns:
             Dictionary containing the FHIR resource
         """
-        return self.fhir_data
+        return self.fhir_data_dict
     
     def to_dict(self):
         """Convert to dictionary for API responses"""
@@ -160,11 +175,11 @@ class FHIRResource(Base):
             "resource_type": self.resource_type,
             "resource_id": self.resource_id,
             "version_id": self.version_id,
-            "fhir_data": self.fhir_data,
+            "fhir_data": self.fhir_data_dict,
             "patient_reference": self.patient_reference,
             "encounter_reference": self.encounter_reference,
             "subject_reference": self.subject_reference,
-            "active": self.active,
+            "status": self.status,
             "source_system": self.source_system,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "last_updated": self.last_updated.isoformat() if self.last_updated else None

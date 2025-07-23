@@ -131,7 +131,7 @@ class EpisodeService(BaseService):
             patient = self.get_or_raise("Patient", str(data_dict["patient_id"]), 
                                       self.repos.patient.get_by_id)
             
-            if not patient.active:
+            if patient.status != "active":
                 raise BusinessRuleException(
                     "Cannot create episode for inactive patient",
                     rule="active_patient_required"
@@ -152,8 +152,8 @@ class EpisodeService(BaseService):
             # Set default values
             if "status" not in data_dict:
                 data_dict["status"] = "in-progress"
-            if "start_time" not in data_dict:
-                data_dict["start_time"] = datetime.utcnow()
+            if "start_date" not in data_dict:
+                data_dict["start_date"] = datetime.utcnow()
             
             # Create episode
             episode = self.repos.episode.create(data_dict)
@@ -447,7 +447,7 @@ class EpisodeService(BaseService):
             "treatments": [
                 {
                     "id": str(t.id),
-                    "treatment_name": t.treatment_name,
+                    "treatment_name": t.name,
                     "treatment_type": t.treatment_type,
                     "status": t.status,
                     "created_at": t.created_at
@@ -471,8 +471,8 @@ class EpisodeService(BaseService):
         
         # Calculate duration
         duration_seconds = None
-        if episode.end_time:
-            duration = episode.end_time - episode.start_time
+        if episode.end_date:
+            duration = episode.end_date - episode.start_date
             duration_seconds = duration.total_seconds()
         
         # Convert to response model
@@ -483,8 +483,8 @@ class EpisodeService(BaseService):
             "status": episode.status,
             "encounter_type": episode.encounter_type,
             "priority": episode.priority,
-            "start_time": episode.start_time,
-            "end_time": episode.end_time,
+            "start_time": episode.start_date,  
+            "end_time": episode.end_date,
             "provider_id": episode.provider_id,
             "location": episode.location,
             "vital_signs": episode.vital_signs,

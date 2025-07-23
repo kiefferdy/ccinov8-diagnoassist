@@ -131,7 +131,7 @@ class TreatmentService(BaseService):
             
             # Validate required fields
             self.validate_required_fields(data_dict, [
-                "episode_id", "treatment_name"
+                "episode_id", "name"
             ])
             
             # Validate episode exists and is active
@@ -492,12 +492,12 @@ class TreatmentService(BaseService):
         for med in medications:
             medication_list.append({
                 "id": str(med.id),
-                "medication_name": med.medication_name,
+                "medication_name": med.name,  # Changed from med.medication_name to med.name
                 "dosage": med.dosage,
                 "frequency": med.frequency,
                 "route": med.route,
                 "start_date": med.start_date,
-                "prescribed_for": med.treatment_name,
+                "prescribed_for": med.name,  # Changed from med.treatment_name to med.name
                 "instructions": med.instructions,
                 "side_effects": med.side_effects or [],
                 "monitoring_requirements": med.monitoring_requirements or []
@@ -574,17 +574,16 @@ class TreatmentService(BaseService):
         interactions = []
         
         # Simple interaction checking (in reality, this would use a drug interaction database)
-        med_name = treatment.medication_name.lower() if treatment.medication_name else ""
+        med_name = treatment.name.lower() if treatment.name else ""
         
         for other in other_meds:
-            other_med = other.medication_name.lower() if other.medication_name else ""
+            other_med = other.name.lower() if other.name else ""
             
             # Example: Basic warfarin interactions
             if "warfarin" in med_name and any(drug in other_med for drug in ["aspirin", "ibuprofen", "nsaid"]):
-                interactions.append(f"Bleeding risk: {treatment.medication_name} + {other.medication_name}")
+                interactions.append(f"Bleeding risk: {treatment.name} + {other.name}")
             
-            # Example: Basic insulin interactions
             if "insulin" in med_name and "beta-blocker" in other_med:
-                interactions.append(f"Hypoglycemia masking: {treatment.medication_name} + {other.medication_name}")
+                interactions.append(f"Hypoglycemia masking: {treatment.name} + {other.name}")
         
         return interactions

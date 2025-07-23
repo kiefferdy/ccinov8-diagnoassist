@@ -377,10 +377,10 @@ class ClinicalService(BaseService):
                     if condition not in condition_episodes:
                         condition_episodes[condition] = []
                     condition_episodes[condition].append({
-                        "episode_id": str(episode.id),
-                        "date": episode.start_time,
-                        "chief_complaint": episode.chief_complaint
-                    })
+                    "episode_id": str(episode.id),
+                    "date": episode.start_date,
+                    "chief_complaint": episode.chief_complaint
+                })
         
         # Identify chronic conditions (appearing in multiple episodes)
         for condition, episodes in condition_episodes.items():
@@ -406,7 +406,7 @@ class ClinicalService(BaseService):
                 "treatments": [
                     {
                         "id": str(t.id),
-                        "treatment_name": t.treatment_name,
+                        "treatment_name": t.name,
                         "treatment_type": t.treatment_type,
                         "start_date": t.start_date,
                         "status": t.status
@@ -419,7 +419,7 @@ class ClinicalService(BaseService):
                 "encounters": [
                     {
                         "id": str(ep.id),
-                        "date": ep.start_time,
+                        "date": ep.start_date,
                         "chief_complaint": ep.chief_complaint,
                         "status": ep.status
                     } for ep in recent_episodes[:5]

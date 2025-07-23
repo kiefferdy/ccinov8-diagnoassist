@@ -212,7 +212,7 @@ class FHIRService(BaseService):
                     "value": patient.medical_record_number
                 }
             ],
-            "active": patient.active,
+            "active": patient.status == "active",
             "name": [
                 {
                     "use": "official",
@@ -275,8 +275,8 @@ class FHIRService(BaseService):
                 "reference": f"Patient/{episode.patient_id}"
             },
             "period": {
-                "start": episode.start_time.isoformat() if episode.start_time else None,
-                "end": episode.end_time.isoformat() if episode.end_time else None
+                "start": episode.start_date.isoformat() if episode.start_date else None, 
+                "end": episode.end_date.isoformat() if episode.end_date else None 
             },
             "reasonCode": [
                 {

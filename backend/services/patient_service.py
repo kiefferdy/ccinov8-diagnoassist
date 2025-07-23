@@ -145,8 +145,8 @@ class PatientService(BaseService):
                     )
             
             # Generate patient identifier if not provided
-            if not data_dict.get("patient_identifier"):
-                data_dict["patient_identifier"] = self._generate_patient_identifier(data_dict)
+            if not data_dict.get("medical_record_number"):
+                data_dict["medical_record_number"] = self._generate_patient_identifier(data_dict)
             
             # Create patient
             patient = self.repos.patient.create(data_dict)
@@ -302,11 +302,11 @@ class PatientService(BaseService):
                 {
                     "id": str(ep.id),
                     "chief_complaint": ep.chief_complaint,
-                    "start_time": ep.start_time,
+                    "start_time": ep.start_date,
                     "status": ep.status
                 } for ep in recent_episodes
             ],
-            "last_visit": recent_episodes[0].start_time if recent_episodes else None
+            "last_visit": recent_episodes[0].start_date if recent_episodes else None 
         }
     
     def deactivate_patient(self, patient_id: str, reason: str) -> PatientResponse:
@@ -334,7 +334,7 @@ class PatientService(BaseService):
             
             # Deactivate patient
             updated_patient = self.repos.patient.update(patient_id, {
-                "active": False,
+                "status": "inactive",
                 "updated_at": datetime.utcnow()
             })
             self.safe_commit("patient deactivation")
