@@ -1,14 +1,14 @@
 """
-Diagnosis API Router for DiagnoAssist
-CRUD operations for diagnosis management with AI integration and exception handling
+Diagnosis API Router for DiagnoAssist - CLEAN VERSION
+CRUD operations for diagnosis management with AI integration
 """
 
-from fastapi import APIRouter, Depends, Query, Path
+from fastapi import APIRouter, Depends, Query, Path, HTTPException, status
 from typing import List, Optional
 from uuid import UUID
 
-# Import dependencies
-from api.dependencies import ServiceDep, CurrentUserDep, PaginationDep
+# Import dependencies - FIXED: Import directly from the module
+from api.dependencies import get_service_manager, get_current_user, PaginationParams
 
 # Import schemas
 from schemas.diagnosis import (
@@ -27,21 +27,13 @@ from schemas.clinical_data import (
     DiagnosisEvidence
 )
 
-# Import exceptions - using the global exception system
-from exceptions import (
-    ValidationException,
-    ResourceNotFoundException,
-    BusinessRuleException,
-    DiagnosisException,
-    ClinicalDataException,
-    PatientSafetyException,
-    AuthenticationException,
-    AuthorizationException
-)
-
 # Create router
 router = APIRouter(prefix="/diagnoses", tags=["diagnoses"])
 
+# Create dependency aliases properly
+ServiceDep = Depends(get_service_manager)
+CurrentUserDep = Depends(get_current_user)
+PaginationDep = Depends(PaginationParams)
 
 # =============================================================================
 # Diagnosis CRUD Operations
@@ -50,8 +42,8 @@ router = APIRouter(prefix="/diagnoses", tags=["diagnoses"])
 @router.post("/", response_model=DiagnosisResponse, status_code=201)
 async def create_diagnosis(
     diagnosis_data: DiagnosisCreate,
-    services: ServiceDep,
-    current_user: CurrentUserDep
+    services = ServiceDep,
+    current_user = CurrentUserDep
 ):
     """
     Create a new diagnosis
@@ -63,37 +55,48 @@ async def create_diagnosis(
         
     Returns:
         Created diagnosis data
-        
-    Raises:
-        ValidationException: Invalid diagnosis data
-        ResourceNotFoundException: Episode not found
-        DiagnosisException: Diagnosis validation error
-        ClinicalDataException: Clinical data validation error
-        PatientSafetyException: Safety rule violation
-        AuthorizationException: User lacks permission
     """
     # Authorization check
     if not current_user or not current_user.get("permissions", {}).get("diagnosis.create", False):
-        raise AuthorizationException(
-            message="Insufficient permissions to create diagnoses",
-            required_permission="diagnosis.create"
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to create diagnoses"
         )
     
-    # Create diagnosis through service layer
-    diagnosis = services.diagnosis.create_diagnosis(diagnosis_data)
-    
-    return diagnosis
+    try:
+        # Create diagnosis through service layer
+        diagnosis = services.diagnosis.create_diagnosis(diagnosis_data)
+        return diagnosis
+    except Exception as e:
+        error_message = str(e)
+        
+        if "not found" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=error_message
+            )
+        elif "validation" in error_message.lower() or "invalid" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=error_message
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to create diagnosis: {error_message}"
+            )
 
 
 @router.get("/", response_model=DiagnosisListResponse)
 async def get_diagnoses(
-    services: ServiceDep,
-    current_user: CurrentUserDep,
-    pagination: PaginationDep,
+    services = ServiceDep,
+    current_user = CurrentUserDep,
+    pagination = PaginationDep,
     episode_id: Optional[UUID] = Query(None, description="Filter by episode ID"),
     patient_id: Optional[UUID] = Query(None, description="Filter by patient ID"),
-    status: Optional[str] = Query(None, description="Filter by diagnosis status"),
-    confidence_min: Optional[float] = Query(None, ge=0.0, le=1.0, description="Minimum confidence level")
+    status_filter: Optional[str] = Query(None, description="Filter by diagnosis status"),
+    confidence_min: Optional[float] = Query(None, ge=0.0, le=1.0, description="Minimum confidence level"),
+    final_only: Optional[bool] = Query(False, description="Only final diagnoses")
 ):
     """
     Get paginated list of diagnoses
@@ -104,32 +107,44 @@ async def get_diagnoses(
         pagination: Pagination parameters
         episode_id: Episode ID filter
         patient_id: Patient ID filter
-        status: Diagnosis status filter
+        status_filter: Diagnosis status filter
         confidence_min: Minimum confidence threshold
+        final_only: Only return final diagnoses
         
     Returns:
         Paginated list of diagnoses
     """
     # Authorization check
     if not current_user:
-        raise AuthenticationException(message="Authentication required")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
     
-    # Get diagnoses through service layer
-    diagnoses = services.diagnosis.get_diagnoses(
-        pagination=pagination,
-        episode_id=str(episode_id) if episode_id else None,
-        patient_id=str(patient_id) if patient_id else None,
-        status=status,
-        confidence_min=confidence_min
-    )
-    
-    return diagnoses
+    try:
+        # Get diagnoses through service layer
+        diagnoses = services.diagnosis.get_diagnoses(
+            pagination=pagination,
+            episode_id=str(episode_id) if episode_id else None,
+            patient_id=str(patient_id) if patient_id else None,
+            status=status_filter,
+            confidence_min=confidence_min,
+            final_only=final_only
+        )
+        
+        return diagnoses
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve diagnoses: {str(e)}"
+        )
 
 
 @router.get("/{diagnosis_id}", response_model=DiagnosisResponse)
 async def get_diagnosis(
-    services: ServiceDep,
-    current_user: CurrentUserDep,
+    services = ServiceDep,
+    current_user = CurrentUserDep,
     diagnosis_id: UUID = Path(..., description="Diagnosis ID")
 ):
     """
@@ -145,26 +160,43 @@ async def get_diagnosis(
     """
     # Authorization check
     if not current_user:
-        raise AuthenticationException(message="Authentication required")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
     
-    # Get diagnosis through service layer
-    diagnosis = services.diagnosis.get_diagnosis(str(diagnosis_id))
-    
-    return diagnosis
+    try:
+        # Get diagnosis through service layer
+        diagnosis = services.diagnosis.get_diagnosis(str(diagnosis_id))
+        return diagnosis
+    except Exception as e:
+        error_message = str(e)
+        
+        if "not found" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Diagnosis {diagnosis_id} not found"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to retrieve diagnosis: {error_message}"
+            )
 
 
 @router.put("/{diagnosis_id}", response_model=DiagnosisResponse)
 async def update_diagnosis(
     diagnosis_data: DiagnosisUpdate,
-    services: ServiceDep,
-    current_user: CurrentUserDep,
+    services = ServiceDep,
+    current_user = CurrentUserDep,
     diagnosis_id: UUID = Path(..., description="Diagnosis ID")
 ):
     """
     Update diagnosis information
     
     Args:
-        diagnosis_data: Updated diagnosis data
+        diagnosis_data: Diagnosis update data
         services: Injected services
         current_user: Current authenticated user
         diagnosis_id: Diagnosis UUID
@@ -174,25 +206,39 @@ async def update_diagnosis(
     """
     # Authorization check
     if not current_user or not current_user.get("permissions", {}).get("diagnosis.update", False):
-        raise AuthorizationException(
-            message="Insufficient permissions to update diagnoses",
-            required_permission="diagnosis.update"
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to update diagnoses"
         )
     
-    # Update diagnosis through service layer
-    diagnosis = services.diagnosis.update_diagnosis(
-        diagnosis_id=str(diagnosis_id),
-        diagnosis_data=diagnosis_data,
-        updated_by=current_user["user_id"]
-    )
-    
-    return diagnosis
+    try:
+        # Update diagnosis through service layer
+        updated_diagnosis = services.diagnosis.update_diagnosis(
+            diagnosis_id=str(diagnosis_id),
+            diagnosis_data=diagnosis_data,
+            updated_by=current_user["user_id"]
+        )
+        
+        return updated_diagnosis
+    except Exception as e:
+        error_message = str(e)
+        
+        if "not found" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Diagnosis {diagnosis_id} not found"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to update diagnosis: {error_message}"
+            )
 
 
 @router.delete("/{diagnosis_id}", response_model=StatusResponse)
 async def delete_diagnosis(
-    services: ServiceDep,
-    current_user: CurrentUserDep,
+    services = ServiceDep,
+    current_user = CurrentUserDep,
     diagnosis_id: UUID = Path(..., description="Diagnosis ID")
 ):
     """
@@ -204,42 +250,56 @@ async def delete_diagnosis(
         diagnosis_id: Diagnosis UUID
         
     Returns:
-        Deletion status
+        Success status
     """
     # Authorization check
     if not current_user or not current_user.get("permissions", {}).get("diagnosis.delete", False):
-        raise AuthorizationException(
-            message="Insufficient permissions to delete diagnoses",
-            required_permission="diagnosis.delete"
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to delete diagnoses"
         )
     
-    # Delete diagnosis through service layer
-    services.diagnosis.delete_diagnosis(
-        diagnosis_id=str(diagnosis_id),
-        deleted_by=current_user["user_id"]
-    )
-    
-    return StatusResponse(
-        success=True,
-        message=f"Diagnosis {diagnosis_id} deleted successfully"
-    )
+    try:
+        # Delete diagnosis through service layer
+        services.diagnosis.delete_diagnosis(
+            diagnosis_id=str(diagnosis_id),
+            deleted_by=current_user["user_id"]
+        )
+        
+        return StatusResponse(
+            status="success",
+            message=f"Diagnosis {diagnosis_id} deleted successfully"
+        )
+    except Exception as e:
+        error_message = str(e)
+        
+        if "not found" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Diagnosis {diagnosis_id} not found"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to delete diagnosis: {error_message}"
+            )
 
 
 # =============================================================================
-# AI-Powered Diagnosis Operations
+# AI-powered Diagnosis Operations
 # =============================================================================
 
 @router.post("/analyze-symptoms", response_model=AIAnalysisResult)
 async def analyze_symptoms(
-    analysis_input: SymptomAnalysisInput,
-    services: ServiceDep,
-    current_user: CurrentUserDep
+    symptom_data: SymptomAnalysisInput,
+    services = ServiceDep,
+    current_user = CurrentUserDep
 ):
     """
-    AI-powered symptom analysis for differential diagnosis
+    Analyze symptoms using AI to suggest diagnoses
     
     Args:
-        analysis_input: Symptom analysis input data
+        symptom_data: Symptom analysis input
         services: Injected services
         current_user: Current authenticated user
         
@@ -247,66 +307,40 @@ async def analyze_symptoms(
         AI analysis results with suggested diagnoses
     """
     # Authorization check
-    if not current_user or not current_user.get("permissions", {}).get("diagnosis.ai_analysis", False):
-        raise AuthorizationException(
-            message="Insufficient permissions for AI analysis",
-            required_permission="diagnosis.ai_analysis"
+    if not current_user or not current_user.get("permissions", {}).get("diagnosis.create", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to analyze symptoms"
         )
     
-    # Perform AI analysis through service layer
-    analysis_result = services.diagnosis.analyze_symptoms(
-        analysis_input=analysis_input,
-        requested_by=current_user["user_id"]
-    )
-    
-    return analysis_result
-
-
-@router.post("/{diagnosis_id}/refine", response_model=DiagnosisResponse)
-async def refine_diagnosis(
-    refinement_data: DiagnosisRefinement,
-    services: ServiceDep,
-    current_user: CurrentUserDep,
-    diagnosis_id: UUID = Path(..., description="Diagnosis ID")
-):
-    """
-    Refine diagnosis using additional clinical data
-    
-    Args:
-        refinement_data: Diagnosis refinement data
-        services: Injected services
-        current_user: Current authenticated user
-        diagnosis_id: Diagnosis UUID
+    try:
+        # Analyze symptoms through service layer
+        analysis = services.diagnosis.analyze_symptoms(symptom_data)
+        return analysis
+    except Exception as e:
+        error_message = str(e)
         
-    Returns:
-        Refined diagnosis data
-    """
-    # Authorization check
-    if not current_user or not current_user.get("permissions", {}).get("diagnosis.refine", False):
-        raise AuthorizationException(
-            message="Insufficient permissions to refine diagnoses",
-            required_permission="diagnosis.refine"
-        )
-    
-    # Refine diagnosis through service layer
-    refined_diagnosis = services.diagnosis.refine_diagnosis(
-        diagnosis_id=str(diagnosis_id),
-        refinement_data=refinement_data,
-        refined_by=current_user["user_id"]
-    )
-    
-    return refined_diagnosis
+        if "not found" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=error_message
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to analyze symptoms: {error_message}"
+            )
 
 
 @router.post("/{diagnosis_id}/confirm", response_model=DiagnosisResponse)
 async def confirm_diagnosis(
     confirmation_data: DiagnosisConfirmation,
-    services: ServiceDep,
-    current_user: CurrentUserDep,
+    services = ServiceDep,
+    current_user = CurrentUserDep,
     diagnosis_id: UUID = Path(..., description="Diagnosis ID")
 ):
     """
-    Confirm diagnosis with clinical validation
+    Confirm a diagnosis as final
     
     Args:
         confirmation_data: Diagnosis confirmation data
@@ -318,115 +352,84 @@ async def confirm_diagnosis(
         Confirmed diagnosis data
     """
     # Authorization check
-    if not current_user or not current_user.get("permissions", {}).get("diagnosis.confirm", False):
-        raise AuthorizationException(
-            message="Insufficient permissions to confirm diagnoses",
-            required_permission="diagnosis.confirm"
+    if not current_user or not current_user.get("permissions", {}).get("diagnosis.update", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to confirm diagnoses"
         )
     
-    # Confirm diagnosis through service layer
-    confirmed_diagnosis = services.diagnosis.confirm_diagnosis(
-        diagnosis_id=str(diagnosis_id),
-        confirmation_data=confirmation_data,
-        confirmed_by=current_user["user_id"]
-    )
-    
-    return confirmed_diagnosis
+    try:
+        # Confirm diagnosis through service layer
+        confirmed_diagnosis = services.diagnosis.confirm_diagnosis(
+            diagnosis_id=str(diagnosis_id),
+            confirmation_data=confirmation_data,
+            confirmed_by=current_user["user_id"]
+        )
+        
+        return confirmed_diagnosis
+    except Exception as e:
+        error_message = str(e)
+        
+        if "not found" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Diagnosis {diagnosis_id} not found"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to confirm diagnosis: {error_message}"
+            )
 
 
-# =============================================================================
-# Diagnosis Information and Evidence
-# =============================================================================
-
-@router.get("/{diagnosis_id}/evidence")
-async def get_diagnosis_evidence(
-    services: ServiceDep,
-    current_user: CurrentUserDep,
+@router.post("/{diagnosis_id}/refine", response_model=DiagnosisResponse)
+async def refine_diagnosis(
+    refinement_data: DiagnosisRefinement,
+    services = ServiceDep,
+    current_user = CurrentUserDep,
     diagnosis_id: UUID = Path(..., description="Diagnosis ID")
 ):
     """
-    Get supporting evidence for diagnosis
+    Refine a diagnosis with additional evidence
     
     Args:
+        refinement_data: Diagnosis refinement data
         services: Injected services
         current_user: Current authenticated user
         diagnosis_id: Diagnosis UUID
         
     Returns:
-        Evidence summary with sources and confidence
-    """
-    # Authorization check
-    if not current_user:
-        raise AuthenticationException(message="Authentication required")
-    
-    # Get evidence through service layer
-    evidence = services.diagnosis.get_diagnosis_evidence(str(diagnosis_id))
-    
-    return evidence
-
-
-@router.get("/episode/{episode_id}/differential")
-async def get_episode_differential(
-    services: ServiceDep,
-    current_user: CurrentUserDep,
-    episode_id: UUID = Path(..., description="Episode ID")
-):
-    """
-    Get differential diagnosis for episode
-    
-    Args:
-        services: Injected services
-        current_user: Current authenticated user
-        episode_id: Episode UUID
-        
-    Returns:
-        Current differential diagnosis list
-    """
-    # Authorization check
-    if not current_user:
-        raise AuthenticationException(message="Authentication required")
-    
-    # Get differential through service layer
-    differential = services.diagnosis.get_episode_differential(str(episode_id))
-    
-    return differential
-
-
-@router.post("/{diagnosis_id}/add-evidence")
-async def add_supporting_evidence(
-    evidence_data: DiagnosisEvidence,
-    services: ServiceDep,
-    current_user: CurrentUserDep,
-    diagnosis_id: UUID = Path(..., description="Diagnosis ID")
-):
-    """
-    Add supporting evidence to diagnosis
-    
-    Args:
-        evidence_data: Evidence details
-        services: Injected services
-        current_user: Current authenticated user
-        diagnosis_id: Diagnosis UUID
-        
-    Returns:
-        Updated diagnosis with new evidence
+        Refined diagnosis data
     """
     # Authorization check
     if not current_user or not current_user.get("permissions", {}).get("diagnosis.update", False):
-        raise AuthorizationException(
-            message="Insufficient permissions to add evidence",
-            required_permission="diagnosis.update"
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions to refine diagnoses"
         )
     
-    # Add evidence through service layer
-    updated_diagnosis = services.diagnosis.add_evidence(
-        diagnosis_id=str(diagnosis_id),
-        evidence_data=evidence_data,
-        added_by=current_user["user_id"]
-    )
-    
-    return updated_diagnosis
-
+    try:
+        # Refine diagnosis through service layer
+        refined_diagnosis = services.diagnosis.refine_diagnosis(
+            diagnosis_id=str(diagnosis_id),
+            refinement_data=refinement_data,
+            refined_by=current_user["user_id"]
+        )
+        
+        return refined_diagnosis
+    except Exception as e:
+        error_message = str(e)
+        
+        if "not found" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Diagnosis {diagnosis_id} not found"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to refine diagnosis: {error_message}"
+            )
 
 # Export router
 __all__ = ["router"]

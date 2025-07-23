@@ -1,26 +1,269 @@
 """
-FHIR API Router for DiagnoAssist
-FHIR R4 compliant endpoints with exception handling
-FIXED: Dependency injection issues resolved
+FHIR API Router for DiagnoAssist - CLEAN VERSION
+FHIR R4 compliant resource management
 """
 
-from fastapi import APIRouter, Query, Path
-from typing import Optional, Dict, Any
+from fastapi import APIRouter, Depends, Query, Path, HTTPException, status
+from typing import List, Optional, Dict, Any
+from uuid import UUID
 
-# Import dependencies (FIXED: Remove duplicate Depends)
-from api.dependencies import ServiceDep, CurrentUserDep
+# Import dependencies - FIXED: Import directly from the module
+from api.dependencies import get_service_manager, get_current_user, PaginationParams
+
+# Import schemas
+from schemas.fhir_resource import (
+    FHIRResourceCreate,
+    FHIRResourceResponse,
+    FHIRResourceListResponse
+)
+from schemas.common import StatusResponse
 
 # Create router
-router = APIRouter(prefix="/fhir/R4", tags=["fhir"])
+router = APIRouter(prefix="/fhir", tags=["fhir"])
+
+# Create dependency aliases properly
+ServiceDep = Depends(get_service_manager)
+CurrentUserDep = Depends(get_current_user)
+PaginationDep = Depends(PaginationParams)
 
 # =============================================================================
-# FHIR Capability Statement
+# FHIR Resource Operations
 # =============================================================================
+
+@router.post("/", response_model=FHIRResourceResponse, status_code=201)
+async def create_fhir_resource(
+    resource_data: FHIRResourceCreate,
+    services = ServiceDep,
+    current_user = CurrentUserDep
+):
+    """
+    Create a new FHIR resource
+    
+    Args:
+        resource_data: FHIR resource creation data
+        services: Injected services
+        current_user: Current authenticated user
+        
+    Returns:
+        Created FHIR resource data
+    """
+    # Authorization check
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
+    try:
+        # Create FHIR resource through service layer
+        fhir_resource = services.fhir.create_resource(resource_data)
+        return fhir_resource
+    except Exception as e:
+        error_message = str(e)
+        
+        if "validation" in error_message.lower() or "invalid" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=error_message
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to create FHIR resource: {error_message}"
+            )
+
+
+@router.get("/", response_model=FHIRResourceListResponse)
+async def get_fhir_resources(
+    services = ServiceDep,
+    current_user = CurrentUserDep,
+    pagination = PaginationDep,
+    resource_type: Optional[str] = Query(None, description="Filter by resource type"),
+    patient_reference: Optional[str] = Query(None, description="Filter by patient reference"),
+    status_filter: Optional[str] = Query(None, description="Filter by status")
+):
+    """
+    Get paginated list of FHIR resources
+    
+    Args:
+        services: Injected services
+        current_user: Current authenticated user
+        pagination: Pagination parameters
+        resource_type: Resource type filter
+        patient_reference: Patient reference filter
+        status_filter: Status filter
+        
+    Returns:
+        Paginated list of FHIR resources
+    """
+    # Authorization check
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
+    try:
+        # Get FHIR resources through service layer
+        resources = services.fhir.get_resources(
+            pagination=pagination,
+            resource_type=resource_type,
+            patient_reference=patient_reference,
+            status=status_filter
+        )
+        
+        return resources
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve FHIR resources: {str(e)}"
+        )
+
+
+@router.get("/{resource_type}/{resource_id}", response_model=Dict[str, Any])
+async def get_fhir_resource(
+    services = ServiceDep,
+    current_user = CurrentUserDep,
+    resource_type: str = Path(..., description="FHIR resource type"),
+    resource_id: str = Path(..., description="FHIR resource ID")
+):
+    """
+    Get FHIR resource by type and ID
+    
+    Args:
+        services: Injected services
+        current_user: Current authenticated user
+        resource_type: FHIR resource type
+        resource_id: FHIR resource ID
+        
+    Returns:
+        FHIR resource data
+    """
+    # Authorization check
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
+    try:
+        # Get FHIR resource through service layer
+        resource = services.fhir.get_resource(resource_type, resource_id)
+        return resource
+    except Exception as e:
+        error_message = str(e)
+        
+        if "not found" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"FHIR resource {resource_type}/{resource_id} not found"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to retrieve FHIR resource: {error_message}"
+            )
+
+
+# =============================================================================
+# FHIR Conversion Operations
+# =============================================================================
+
+@router.post("/convert/patient/{patient_id}")
+async def convert_patient_to_fhir(
+    services = ServiceDep,
+    current_user = CurrentUserDep,
+    patient_id: UUID = Path(..., description="Patient ID")
+):
+    """
+    Convert patient to FHIR Patient resource
+    
+    Args:
+        services: Injected services
+        current_user: Current authenticated user
+        patient_id: Patient UUID
+        
+    Returns:
+        FHIR Patient resource
+    """
+    # Authorization check
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
+    try:
+        # Convert patient to FHIR through service layer
+        fhir_patient = services.fhir.convert_patient_to_fhir(str(patient_id))
+        return fhir_patient
+    except Exception as e:
+        error_message = str(e)
+        
+        if "not found" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Patient {patient_id} not found"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to convert patient to FHIR: {error_message}"
+            )
+
+
+@router.post("/convert/episode/{episode_id}")
+async def convert_episode_to_fhir(
+    services = ServiceDep,
+    current_user = CurrentUserDep,
+    episode_id: UUID = Path(..., description="Episode ID")
+):
+    """
+    Convert episode to FHIR Encounter resource
+    
+    Args:
+        services: Injected services
+        current_user: Current authenticated user
+        episode_id: Episode UUID
+        
+    Returns:
+        FHIR Encounter resource
+    """
+    # Authorization check
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
+    try:
+        # Convert episode to FHIR through service layer
+        fhir_encounter = services.fhir.convert_episode_to_fhir(str(episode_id))
+        return fhir_encounter
+    except Exception as e:
+        error_message = str(e)
+        
+        if "not found" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Episode {episode_id} not found"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to convert episode to FHIR: {error_message}"
+            )
+
 
 @router.get("/metadata")
 async def get_capability_statement():
     """
-    Get FHIR server capability statement
+    Get FHIR capability statement
     
     Returns:
         FHIR CapabilityStatement resource
@@ -28,356 +271,63 @@ async def get_capability_statement():
     return {
         "resourceType": "CapabilityStatement",
         "id": "diagnoassist-server",
-        "status": "draft",
-        "date": "2025-07-22",
-        "publisher": "DiagnoAssist Medical Systems",
+        "status": "active",
+        "date": "2025-01-23",
+        "publisher": "DiagnoAssist",
+        "kind": "instance",
+        "software": {
+            "name": "DiagnoAssist FHIR Server",
+            "version": "1.0.0"
+        },
+        "implementation": {
+            "description": "DiagnoAssist FHIR R4 Server"
+        },
         "fhirVersion": "4.0.1",
         "format": ["json"],
-        "implementation": {
-            "description": "DiagnoAssist FHIR R4 Server",
-            "url": "http://localhost:8000/fhir/R4"
-        },
-        "rest": [{
-            "mode": "server",
-            "documentation": "DiagnoAssist FHIR R4 API",
-            "security": {
-                "cors": True,
-                "description": "CORS support enabled"
-            },
-            "resource": [
-                {
-                    "type": "Patient",
-                    "profile": "http://hl7.org/fhir/StructureDefinition/Patient",
-                    "interaction": [
-                        {"code": "create"},
-                        {"code": "read"},
-                        {"code": "update"},
-                        {"code": "search-type"}
-                    ],
-                    "searchParam": [
-                        {
-                            "name": "name",
-                            "type": "string",
-                            "documentation": "Search by patient name"
-                        },
-                        {
-                            "name": "family",
-                            "type": "string", 
-                            "documentation": "Search by family name"
-                        },
-                        {
-                            "name": "given",
-                            "type": "string",
-                            "documentation": "Search by given name"
-                        },
-                        {
-                            "name": "identifier",
-                            "type": "token",
-                            "documentation": "Search by patient identifier"
-                        },
-                        {
-                            "name": "birthdate",
-                            "type": "date",
-                            "documentation": "Search by birth date"
-                        },
-                        {
-                            "name": "gender",
-                            "type": "token",
-                            "documentation": "Search by gender"
-                        }
-                    ]
-                },
-                {
-                    "type": "Encounter",
-                    "profile": "http://hl7.org/fhir/StructureDefinition/Encounter", 
-                    "interaction": [
-                        {"code": "create"},
-                        {"code": "read"},
-                        {"code": "search-type"}
-                    ]
-                },
-                {
-                    "type": "Observation",
-                    "profile": "http://hl7.org/fhir/StructureDefinition/Observation",
-                    "interaction": [
-                        {"code": "create"},
-                        {"code": "read"},
-                        {"code": "search-type"}
-                    ]
-                },
-                {
-                    "type": "DiagnosticReport",
-                    "profile": "http://hl7.org/fhir/StructureDefinition/DiagnosticReport",
-                    "interaction": [
-                        {"code": "create"},
-                        {"code": "read"},
-                        {"code": "search-type"}
-                    ]
-                },
-                {
-                    "type": "Condition",
-                    "profile": "http://hl7.org/fhir/StructureDefinition/Condition",
-                    "interaction": [
-                        {"code": "create"},
-                        {"code": "read"},
-                        {"code": "search-type"}
-                    ]
-                }
-            ]
-        }]
+        "rest": [
+            {
+                "mode": "server",
+                "resource": [
+                    {
+                        "type": "Patient",
+                        "interaction": [
+                            {"code": "read"},
+                            {"code": "create"},
+                            {"code": "update"},
+                            {"code": "search-type"}
+                        ]
+                    },
+                    {
+                        "type": "Encounter",
+                        "interaction": [
+                            {"code": "read"},
+                            {"code": "create"},
+                            {"code": "update"},
+                            {"code": "search-type"}
+                        ]
+                    },
+                    {
+                        "type": "Condition",
+                        "interaction": [
+                            {"code": "read"},
+                            {"code": "create"},
+                            {"code": "update"},
+                            {"code": "search-type"}
+                        ]
+                    },
+                    {
+                        "type": "MedicationRequest",
+                        "interaction": [
+                            {"code": "read"},
+                            {"code": "create"},
+                            {"code": "update"},
+                            {"code": "search-type"}
+                        ]
+                    }
+                ]
+            }
+        ]
     }
 
-
-# =============================================================================
-# FHIR Patient Resources
-# =============================================================================
-
-@router.get("/Patient")
-async def search_patients(
-    name: Optional[str] = Query(None, description="Patient name"),
-    family: Optional[str] = Query(None, description="Family name"),
-    given: Optional[str] = Query(None, description="Given name"), 
-    identifier: Optional[str] = Query(None, description="Patient identifier"),
-    birthdate: Optional[str] = Query(None, description="Birth date"),
-    gender: Optional[str] = Query(None, description="Gender"),
-    _count: int = Query(20, description="Number of results"),
-    _offset: int = Query(0, description="Offset for pagination")
-):
-    """
-    Search FHIR Patient resources
-    
-    Args:
-        name: Patient name search
-        family: Family name search
-        given: Given name search
-        identifier: Identifier search
-        birthdate: Birth date filter
-        gender: Gender filter
-        _count: Number of results
-        _offset: Pagination offset
-        
-    Returns:
-        FHIR Bundle with Patient resources
-    """
-    # For now, return empty bundle - can be enhanced with real data later
-    return {
-        "resourceType": "Bundle",
-        "type": "searchset",
-        "total": 0,
-        "link": [{
-            "relation": "self",
-            "url": f"Patient?_count={_count}&_offset={_offset}"
-        }],
-        "entry": []
-    }
-
-
-@router.post("/Patient", status_code=201)
-async def create_patient(patient_resource: Dict[str, Any]):
-    """
-    Create FHIR Patient resource
-    
-    Args:
-        patient_resource: FHIR Patient resource data
-        
-    Returns:
-        Created FHIR Patient resource
-    """
-    # Basic validation
-    if patient_resource.get("resourceType") != "Patient":
-        return {
-            "resourceType": "OperationOutcome",
-            "issue": [{
-                "severity": "error",
-                "code": "invalid",
-                "diagnostics": "Invalid resource type for Patient endpoint"
-            }]
-        }
-    
-    # For now, return a simple created patient - can be enhanced with real storage later
-    patient_id = "patient-example-1"
-    
-    created_patient = {
-        "resourceType": "Patient",
-        "id": patient_id,
-        "meta": {
-            "versionId": "1",
-            "lastUpdated": "2025-07-22T12:00:00Z"
-        },
-        **patient_resource
-    }
-    
-    # Remove resourceType from the input to avoid duplication
-    if "resourceType" in created_patient and created_patient["resourceType"] == "Patient":
-        pass  # Keep it
-    
-    return created_patient
-
-
-@router.get("/Patient/{patient_id}")
-async def get_patient(patient_id: str = Path(..., description="Patient ID")):
-    """
-    Get FHIR Patient resource by ID
-    
-    Args:
-        patient_id: Patient identifier
-        
-    Returns:
-        FHIR Patient resource
-    """
-    # For now, return a sample patient - can be enhanced with real data later
-    if patient_id == "patient-example-1":
-        return {
-            "resourceType": "Patient",
-            "id": patient_id,
-            "meta": {
-                "versionId": "1",
-                "lastUpdated": "2025-07-22T12:00:00Z"
-            },
-            "identifier": [{
-                "system": "http://diagnoassist.com/patient-id",
-                "value": patient_id
-            }],
-            "name": [{
-                "family": "Doe",
-                "given": ["John"]
-            }],
-            "gender": "male",
-            "birthDate": "1985-03-15"
-        }
-    else:
-        return {
-            "resourceType": "OperationOutcome",
-            "issue": [{
-                "severity": "error",
-                "code": "not-found",
-                "diagnostics": f"Patient with ID '{patient_id}' not found"
-            }]
-        }
-
-
-# =============================================================================
-# FHIR Encounter Resources
-# =============================================================================
-
-@router.get("/Encounter")
-async def search_encounters(
-    patient: Optional[str] = Query(None, description="Patient reference"),
-    status: Optional[str] = Query(None, description="Encounter status"),
-    _count: int = Query(20, description="Number of results"),
-    _offset: int = Query(0, description="Offset for pagination")
-):
-    """
-    Search FHIR Encounter resources
-    
-    Returns:
-        FHIR Bundle with Encounter resources
-    """
-    return {
-        "resourceType": "Bundle",
-        "type": "searchset",
-        "total": 0,
-        "entry": []
-    }
-
-
-@router.post("/Encounter", status_code=201)
-async def create_encounter(encounter_resource: Dict[str, Any]):
-    """
-    Create FHIR Encounter resource
-    
-    Returns:
-        Created FHIR Encounter resource
-    """
-    if encounter_resource.get("resourceType") != "Encounter":
-        return {
-            "resourceType": "OperationOutcome", 
-            "issue": [{
-                "severity": "error",
-                "code": "invalid",
-                "diagnostics": "Invalid resource type for Encounter endpoint"
-            }]
-        }
-    
-    encounter_id = "encounter-example-1"
-    
-    return {
-        "resourceType": "Encounter",
-        "id": encounter_id,
-        "meta": {
-            "versionId": "1",
-            "lastUpdated": "2025-07-22T12:00:00Z"
-        },
-        "status": "finished",
-        "class": {
-            "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
-            "code": "AMB",
-            "display": "ambulatory"
-        },
-        **encounter_resource
-    }
-
-
-# =============================================================================
-# FHIR Observation Resources
-# =============================================================================
-
-@router.get("/Observation")
-async def search_observations(
-    patient: Optional[str] = Query(None, description="Patient reference"),
-    encounter: Optional[str] = Query(None, description="Encounter reference"),
-    category: Optional[str] = Query(None, description="Observation category"),
-    _count: int = Query(20, description="Number of results"),
-    _offset: int = Query(0, description="Offset for pagination")
-):
-    """
-    Search FHIR Observation resources
-    
-    Returns:
-        FHIR Bundle with Observation resources
-    """
-    return {
-        "resourceType": "Bundle",
-        "type": "searchset",
-        "total": 0,
-        "entry": []
-    }
-
-
-@router.post("/Observation", status_code=201)
-async def create_observation(observation_resource: Dict[str, Any]):
-    """
-    Create FHIR Observation resource
-    
-    Returns:
-        Created FHIR Observation resource
-    """
-    if observation_resource.get("resourceType") != "Observation":
-        return {
-            "resourceType": "OperationOutcome",
-            "issue": [{
-                "severity": "error", 
-                "code": "invalid",
-                "diagnostics": "Invalid resource type for Observation endpoint"
-            }]
-        }
-    
-    observation_id = "observation-example-1"
-    
-    return {
-        "resourceType": "Observation",
-        "id": observation_id,
-        "meta": {
-            "versionId": "1",
-            "lastUpdated": "2025-07-22T12:00:00Z"
-        },
-        "status": "final",
-        **observation_resource
-    }
-
-
-# =============================================================================
 # Export router
-# =============================================================================
-
 __all__ = ["router"]
