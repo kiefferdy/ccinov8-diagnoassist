@@ -1,16 +1,17 @@
 """
 Diagnosis Service for DiagnoAssist
-Business logic for medical diagnoses and AI analysis
+Complete business logic for clinical diagnosis management
 """
 
 from __future__ import annotations
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID
+import re
 
 if TYPE_CHECKING:
     from models.diagnosis import Diagnosis
-    from schemas.diagnosis import DiagnosisCreate, DiagnosisUpdate, DiagnosisResponse, DifferentialDiagnosis
+    from schemas.diagnosis import DiagnosisCreate, DiagnosisUpdate, DiagnosisResponse
     from repositories.repository_manager import RepositoryManager
 
 from services.base_service import BaseService, ValidationException, BusinessRuleException, ResourceNotFoundException
@@ -35,19 +36,57 @@ class DiagnosisService(BaseService):
             BusinessRuleException: If business rules are violated
             ValidationException: If validation fails
         """
+        # Validate condition name
+        if "condition_name" in data and data["condition_name"]:
+            condition = data["condition_name"].strip()
+            if len(condition) < 2:
+                raise ValidationException(
+                    "Condition name must be at least 2 characters",
+                    field="condition_name",
+                    value=condition
+                )
+            if len(condition) > 500:
+                raise ValidationException(
+                    "Condition name cannot exceed 500 characters",
+                    field="condition_name",
+                    value=condition
+                )
+        
+        # Validate ICD-10 code format if provided
+        if "icd10_code" in data and data["icd10_code"]:
+            icd10 = data["icd10_code"].strip().upper()
+            # Basic ICD-10 format validation (Letter + 2 digits + optional decimal + more digits/letters)
+            if not re.match(r'^[A-Z]\d{2}(\.\d{1,3}[A-Z]?)?$', icd10):
+                raise ValidationException(
+                    "Invalid ICD-10 code format. Expected format: A12.34 or A12",
+                    field="icd10_code",
+                    value=data["icd10_code"]
+                )
+        
+        # Validate SNOMED code format if provided
+        if "snomed_code" in data and data["snomed_code"]:
+            snomed = data["snomed_code"].strip()
+            # SNOMED codes are numeric, typically 6-18 digits
+            if not re.match(r'^\d{6,18}$', snomed):
+                raise ValidationException(
+                    "Invalid SNOMED code format. Must be 6-18 digits",
+                    field="snomed_code",
+                    value=data["snomed_code"]
+                )
+        
         # Validate AI probability
         if "ai_probability" in data and data["ai_probability"] is not None:
             prob = data["ai_probability"]
-            if not isinstance(prob, (int, float)) or prob < 0 or prob > 1:
+            if not (0.0 <= prob <= 1.0):
                 raise ValidationException(
-                    "AI probability must be a number between 0 and 1",
+                    "AI probability must be between 0.0 and 1.0",
                     field="ai_probability",
                     value=prob
                 )
         
         # Validate confidence level
         if "confidence_level" in data and data["confidence_level"]:
-            valid_levels = ["very_low", "low", "medium", "high", "very_high"]
+            valid_levels = ["low", "medium", "high"]
             if data["confidence_level"] not in valid_levels:
                 raise ValidationException(
                     f"Confidence level must be one of: {', '.join(valid_levels)}",
@@ -55,156 +94,80 @@ class DiagnosisService(BaseService):
                     value=data["confidence_level"]
                 )
         
-        # Validate ICD-10 code format (basic check)
-        if "icd10_code" in data and data["icd10_code"]:
-            icd_code = data["icd10_code"].upper()
-            if not self._is_valid_icd10_format(icd_code):
+        # Validate status
+        if "status" in data and data["status"]:
+            valid_statuses = ["active", "inactive", "ruled_out", "resolved"]
+            if data["status"] not in valid_statuses:
                 raise ValidationException(
-                    f"Invalid ICD-10 code format: {icd_code}",
-                    field="icd10_code",
-                    value=data["icd10_code"]
+                    f"Status must be one of: {', '.join(valid_statuses)}",
+                    field="status",
+                    value=data["status"]
                 )
         
-        # Business rule: Final diagnosis requires physician confirmation
-        if data.get("final_diagnosis") and not data.get("physician_confirmed"):
-            raise BusinessRuleException(
-                "Final diagnosis must be confirmed by a physician",
-                rule="final_diagnosis_requires_confirmation"
-            )
-        
-        # Business rule: High probability diagnoses should have supporting evidence
-        if (data.get("ai_probability", 0) >= 0.8 and 
-            not data.get("supporting_symptoms") and 
-            not data.get("ai_reasoning")):
-            raise BusinessRuleException(
-                "High probability diagnoses must include supporting symptoms or AI reasoning",
-                rule="high_probability_requires_evidence"
-            )
+        # Business rule: Only one final diagnosis per episode
+        if operation == "create" and data.get("final_diagnosis"):
+            episode_id = data.get("episode_id")
+            if episode_id:
+                existing_final = self.repos.diagnosis.get_final_diagnosis_by_episode(str(episode_id))
+                if existing_final:
+                    raise BusinessRuleException(
+                        "Episode already has a final diagnosis. Update existing or set final_diagnosis=False",
+                        rule="one_final_diagnosis_per_episode"
+                    )
     
     def create_diagnosis(self, diagnosis_data: DiagnosisCreate) -> DiagnosisResponse:
         """
-        Create a new diagnosis
+        Create a new diagnosis with validation
         
         Args:
             diagnosis_data: Diagnosis creation data
             
         Returns:
-            DiagnosisResponse: Created diagnosis data
+            Created diagnosis response
+            
+        Raises:
+            ValidationException: If validation fails
+            BusinessRuleException: If business rules violated
         """
         try:
-            data_dict = diagnosis_data.model_dump()
-            
-            # Validate required fields
-            self.validate_required_fields(data_dict, [
-                "episode_id", "condition_name"
-            ])
-            
-            # Validate episode exists and is active
-            self.validate_uuid(str(data_dict["episode_id"]), "episode_id")
-            episode = self.get_or_raise("Episode", str(data_dict["episode_id"]), 
-                                      self.repos.episode.get_by_id)
-            
-            if episode.status != "in-progress":
-                raise BusinessRuleException(
-                    "Cannot add diagnosis to completed or cancelled episode",
-                    rule="active_episode_required"
-                )
+            # Convert to dict for validation
+            data = diagnosis_data.model_dump()
             
             # Validate business rules
-            self.validate_business_rules(data_dict, operation="create")
+            self.validate_business_rules(data, "create")
             
-            # Check for duplicate diagnoses (same condition for same episode)
-            existing_diagnoses = self.repos.diagnosis.get_by_episode(str(data_dict["episode_id"]))
-            for existing in existing_diagnoses:
-                if existing.condition_name.lower().strip() == data_dict["condition_name"].lower().strip():
-                    raise BusinessRuleException(
-                        f"Diagnosis for condition '{data_dict['condition_name']}' already exists for this episode",
-                        rule="unique_condition_per_episode"
-                    )
+            # Verify episode exists
+            episode = self.repos.episode.get_by_id(str(data["episode_id"]))
+            if not episode:
+                raise ResourceNotFoundException("Episode", str(data["episode_id"]))
             
-            # Set default values
-            if "ai_probability" not in data_dict and "confidence_level" in data_dict:
-                # Convert confidence level to probability estimate
-                data_dict["ai_probability"] = self._confidence_to_probability(data_dict["confidence_level"])
-            
-            if "created_by" not in data_dict:
-                data_dict["created_by"] = "ai_system"
+            # If this is AI-generated, set appropriate metadata
+            if data.get("ai_probability") and not data.get("created_by"):
+                data["created_by"] = "ai_system"
             
             # Create diagnosis
-            diagnosis = self.repos.diagnosis.create(data_dict)
-            self.safe_commit("diagnosis creation")
+            from models.diagnosis import Diagnosis
+            diagnosis = Diagnosis(**data)
+            created_diagnosis = self.repos.diagnosis.create(diagnosis)
             
-            # Audit log
-            self.audit_log("create", "Diagnosis", str(diagnosis.id), {
-                "episode_id": str(diagnosis.episode_id),
-                "condition_name": diagnosis.condition_name,
-                "ai_probability": diagnosis.ai_probability
+            # If this is set as final diagnosis, update any existing final diagnosis
+            if data.get("final_diagnosis"):
+                self._handle_final_diagnosis_update(str(data["episode_id"]), str(created_diagnosis.id))
+            
+            # Log creation
+            self.audit_log("create", "Diagnosis", str(created_diagnosis.id), {
+                "episode_id": str(created_diagnosis.episode_id),
+                "condition": created_diagnosis.condition_name,
+                "final_diagnosis": created_diagnosis.final_diagnosis,
+                "ai_generated": bool(created_diagnosis.ai_probability)
             })
             
-            return DiagnosisResponse.model_validate(diagnosis)
+            # Convert to response schema
+            from schemas.diagnosis import DiagnosisResponse
+            return DiagnosisResponse.model_validate(created_diagnosis)
             
-        except (ValidationException, BusinessRuleException, ResourceNotFoundException):
-            self.safe_rollback("diagnosis creation")
-            raise
         except Exception as e:
-            self.safe_rollback("diagnosis creation")
-            raise
-    
-    def update_diagnosis(self, diagnosis_id: str, diagnosis_data: DiagnosisUpdate) -> DiagnosisResponse:
-        """
-        Update an existing diagnosis
-        
-        Args:
-            diagnosis_id: Diagnosis UUID
-            diagnosis_data: Updated diagnosis data
-            
-        Returns:
-            DiagnosisResponse: Updated diagnosis data
-        """
-        try:
-            self.validate_uuid(diagnosis_id, "diagnosis_id")
-            diagnosis = self.get_or_raise("Diagnosis", diagnosis_id, self.repos.diagnosis.get_by_id)
-            
-            update_dict = diagnosis_data.model_dump(exclude_unset=True)
-            
-            if not update_dict:
-                return DiagnosisResponse.model_validate(diagnosis)
-            
-            # Validate business rules for update
-            self.validate_business_rules(update_dict, operation="update")
-            
-            # Business rule: Cannot modify final diagnoses except for physician notes
-            if diagnosis.final_diagnosis:
-                allowed_fields = {"physician_notes"}
-                update_fields = set(update_dict.keys())
-                if not update_fields.issubset(allowed_fields):
-                    disallowed = update_fields - allowed_fields
-                    raise BusinessRuleException(
-                        f"Cannot modify fields {disallowed} on final diagnosis",
-                        rule="final_diagnosis_limited_updates"
-                    )
-            
-            # Auto-set confirmation timestamp if physician is confirming
-            if "physician_confirmed" in update_dict and update_dict["physician_confirmed"]:
-                update_dict["confirmed_at"] = datetime.utcnow()
-            
-            # Update diagnosis
-            updated_diagnosis = self.repos.diagnosis.update(diagnosis_id, update_dict)
-            self.safe_commit("diagnosis update")
-            
-            # Audit log
-            self.audit_log("update", "Diagnosis", diagnosis_id, {
-                "updated_fields": list(update_dict.keys()),
-                "episode_id": str(diagnosis.episode_id)
-            })
-            
-            return DiagnosisResponse.model_validate(updated_diagnosis)
-            
-        except (ValidationException, BusinessRuleException, ResourceNotFoundException):
-            self.safe_rollback("diagnosis update")
-            raise
-        except Exception as e:
-            self.safe_rollback("diagnosis update")
+            self.logger.error(f"Failed to create diagnosis: {e}")
             raise
     
     def get_diagnosis(self, diagnosis_id: str) -> DiagnosisResponse:
@@ -215,11 +178,127 @@ class DiagnosisService(BaseService):
             diagnosis_id: Diagnosis UUID
             
         Returns:
-            DiagnosisResponse: Diagnosis data
+            Diagnosis response
+            
+        Raises:
+            ResourceNotFoundException: If diagnosis not found
         """
-        self.validate_uuid(diagnosis_id, "diagnosis_id")
-        diagnosis = self.get_or_raise("Diagnosis", diagnosis_id, self.repos.diagnosis.get_by_id)
+        diagnosis = self.repos.diagnosis.get_by_id(diagnosis_id)
+        if not diagnosis:
+            raise ResourceNotFoundException("Diagnosis", diagnosis_id)
+        
+        from schemas.diagnosis import DiagnosisResponse
         return DiagnosisResponse.model_validate(diagnosis)
+    
+    def update_diagnosis(self, diagnosis_id: str, diagnosis_data: DiagnosisUpdate) -> DiagnosisResponse:
+        """
+        Update existing diagnosis
+        
+        Args:
+            diagnosis_id: Diagnosis UUID
+            diagnosis_data: Diagnosis update data
+            
+        Returns:
+            Updated diagnosis response
+            
+        Raises:
+            ResourceNotFoundException: If diagnosis not found
+            ValidationException: If validation fails
+            BusinessRuleException: If business rules violated
+        """
+        try:
+            # Get existing diagnosis
+            existing_diagnosis = self.repos.diagnosis.get_by_id(diagnosis_id)
+            if not existing_diagnosis:
+                raise ResourceNotFoundException("Diagnosis", diagnosis_id)
+            
+            # Convert to dict for validation (exclude None values)
+            data = diagnosis_data.model_dump(exclude_none=True)
+            if not data:
+                return DiagnosisResponse.model_validate(existing_diagnosis)
+            
+            # Validate business rules
+            self.validate_business_rules(data, "update")
+            
+            # Handle final diagnosis logic
+            if "final_diagnosis" in data and data["final_diagnosis"]:
+                episode_id = str(existing_diagnosis.episode_id)
+                existing_final = self.repos.diagnosis.get_final_diagnosis_by_episode(episode_id)
+                if existing_final and str(existing_final.id) != diagnosis_id:
+                    raise BusinessRuleException(
+                        "Episode already has a final diagnosis. Clear existing final diagnosis first",
+                        rule="one_final_diagnosis_per_episode"
+                    )
+            
+            # Update diagnosis
+            updated_diagnosis = self.repos.diagnosis.update(diagnosis_id, data)
+            
+            # Handle final diagnosis updates
+            if data.get("final_diagnosis"):
+                self._handle_final_diagnosis_update(str(updated_diagnosis.episode_id), diagnosis_id)
+            
+            # Log update
+            self.audit_log("update", "Diagnosis", diagnosis_id, {
+                "updated_fields": list(data.keys()),
+                "episode_id": str(updated_diagnosis.episode_id)
+            })
+            
+            from schemas.diagnosis import DiagnosisResponse
+            return DiagnosisResponse.model_validate(updated_diagnosis)
+            
+        except Exception as e:
+            self.logger.error(f"Failed to update diagnosis {diagnosis_id}: {e}")
+            raise
+    
+    def delete_diagnosis(self, diagnosis_id: str) -> Dict[str, Any]:
+        """
+        Soft delete diagnosis (set status to inactive)
+        
+        Args:
+            diagnosis_id: Diagnosis UUID
+            
+        Returns:
+            Deletion confirmation
+            
+        Raises:
+            ResourceNotFoundException: If diagnosis not found
+            BusinessRuleException: If diagnosis has dependent treatments
+        """
+        try:
+            # Get existing diagnosis
+            existing_diagnosis = self.repos.diagnosis.get_by_id(diagnosis_id)
+            if not existing_diagnosis:
+                raise ResourceNotFoundException("Diagnosis", diagnosis_id)
+            
+            # Check for dependent treatments
+            treatments = self.repos.treatment.get_by_diagnosis_id(diagnosis_id)
+            active_treatments = [t for t in treatments if t.status == "active"]
+            if active_treatments:
+                raise BusinessRuleException(
+                    f"Cannot delete diagnosis with {len(active_treatments)} active treatments. "
+                    "Complete or cancel treatments first.",
+                    rule="no_active_treatments_for_diagnosis_deletion"
+                )
+            
+            # Soft delete by setting status to inactive
+            updated_diagnosis = self.repos.diagnosis.update(diagnosis_id, {"status": "inactive"})
+            
+            # Log deletion
+            self.audit_log("delete", "Diagnosis", diagnosis_id, {
+                "episode_id": str(existing_diagnosis.episode_id),
+                "condition": existing_diagnosis.condition_name,
+                "soft_delete": True
+            })
+            
+            return {
+                "message": "Diagnosis deactivated successfully",
+                "diagnosis_id": diagnosis_id,
+                "status": "inactive"
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Failed to delete diagnosis {diagnosis_id}: {e}")
+            raise
     
     def get_diagnoses_by_episode(self, episode_id: str) -> List[DiagnosisResponse]:
         """
@@ -229,283 +308,378 @@ class DiagnosisService(BaseService):
             episode_id: Episode UUID
             
         Returns:
-            List of DiagnosisResponse objects
-        """
-        self.validate_uuid(episode_id, "episode_id")
-        
-        # Verify episode exists
-        self.get_or_raise("Episode", episode_id, self.repos.episode.get_by_id)
-        
-        diagnoses = self.repos.diagnosis.get_by_episode(episode_id)
-        return [DiagnosisResponse.model_validate(d) for d in diagnoses]
-    
-    def confirm_diagnosis(self, diagnosis_id: str, physician_notes: Optional[str] = None) -> DiagnosisResponse:
-        """
-        Physician confirmation of a diagnosis
-        
-        Args:
-            diagnosis_id: Diagnosis UUID
-            physician_notes: Optional physician notes
-            
-        Returns:
-            DiagnosisResponse: Updated diagnosis
+            List of diagnosis responses
         """
         try:
-            self.validate_uuid(diagnosis_id, "diagnosis_id")
-            diagnosis = self.get_or_raise("Diagnosis", diagnosis_id, self.repos.diagnosis.get_by_id)
+            diagnoses = self.repos.diagnosis.get_by_episode(episode_id)
             
-            # Prepare update data
-            update_data = {
-                "physician_confirmed": True,
-                "confirmed_at": datetime.utcnow()
-            }
+            from schemas.diagnosis import DiagnosisResponse
+            return [DiagnosisResponse.model_validate(d) for d in diagnoses]
             
-            if physician_notes:
-                update_data["physician_notes"] = physician_notes
-            
-            # Update diagnosis
-            updated_diagnosis = self.repos.diagnosis.update(diagnosis_id, update_data)
-            self.safe_commit("diagnosis confirmation")
-            
-            # Audit log
-            self.audit_log("confirm", "Diagnosis", diagnosis_id, {
-                "episode_id": str(diagnosis.episode_id),
-                "condition_name": diagnosis.condition_name
-            })
-            
-            return DiagnosisResponse.model_validate(updated_diagnosis)
-            
-        except (ValidationException, BusinessRuleException, ResourceNotFoundException):
-            self.safe_rollback("diagnosis confirmation")
-            raise
         except Exception as e:
-            self.safe_rollback("diagnosis confirmation")
+            self.logger.error(f"Failed to get diagnoses for episode {episode_id}: {e}")
             raise
     
-    def set_final_diagnosis(self, diagnosis_id: str, physician_notes: Optional[str] = None) -> DiagnosisResponse:
+    def get_differential_diagnoses(self, episode_id: str) -> List[DiagnosisResponse]:
         """
-        Set a diagnosis as the final diagnosis for the episode
+        Get differential diagnoses for an episode (non-final diagnoses)
         
         Args:
-            diagnosis_id: Diagnosis UUID
-            physician_notes: Optional physician notes
+            episode_id: Episode UUID
             
         Returns:
-            DiagnosisResponse: Updated diagnosis
+            List of differential diagnosis responses
         """
         try:
-            self.validate_uuid(diagnosis_id, "diagnosis_id")
-            diagnosis = self.get_or_raise("Diagnosis", diagnosis_id, self.repos.diagnosis.get_by_id)
+            diagnoses = self.repos.diagnosis.get_differential_by_episode(episode_id)
             
-            # Business rule: Must be physician confirmed first
-            if not diagnosis.physician_confirmed:
+            from schemas.diagnosis import DiagnosisResponse
+            return [DiagnosisResponse.model_validate(d) for d in diagnoses]
+            
+        except Exception as e:
+            self.logger.error(f"Failed to get differential diagnoses for episode {episode_id}: {e}")
+            raise
+    
+    def get_final_diagnosis(self, episode_id: str) -> Optional[DiagnosisResponse]:
+        """
+        Get final diagnosis for an episode
+        
+        Args:
+            episode_id: Episode UUID
+            
+        Returns:
+            Final diagnosis response or None if not set
+        """
+        try:
+            diagnosis = self.repos.diagnosis.get_final_diagnosis_by_episode(episode_id)
+            if not diagnosis:
+                return None
+            
+            from schemas.diagnosis import DiagnosisResponse
+            return DiagnosisResponse.model_validate(diagnosis)
+            
+        except Exception as e:
+            self.logger.error(f"Failed to get final diagnosis for episode {episode_id}: {e}")
+            raise
+    
+    def set_final_diagnosis(self, episode_id: str, diagnosis_id: str) -> DiagnosisResponse:
+        """
+        Set a diagnosis as the final diagnosis for an episode
+        
+        Args:
+            episode_id: Episode UUID
+            diagnosis_id: Diagnosis UUID to set as final
+            
+        Returns:
+            Updated diagnosis response
+            
+        Raises:
+            ResourceNotFoundException: If diagnosis not found
+            BusinessRuleException: If diagnosis doesn't belong to episode
+        """
+        try:
+            # Get and validate diagnosis
+            diagnosis = self.repos.diagnosis.get_by_id(diagnosis_id)
+            if not diagnosis:
+                raise ResourceNotFoundException("Diagnosis", diagnosis_id)
+            
+            if str(diagnosis.episode_id) != episode_id:
                 raise BusinessRuleException(
-                    "Diagnosis must be physician confirmed before setting as final",
-                    rule="confirmation_required_for_final"
+                    "Diagnosis does not belong to the specified episode",
+                    rule="diagnosis_episode_match"
                 )
             
-            # Clear any existing final diagnoses for this episode
-            existing_diagnoses = self.repos.diagnosis.get_by_episode(str(diagnosis.episode_id))
-            for existing in existing_diagnoses:
-                if existing.final_diagnosis and str(existing.id) != diagnosis_id:
-                    self.repos.diagnosis.update(str(existing.id), {"final_diagnosis": False})
+            # Clear any existing final diagnosis
+            existing_final = self.repos.diagnosis.get_final_diagnosis_by_episode(episode_id)
+            if existing_final and str(existing_final.id) != diagnosis_id:
+                self.repos.diagnosis.update(str(existing_final.id), {"final_diagnosis": False})
             
-            # Set as final diagnosis
-            update_data = {
+            # Set new final diagnosis
+            updated_diagnosis = self.repos.diagnosis.update(diagnosis_id, {
                 "final_diagnosis": True,
-                "confirmed_at": datetime.utcnow()
-            }
+                "physician_confirmed": True
+            })
+            
+            # Log final diagnosis setting
+            self.audit_log("set_final", "Diagnosis", diagnosis_id, {
+                "episode_id": episode_id,
+                "condition": updated_diagnosis.condition_name
+            })
+            
+            from schemas.diagnosis import DiagnosisResponse
+            return DiagnosisResponse.model_validate(updated_diagnosis)
+            
+        except Exception as e:
+            self.logger.error(f"Failed to set final diagnosis {diagnosis_id} for episode {episode_id}: {e}")
+            raise
+    
+    def confirm_physician_diagnosis(self, 
+                                  diagnosis_id: str, 
+                                  physician_notes: Optional[str] = None,
+                                  confidence_level: Optional[str] = None) -> DiagnosisResponse:
+        """
+        Confirm diagnosis by physician
+        
+        Args:
+            diagnosis_id: Diagnosis UUID
+            physician_notes: Optional physician notes
+            confidence_level: Optional confidence level update
+            
+        Returns:
+            Updated diagnosis response
+        """
+        try:
+            # Prepare update data
+            update_data = {"physician_confirmed": True}
             
             if physician_notes:
                 update_data["physician_notes"] = physician_notes
             
-            updated_diagnosis = self.repos.diagnosis.update(diagnosis_id, update_data)
-            self.safe_commit("final diagnosis setting")
-            
-            # Audit log
-            self.audit_log("set_final", "Diagnosis", diagnosis_id, {
-                "episode_id": str(diagnosis.episode_id),
-                "condition_name": diagnosis.condition_name
-            })
-            
-            return DiagnosisResponse.model_validate(updated_diagnosis)
-            
-        except (ValidationException, BusinessRuleException, ResourceNotFoundException):
-            self.safe_rollback("final diagnosis setting")
-            raise
-        except Exception as e:
-            self.safe_rollback("final diagnosis setting")
-            raise
-    
-    def get_differential_diagnoses(self, episode_id: str) -> List[Dict[str, Any]]:
-        """
-        Get differential diagnoses for an episode, ranked by probability
-        
-        Args:
-            episode_id: Episode UUID
-            
-        Returns:
-            List of diagnosis data ranked by AI probability
-        """
-        self.validate_uuid(episode_id, "episode_id")
-        
-        # Verify episode exists
-        self.get_or_raise("Episode", episode_id, self.repos.episode.get_by_id)
-        
-        diagnoses = self.repos.diagnosis.get_by_episode(episode_id)
-        
-        # Sort by AI probability (descending) and format for differential view
-        differential_list = []
-        for diagnosis in sorted(diagnoses, key=lambda d: d.ai_probability or 0, reverse=True):
-            differential_list.append({
-                "id": str(diagnosis.id),
-                "condition_name": diagnosis.condition_name,
-                "icd10_code": diagnosis.icd10_code,
-                "ai_probability": diagnosis.ai_probability,
-                "probability_percentage": diagnosis.probability_percentage,
-                "confidence_level": diagnosis.confidence_level,
-                "physician_confirmed": diagnosis.physician_confirmed,
-                "final_diagnosis": diagnosis.final_diagnosis,
-                "supporting_symptoms": diagnosis.supporting_symptoms or [],
-                "red_flags": diagnosis.red_flags or [],
-                "created_at": diagnosis.created_at
-            })
-        
-        return differential_list
-    
-    def add_supporting_evidence(self, diagnosis_id: str, evidence: Dict[str, Any]) -> DiagnosisResponse:
-        """
-        Add supporting evidence to a diagnosis
-        
-        Args:
-            diagnosis_id: Diagnosis UUID
-            evidence: Evidence data (symptoms, findings, etc.)
-            
-        Returns:
-            DiagnosisResponse: Updated diagnosis
-        """
-        try:
-            self.validate_uuid(diagnosis_id, "diagnosis_id")
-            diagnosis = self.get_or_raise("Diagnosis", diagnosis_id, self.repos.diagnosis.get_by_id)
-            
-            update_data = {}
-            
-            # Add supporting symptoms
-            if "symptoms" in evidence:
-                current_symptoms = diagnosis.supporting_symptoms or []
-                new_symptoms = evidence["symptoms"]
-                if isinstance(new_symptoms, list):
-                    current_symptoms.extend(new_symptoms)
-                    update_data["supporting_symptoms"] = list(set(current_symptoms))  # Remove duplicates
-            
-            # Add red flags
-            if "red_flags" in evidence:
-                current_flags = diagnosis.red_flags or []
-                new_flags = evidence["red_flags"]
-                if isinstance(new_flags, list):
-                    current_flags.extend(new_flags)
-                    update_data["red_flags"] = list(set(current_flags))
-            
-            # Update AI reasoning
-            if "reasoning" in evidence:
-                current_reasoning = diagnosis.ai_reasoning or ""
-                additional_reasoning = evidence["reasoning"]
-                if current_reasoning:
-                    update_data["ai_reasoning"] = f"{current_reasoning}\n\nAdditional Evidence:\n{additional_reasoning}"
-                else:
-                    update_data["ai_reasoning"] = additional_reasoning
-            
-            if not update_data:
-                return DiagnosisResponse.model_validate(diagnosis)
+            if confidence_level:
+                if confidence_level not in ["low", "medium", "high"]:
+                    raise ValidationException(
+                        "Confidence level must be low, medium, or high",
+                        field="confidence_level",
+                        value=confidence_level
+                    )
+                update_data["confidence_level"] = confidence_level
             
             # Update diagnosis
             updated_diagnosis = self.repos.diagnosis.update(diagnosis_id, update_data)
-            self.safe_commit("evidence addition")
             
-            # Audit log
-            self.audit_log("add_evidence", "Diagnosis", diagnosis_id, {
-                "episode_id": str(diagnosis.episode_id),
-                "evidence_types": list(evidence.keys())
+            # Log physician confirmation
+            self.audit_log("physician_confirm", "Diagnosis", diagnosis_id, {
+                "physician_notes_added": bool(physician_notes),
+                "confidence_updated": bool(confidence_level)
             })
             
+            from schemas.diagnosis import DiagnosisResponse
             return DiagnosisResponse.model_validate(updated_diagnosis)
             
-        except (ValidationException, BusinessRuleException, ResourceNotFoundException):
-            self.safe_rollback("evidence addition")
-            raise
         except Exception as e:
-            self.safe_rollback("evidence addition")
+            self.logger.error(f"Failed to confirm diagnosis {diagnosis_id}: {e}")
             raise
     
-    # Placeholder methods for future AI integration
-    def analyze_symptoms_for_diagnosis(self, episode_id: str, symptoms: List[str]) -> List[Dict[str, Any]]:
+    def generate_ai_differential_diagnoses(self, 
+                                         episode_id: str,
+                                         symptoms: List[str],
+                                         patient_data: Dict[str, Any],
+                                         limit: int = 5) -> List[DiagnosisResponse]:
         """
-        Placeholder for AI-powered symptom analysis
-        TODO: Implement AI integration
+        Generate AI-based differential diagnoses
         
         Args:
             episode_id: Episode UUID
-            symptoms: List of symptoms to analyze
+            symptoms: List of symptoms
+            patient_data: Patient demographic and medical history data
+            limit: Maximum number of diagnoses to generate
             
         Returns:
-            List of potential diagnoses with probabilities
+            List of AI-generated diagnosis responses
+            
+        Note:
+            This is a placeholder for AI integration.
+            In production, this would call an AI service.
         """
-        self.logger.info(f"AI analysis requested for episode {episode_id} with symptoms: {symptoms}")
-        
-        # Placeholder: Return empty list until AI integration is implemented
-        return []
+        try:
+            # Verify episode exists
+            episode = self.repos.episode.get_by_id(episode_id)
+            if not episode:
+                raise ResourceNotFoundException("Episode", episode_id)
+            
+            # Placeholder AI differential diagnosis generation
+            # In production, this would integrate with medical AI service
+            mock_differentials = self._generate_mock_differentials(symptoms, patient_data, limit)
+            
+            created_diagnoses = []
+            for diff_data in mock_differentials:
+                diff_data["episode_id"] = UUID(episode_id)
+                diff_data["created_by"] = "ai_system"
+                diff_data["final_diagnosis"] = False
+                
+                from schemas.diagnosis import DiagnosisCreate
+                diagnosis_create = DiagnosisCreate(**diff_data)
+                created_diagnosis = self.create_diagnosis(diagnosis_create)
+                created_diagnoses.append(created_diagnosis)
+            
+            # Log AI generation
+            self.audit_log("ai_generate", "Diagnosis", episode_id, {
+                "symptoms_count": len(symptoms),
+                "diagnoses_generated": len(created_diagnoses),
+                "ai_system": "mock_ai"  # Replace with actual AI system name
+            })
+            
+            return created_diagnoses
+            
+        except Exception as e:
+            self.logger.error(f"Failed to generate AI differential diagnoses for episode {episode_id}: {e}")
+            raise
     
-    def generate_diagnosis_recommendations(self, episode_id: str) -> Dict[str, Any]:
+    def search_diagnoses(self, 
+                        query: Optional[str] = None,
+                        episode_id: Optional[str] = None,
+                        patient_id: Optional[str] = None,
+                        confidence_level: Optional[str] = None,
+                        final_only: bool = False,
+                        skip: int = 0, 
+                        limit: int = 20) -> Dict[str, Any]:
         """
-        Placeholder for AI-powered diagnosis recommendations
-        TODO: Implement AI integration
+        Search diagnoses with various filters
+        
+        Args:
+            query: Search query for condition name
+            episode_id: Filter by episode
+            patient_id: Filter by patient
+            confidence_level: Filter by confidence level
+            final_only: Return only final diagnoses
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+            
+        Returns:
+            Dictionary with diagnoses and pagination info
+        """
+        try:
+            diagnoses = self.repos.diagnosis.search_diagnoses(
+                query=query,
+                episode_id=episode_id,
+                patient_id=patient_id,
+                confidence_level=confidence_level,
+                final_only=final_only,
+                skip=skip,
+                limit=limit
+            )
+            
+            total_count = self.repos.diagnosis.count_diagnoses(
+                query=query,
+                episode_id=episode_id,
+                patient_id=patient_id,
+                confidence_level=confidence_level,
+                final_only=final_only
+            )
+            
+            from schemas.diagnosis import DiagnosisResponse
+            diagnosis_responses = [DiagnosisResponse.model_validate(d) for d in diagnoses]
+            
+            return {
+                "diagnoses": diagnosis_responses,
+                "total": total_count,
+                "page": (skip // limit) + 1,
+                "size": limit,
+                "has_next": (skip + limit) < total_count,
+                "has_prev": skip > 0
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Failed to search diagnoses: {e}")
+            raise
+    
+    def get_diagnosis_statistics(self) -> Dict[str, Any]:
+        """
+        Get diagnosis statistics for dashboard
+        
+        Returns:
+            Dictionary with diagnosis statistics
+        """
+        try:
+            total_diagnoses = self.repos.diagnosis.count()
+            ai_generated = self.repos.diagnosis.count_ai_generated()
+            physician_confirmed = self.repos.diagnosis.count_physician_confirmed()
+            final_diagnoses = self.repos.diagnosis.count_final_diagnoses()
+            
+            # Get recent diagnoses (last 30 days)
+            thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+            recent_diagnoses = self.repos.diagnosis.count_by_date_range(
+                start_date=thirty_days_ago
+            )
+            
+            return {
+                "total_diagnoses": total_diagnoses,
+                "ai_generated": ai_generated,
+                "physician_confirmed": physician_confirmed,
+                "final_diagnoses": final_diagnoses,
+                "recent_diagnoses": recent_diagnoses,
+                "ai_accuracy_rate": round(physician_confirmed / max(ai_generated, 1), 2),
+                "final_diagnosis_rate": round(final_diagnoses / max(total_diagnoses, 1), 2)
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Failed to get diagnosis statistics: {e}")
+            raise
+    
+    def _handle_final_diagnosis_update(self, episode_id: str, diagnosis_id: str) -> None:
+        """
+        Handle logic when setting a diagnosis as final
         
         Args:
             episode_id: Episode UUID
-            
-        Returns:
-            Dictionary with diagnosis recommendations
+            diagnosis_id: Diagnosis UUID being set as final
         """
-        self.logger.info(f"Diagnosis recommendations requested for episode {episode_id}")
+        # Clear any other final diagnoses for this episode
+        existing_final = self.repos.diagnosis.get_final_diagnosis_by_episode(episode_id)
+        if existing_final and str(existing_final.id) != diagnosis_id:
+            self.repos.diagnosis.update(str(existing_final.id), {"final_diagnosis": False})
         
-        # Placeholder: Return empty recommendations until AI integration is implemented
-        return {
-            "recommendations": [],
-            "confidence": 0.0,
-            "reasoning": "AI integration not yet implemented"
-        }
+        # Update episode status if needed
+        self.repos.episode.update(episode_id, {"status": "diagnosed"})
     
-    def _confidence_to_probability(self, confidence_level: str) -> float:
+    def _generate_mock_differentials(self, 
+                                   symptoms: List[str], 
+                                   patient_data: Dict[str, Any], 
+                                   limit: int) -> List[Dict[str, Any]]:
         """
-        Convert confidence level to probability estimate
+        Generate mock differential diagnoses for testing
         
         Args:
-            confidence_level: Confidence level string
+            symptoms: List of symptoms
+            patient_data: Patient data
+            limit: Maximum number of diagnoses
             
         Returns:
-            Probability estimate (0-1)
+            List of mock diagnosis data
+            
+        Note:
+            This is a placeholder. In production, replace with actual AI service.
         """
-        mapping = {
-            "very_low": 0.2,
-            "low": 0.4,
-            "medium": 0.6,
-            "high": 0.8,
-            "very_high": 0.95
+        # Mock data based on common symptoms
+        mock_database = {
+            "fever": [
+                {"condition_name": "Viral Upper Respiratory Infection", "probability": 0.65, "icd10_code": "J06.9"},
+                {"condition_name": "Bacterial Pneumonia", "probability": 0.25, "icd10_code": "J15.9"},
+                {"condition_name": "Influenza", "probability": 0.45, "icd10_code": "J11.1"}
+            ],
+            "chest pain": [
+                {"condition_name": "Gastroesophageal Reflux Disease", "probability": 0.55, "icd10_code": "K21.9"},
+                {"condition_name": "Costochondritis", "probability": 0.35, "icd10_code": "M94.0"},
+                {"condition_name": "Myocardial Infarction", "probability": 0.15, "icd10_code": "I21.9"}
+            ],
+            "headache": [
+                {"condition_name": "Tension Headache", "probability": 0.70, "icd10_code": "G44.2"},
+                {"condition_name": "Migraine", "probability": 0.25, "icd10_code": "G43.9"},
+                {"condition_name": "Sinusitis", "probability": 0.40, "icd10_code": "J32.9"}
+            ]
         }
-        return mapping.get(confidence_level, 0.5)
-    
-    def _is_valid_icd10_format(self, icd_code: str) -> bool:
-        """
-        Basic ICD-10 code format validation
         
-        Args:
-            icd_code: ICD-10 code to validate
-            
-        Returns:
-            True if format appears valid
-        """
-        import re
+        # Simple matching logic
+        candidates = []
+        for symptom in symptoms:
+            symptom_lower = symptom.lower()
+            for key, diagnoses in mock_database.items():
+                if key in symptom_lower:
+                    candidates.extend(diagnoses)
         
-        # Basic ICD-10 pattern: Letter + 2 digits + optional additional characters
-        pattern = r'^[A-Z]\d{2}(\.\d{1,2})?$'
-        return bool(re.match(pattern, icd_code))
+        # Remove duplicates and sort by probability
+        seen = set()
+        unique_candidates = []
+        for candidate in sorted(candidates, key=lambda x: x["probability"], reverse=True):
+            condition = candidate["condition_name"]
+            if condition not in seen:
+                seen.add(condition)
+                unique_candidates.append({
+                    **candidate,
+                    "ai_probability": candidate["probability"],
+                    "confidence_level": "medium" if candidate["probability"] > 0.5 else "low",
+                    "ai_reasoning": f"Based on symptom pattern: {', '.join(symptoms[:3])}",
+                    "supporting_symptoms": "; ".join(symptoms),
+                })
+        
+        return unique_candidates[:limit]

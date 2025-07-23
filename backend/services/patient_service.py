@@ -1,11 +1,11 @@
 """
 Patient Service for DiagnoAssist
-Business logic for patient management
+Complete business logic for patient management
 """
 
 from __future__ import annotations
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from uuid import UUID
 import re
 
@@ -36,22 +36,14 @@ class PatientService(BaseService):
             BusinessRuleException: If business rules are violated
             ValidationException: If validation fails
         """
-        # Validate email format
-        if "email" in data and data["email"]:
-            if not self._is_valid_email(data["email"]):
+        # Validate medical record number format (alphanumeric, 6-20 chars)
+        if "medical_record_number" in data and data["medical_record_number"]:
+            mrn = data["medical_record_number"].strip()
+            if not re.match(r'^[A-Za-z0-9]{6,20}$', mrn):
                 raise ValidationException(
-                    f"Invalid email format: {data['email']}",
-                    field="email",
-                    value=data["email"]
-                )
-        
-        # Validate phone format
-        if "phone" in data and data["phone"]:
-            if not self._is_valid_phone(data["phone"]):
-                raise ValidationException(
-                    f"Invalid phone format: {data['phone']}",
-                    field="phone", 
-                    value=data["phone"]
+                    "Medical Record Number must be 6-20 alphanumeric characters",
+                    field="medical_record_number",
+                    value=mrn
                 )
         
         # Validate date of birth
@@ -62,24 +54,45 @@ class PatientService(BaseService):
                     dob = datetime.strptime(dob, "%Y-%m-%d").date()
                 except ValueError:
                     raise ValidationException(
-                        f"Invalid date format: {data['date_of_birth']}. Expected YYYY-MM-DD",
+                        "Invalid date format. Use YYYY-MM-DD",
                         field="date_of_birth",
                         value=data["date_of_birth"]
                     )
             
-            # Check if date of birth is in the future
             if dob > date.today():
-                raise BusinessRuleException(
+                raise ValidationException(
                     "Date of birth cannot be in the future",
-                    rule="future_date_of_birth"
+                    field="date_of_birth",
+                    value=str(dob)
                 )
             
-            # Check if age is reasonable (not older than 150 years)
-            age = (date.today() - dob).days // 365
+            # Validate reasonable age range (0-150 years)
+            age = date.today().year - dob.year
             if age > 150:
-                raise BusinessRuleException(
-                    f"Age of {age} years is not reasonable",
-                    rule="unreasonable_age"
+                raise ValidationException(
+                    "Patient age seems unrealistic (over 150 years)",
+                    field="date_of_birth",
+                    value=str(dob)
+                )
+        
+        # Validate email format
+        if "email" in data and data["email"]:
+            email = data["email"].strip()
+            if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+                raise ValidationException(
+                    "Invalid email format",
+                    field="email",
+                    value=email
+                )
+        
+        # Validate phone format (basic validation)
+        if "phone" in data and data["phone"]:
+            phone = re.sub(r'[^\d+]', '', data["phone"])
+            if len(phone) < 10 or len(phone) > 15:
+                raise ValidationException(
+                    "Phone number must be 10-15 digits",
+                    field="phone",
+                    value=data["phone"]
                 )
         
         # Validate gender
@@ -91,141 +104,62 @@ class PatientService(BaseService):
                     field="gender",
                     value=data["gender"]
                 )
-        
-        # For updates, check if medical record number is being changed
-        if operation == "update" and "medical_record_number" in data:
-            raise BusinessRuleException(
-                "Medical record number cannot be changed after creation",
-                rule="immutable_mrn"
-            )
     
     def create_patient(self, patient_data: PatientCreate) -> PatientResponse:
         """
-        Create a new patient with business rule validation
+        Create a new patient with validation
         
         Args:
             patient_data: Patient creation data
             
         Returns:
-            PatientResponse: Created patient data
+            Created patient response
             
         Raises:
             ValidationException: If validation fails
-            BusinessRuleException: If business rules are violated
-            ServiceException: If creation fails
+            BusinessRuleException: If business rules violated
         """
         try:
-            # Convert Pydantic model to dict for validation
-            data_dict = patient_data.model_dump()
-            
-            # Validate required fields
-            self.validate_required_fields(data_dict, [
-                "medical_record_number", "first_name", "last_name", 
-                "date_of_birth", "gender"
-            ])
+            # Convert to dict for validation
+            data = patient_data.model_dump()
             
             # Validate business rules
-            self.validate_business_rules(data_dict, operation="create")
+            self.validate_business_rules(data, "create")
             
-            # Check for duplicate medical record number
-            existing_patient = self.repos.patient.get_by_mrn(data_dict["medical_record_number"])
+            # Check for duplicate MRN
+            existing_patient = self.repos.patient.get_by_mrn(data["medical_record_number"])
             if existing_patient:
                 raise BusinessRuleException(
-                    f"Patient with medical record number '{data_dict['medical_record_number']}' already exists",
+                    f"Medical Record Number '{data['medical_record_number']}' already exists",
                     rule="unique_mrn"
                 )
             
             # Check for duplicate email if provided
-            if data_dict.get("email"):
-                existing_email = self.repos.patient.get_by_email(data_dict["email"])
+            if data.get("email"):
+                existing_email = self.repos.patient.get_by_email(data["email"])
                 if existing_email:
                     raise BusinessRuleException(
-                        f"Patient with email '{data_dict['email']}' already exists",
+                        f"Email '{data['email']}' already registered to another patient",
                         rule="unique_email"
                     )
-            
-            # Generate patient identifier if not provided
-            if not data_dict.get("medical_record_number"):
-                data_dict["medical_record_number"] = self._generate_patient_identifier(data_dict)
             
             # Create patient
-            patient = self.repos.patient.create(data_dict)
-            self.safe_commit("patient creation")
+            from models.patient import Patient
+            patient = Patient(**data)
+            created_patient = self.repos.patient.create(patient)
             
-            # Audit log
-            self.audit_log("create", "Patient", str(patient.id), {
-                "medical_record_number": patient.medical_record_number,
-                "name": f"{patient.first_name} {patient.last_name}"
+            # Log creation
+            self.audit_log("create", "Patient", str(created_patient.id), {
+                "mrn": created_patient.medical_record_number,
+                "name": f"{created_patient.first_name} {created_patient.last_name}"
             })
             
-            return PatientResponse.model_validate(patient)
+            # Convert to response schema
+            from schemas.patient import PatientResponse
+            return PatientResponse.model_validate(created_patient)
             
-        except (ValidationException, BusinessRuleException):
-            self.safe_rollback("patient creation")
-            raise
         except Exception as e:
-            self.safe_rollback("patient creation")
-            if hasattr(e, 'orig') and 'duplicate key' in str(e.orig):
-                raise BusinessRuleException(
-                    "Patient with this medical record number already exists",
-                    rule="unique_mrn"
-                )
-            raise
-    
-    def update_patient(self, patient_id: str, patient_data: PatientUpdate) -> PatientResponse:
-        """
-        Update an existing patient
-        
-        Args:
-            patient_id: Patient UUID
-            patient_data: Updated patient data
-            
-        Returns:
-            PatientResponse: Updated patient data
-        """
-        try:
-            # Validate UUID format
-            self.validate_uuid(patient_id, "patient_id")
-            
-            # Get existing patient
-            patient = self.get_or_raise("Patient", patient_id, self.repos.patient.get_by_id)
-            
-            # Convert update data to dict (excluding None values)
-            update_dict = patient_data.model_dump(exclude_unset=True)
-            
-            if not update_dict:
-                # No changes to apply
-                return PatientResponse.model_validate(patient)
-            
-            # Validate business rules for update
-            self.validate_business_rules(update_dict, operation="update")
-            
-            # Check for email uniqueness if email is being updated
-            if "email" in update_dict and update_dict["email"]:
-                existing_email = self.repos.patient.get_by_email(update_dict["email"])
-                if existing_email and str(existing_email.id) != patient_id:
-                    raise BusinessRuleException(
-                        f"Another patient with email '{update_dict['email']}' already exists",
-                        rule="unique_email"
-                    )
-            
-            # Update patient
-            updated_patient = self.repos.patient.update(patient_id, update_dict)
-            self.safe_commit("patient update")
-            
-            # Audit log
-            self.audit_log("update", "Patient", patient_id, {
-                "updated_fields": list(update_dict.keys()),
-                "medical_record_number": updated_patient.medical_record_number
-            })
-            
-            return PatientResponse.model_validate(updated_patient)
-            
-        except (ValidationException, BusinessRuleException, ResourceNotFoundException):
-            self.safe_rollback("patient update")
-            raise
-        except Exception as e:
-            self.safe_rollback("patient update")
+            self.logger.error(f"Failed to create patient: {e}")
             raise
     
     def get_patient(self, patient_id: str) -> PatientResponse:
@@ -236,49 +170,192 @@ class PatientService(BaseService):
             patient_id: Patient UUID
             
         Returns:
-            PatientResponse: Patient data
+            Patient response
+            
+        Raises:
+            ResourceNotFoundException: If patient not found
         """
-        self.validate_uuid(patient_id, "patient_id")
-        patient = self.get_or_raise("Patient", patient_id, self.repos.patient.get_by_id)
+        patient = self.repos.patient.get_by_id(patient_id)
+        if not patient:
+            raise ResourceNotFoundException("Patient", patient_id)
+        
+        from schemas.patient import PatientResponse
         return PatientResponse.model_validate(patient)
     
-    def get_patient_by_mrn(self, medical_record_number: str) -> Optional[PatientResponse]:
+    def get_patient_by_mrn(self, mrn: str) -> Optional[PatientResponse]:
         """
         Get patient by medical record number
         
         Args:
-            medical_record_number: Medical record number
+            mrn: Medical record number
             
         Returns:
-            PatientResponse or None if not found
+            Patient response or None if not found
         """
-        if not medical_record_number.strip():
-            raise ValidationException("Medical record number cannot be empty")
+        patient = self.repos.patient.get_by_mrn(mrn)
+        if not patient:
+            return None
         
-        patient = self.repos.patient.get_by_mrn(medical_record_number.strip())
-        return PatientResponse.model_validate(patient) if patient else None
+        from schemas.patient import PatientResponse
+        return PatientResponse.model_validate(patient)
     
-    def search_patients(self, 
-                       search_term: Optional[str] = None,
-                       skip: int = 0, 
-                       limit: int = 100) -> List[PatientResponse]:
+    def update_patient(self, patient_id: str, patient_data: PatientUpdate) -> PatientResponse:
         """
-        Search patients by various criteria
+        Update existing patient
         
         Args:
-            search_term: Search term for name, email, or MRN
+            patient_id: Patient UUID
+            patient_data: Patient update data
+            
+        Returns:
+            Updated patient response
+            
+        Raises:
+            ResourceNotFoundException: If patient not found
+            ValidationException: If validation fails
+            BusinessRuleException: If business rules violated
+        """
+        try:
+            # Get existing patient
+            existing_patient = self.repos.patient.get_by_id(patient_id)
+            if not existing_patient:
+                raise ResourceNotFoundException("Patient", patient_id)
+            
+            # Convert to dict for validation (exclude None values)
+            data = patient_data.model_dump(exclude_none=True)
+            if not data:
+                return PatientResponse.model_validate(existing_patient)
+            
+            # Validate business rules
+            self.validate_business_rules(data, "update")
+            
+            # Check for duplicate MRN if changing
+            if "medical_record_number" in data:
+                existing_mrn = self.repos.patient.get_by_mrn(data["medical_record_number"])
+                if existing_mrn and str(existing_mrn.id) != patient_id:
+                    raise BusinessRuleException(
+                        f"Medical Record Number '{data['medical_record_number']}' already exists",
+                        rule="unique_mrn"
+                    )
+            
+            # Check for duplicate email if changing
+            if "email" in data and data["email"]:
+                existing_email = self.repos.patient.get_by_email(data["email"])
+                if existing_email and str(existing_email.id) != patient_id:
+                    raise BusinessRuleException(
+                        f"Email '{data['email']}' already registered to another patient",
+                        rule="unique_email"
+                    )
+            
+            # Update patient
+            updated_patient = self.repos.patient.update(patient_id, data)
+            
+            # Log update
+            self.audit_log("update", "Patient", patient_id, {
+                "updated_fields": list(data.keys())
+            })
+            
+            from schemas.patient import PatientResponse
+            return PatientResponse.model_validate(updated_patient)
+            
+        except Exception as e:
+            self.logger.error(f"Failed to update patient {patient_id}: {e}")
+            raise
+    
+    def delete_patient(self, patient_id: str) -> Dict[str, Any]:
+        """
+        Soft delete patient (set status to inactive)
+        
+        Args:
+            patient_id: Patient UUID
+            
+        Returns:
+            Deletion confirmation
+            
+        Raises:
+            ResourceNotFoundException: If patient not found
+            BusinessRuleException: If patient has active episodes
+        """
+        try:
+            # Get existing patient
+            existing_patient = self.repos.patient.get_by_id(patient_id)
+            if not existing_patient:
+                raise ResourceNotFoundException("Patient", patient_id)
+            
+            # Check for active episodes
+            active_episodes = self.repos.episode.get_by_patient_id(patient_id, status="active")
+            if active_episodes:
+                raise BusinessRuleException(
+                    "Cannot delete patient with active episodes. Complete or cancel episodes first.",
+                    rule="no_active_episodes_for_deletion"
+                )
+            
+            # Soft delete by setting status to inactive
+            updated_patient = self.repos.patient.update(patient_id, {"status": "inactive"})
+            
+            # Log deletion
+            self.audit_log("delete", "Patient", patient_id, {
+                "mrn": existing_patient.medical_record_number,
+                "name": f"{existing_patient.first_name} {existing_patient.last_name}",
+                "soft_delete": True
+            })
+            
+            return {
+                "message": "Patient deactivated successfully",
+                "patient_id": patient_id,
+                "status": "inactive"
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Failed to delete patient {patient_id}: {e}")
+            raise
+    
+    def search_patients(self, 
+                       query: Optional[str] = None,
+                       status: Optional[str] = None,
+                       skip: int = 0, 
+                       limit: int = 20) -> Dict[str, Any]:
+        """
+        Search patients with pagination
+        
+        Args:
+            query: Search query (name, MRN, email)
+            status: Patient status filter
             skip: Number of records to skip
             limit: Maximum number of records to return
             
         Returns:
-            List of PatientResponse objects
+            Dictionary with patients and pagination info
         """
-        patients = self.repos.patient.search_patients(search_term, skip=skip, limit=limit)
-        return [PatientResponse.model_validate(p) for p in patients]
+        try:
+            patients = self.repos.patient.search_patients(
+                query=query,
+                status=status,
+                skip=skip,
+                limit=limit
+            )
+            
+            total_count = self.repos.patient.count_patients(query=query, status=status)
+            
+            from schemas.patient import PatientResponse
+            patient_responses = [PatientResponse.model_validate(p) for p in patients]
+            
+            return {
+                "patients": patient_responses,
+                "total": total_count,
+                "page": (skip // limit) + 1,
+                "size": limit,
+                "has_next": (skip + limit) < total_count,
+                "has_prev": skip > 0
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Failed to search patients: {e}")
+            raise
     
     def get_patient_summary(self, patient_id: str) -> Dict[str, Any]:
         """
-        Get patient summary with episode and diagnosis counts
+        Get comprehensive patient summary with related data
         
         Args:
             patient_id: Patient UUID
@@ -286,114 +363,86 @@ class PatientService(BaseService):
         Returns:
             Dictionary with patient summary data
         """
-        self.validate_uuid(patient_id, "patient_id")
-        patient = self.get_or_raise("Patient", patient_id, self.repos.patient.get_by_id)
-        
-        # Get related counts
-        episodes_count = self.repos.episode.count_by_patient(patient_id)
-        active_episodes = self.repos.episode.get_active_by_patient(patient_id)
-        recent_episodes = self.repos.episode.get_recent_by_patient(patient_id, limit=5)
-        
-        return {
-            "patient": PatientResponse.model_validate(patient),
-            "total_episodes": episodes_count,
-            "active_episodes_count": len(active_episodes),
-            "recent_episodes": [
-                {
-                    "id": str(ep.id),
-                    "chief_complaint": ep.chief_complaint,
-                    "start_time": ep.start_date,
-                    "status": ep.status
-                } for ep in recent_episodes
-            ],
-            "last_visit": recent_episodes[0].start_date if recent_episodes else None 
-        }
-    
-    def deactivate_patient(self, patient_id: str, reason: str) -> PatientResponse:
-        """
-        Deactivate a patient (soft delete)
-        
-        Args:
-            patient_id: Patient UUID
-            reason: Reason for deactivation
+        try:
+            # Get patient
+            patient = self.get_patient(patient_id)
             
+            # Get episodes
+            episodes = self.repos.episode.get_by_patient_id(patient_id, limit=10)
+            
+            # Get active episodes count
+            active_episodes_count = self.repos.episode.count_by_patient_id(
+                patient_id, status="active"
+            )
+            
+            # Get total diagnoses across all episodes
+            total_diagnoses = sum(
+                self.repos.diagnosis.count_by_episode(str(episode.id)) 
+                for episode in episodes
+            )
+            
+            # Get active treatments across all episodes  
+            active_treatments = []
+            for episode in episodes:
+                treatments = self.repos.treatment.get_by_episode(str(episode.id))
+                active_treatments.extend([t for t in treatments if t.status == "active"])
+            
+            # Calculate age
+            age = None
+            if patient.date_of_birth:
+                today = date.today()
+                age = today.year - patient.date_of_birth.year
+                if today < date(today.year, patient.date_of_birth.month, patient.date_of_birth.day):
+                    age -= 1
+            
+            return {
+                "patient": patient,
+                "demographics": {
+                    "age": age,
+                    "full_name": f"{patient.first_name} {patient.last_name}",
+                    "mrn": patient.medical_record_number
+                },
+                "clinical_summary": {
+                    "total_episodes": len(episodes),
+                    "active_episodes": active_episodes_count,
+                    "total_diagnoses": total_diagnoses,
+                    "active_treatments": len(active_treatments),
+                    "last_visit": episodes[0].start_date if episodes else None
+                },
+                "recent_episodes": episodes[:5],  # Most recent 5 episodes
+                "active_treatments": active_treatments[:10]  # Most recent 10 active treatments
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Failed to get patient summary for {patient_id}: {e}")
+            raise
+    
+    def get_patient_statistics(self) -> Dict[str, Any]:
+        """
+        Get patient statistics for dashboard
+        
         Returns:
-            PatientResponse: Updated patient data
+            Dictionary with patient statistics
         """
         try:
-            self.validate_uuid(patient_id, "patient_id")
-            patient = self.get_or_raise("Patient", patient_id, self.repos.patient.get_by_id)
+            total_patients = self.repos.patient.count()
+            active_patients = self.repos.patient.count(status="active")
+            inactive_patients = self.repos.patient.count(status="inactive")
             
-            # Check if patient has active episodes
-            active_episodes = self.repos.episode.get_active_by_patient(patient_id)
-            if active_episodes:
-                raise BusinessRuleException(
-                    "Cannot deactivate patient with active episodes",
-                    rule="no_active_episodes_for_deactivation"
-                )
+            # Get recent registrations (last 30 days)
+            thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+            recent_registrations = self.repos.patient.count_by_date_range(
+                start_date=thirty_days_ago
+            )
             
-            # Deactivate patient
-            updated_patient = self.repos.patient.update(patient_id, {
-                "status": "inactive",
-                "updated_at": datetime.utcnow()
-            })
-            self.safe_commit("patient deactivation")
+            return {
+                "total_patients": total_patients,
+                "active_patients": active_patients,
+                "inactive_patients": inactive_patients,
+                "recent_registrations": recent_registrations,
+                "registration_rate": round(recent_registrations / 30, 2)  # per day
+            }
             
-            # Audit log
-            self.audit_log("deactivate", "Patient", patient_id, {
-                "reason": reason,
-                "medical_record_number": patient.medical_record_number
-            })
-            
-            return PatientResponse.model_validate(updated_patient)
-            
-        except (ValidationException, BusinessRuleException, ResourceNotFoundException):
-            self.safe_rollback("patient deactivation")
-            raise
         except Exception as e:
-            self.safe_rollback("patient deactivation")
+            self.logger.error(f"Failed to get patient statistics: {e}")
             raise
-    
-    def _generate_patient_identifier(self, patient_data: Dict[str, Any]) -> str:
-        """
-        Generate a unique patient identifier
-        
-        Args:
-            patient_data: Patient data dictionary
-            
-        Returns:
-            Generated patient identifier
-        """
-        # Use first 3 letters of last name + first letter of first name + timestamp
-        last_name = patient_data.get("last_name", "").upper()[:3]
-        first_name = patient_data.get("first_name", "").upper()[:1]
-        timestamp = datetime.now().strftime("%Y%m%d%H%M")
-        
-        return f"PAT{last_name}{first_name}{timestamp}"
-    
-    def _is_valid_email(self, email: str) -> bool:
-        """
-        Validate email format using regex
-        
-        Args:
-            email: Email address to validate
-            
-        Returns:
-            True if valid, False otherwise
-        """
-        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        return bool(re.match(pattern, email))
-    
-    def _is_valid_phone(self, phone: str) -> bool:
-        """
-        Validate phone number format
-        
-        Args:
-            phone: Phone number to validate
-            
-        Returns:
-            True if valid, False otherwise
-        """
-        # Remove common separators and check if remaining chars are digits
-        cleaned = re.sub(r'[\s\-\(\)\+]', '', phone)
-        return len(cleaned) >= 10 and cleaned.isdigit()
