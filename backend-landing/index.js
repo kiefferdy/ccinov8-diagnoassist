@@ -197,10 +197,30 @@ app.get('/stats', async (req, res) => {
       variantStats: variantStats
     };
 
-    res.json({ clicks, analytics });
+    res.json({ analytics });
 
   } catch (error) {
     console.error('Stats error:', error.message);
     res.status(500).json({ error: error.message });
    }
+});
+
+app.get('/clicks', async (_, res) => {
+  try {
+    // Get all raw clicks data
+    const { data: clicks, error: clickError } = await supabase
+      .from('button_clicks')
+      .select('*')
+      .order('clicked_at', { ascending: false });
+
+    if (clickError) throw clickError;
+
+    console.log(`[clicks] Returning ${clicks.length} click records`);
+    
+    res.json({ clicks, totalRecords: clicks.length });
+
+  } catch (error) {
+    console.error('Clicks error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
 });
