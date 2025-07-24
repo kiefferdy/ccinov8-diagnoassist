@@ -81,7 +81,7 @@ class DependencyTester:
             ('api.dependencies', 'API dependencies module'),
             ('config.database', 'Database configuration'),
             ('repositories.repository_manager', 'Repository manager'),
-            ('services.service_manager', 'Service manager'),
+            ('services', 'Services module'),
             ('schemas.common', 'Common schemas'),
             ('fastapi', 'FastAPI framework'),
             ('sqlalchemy', 'SQLAlchemy ORM')
@@ -191,11 +191,16 @@ class DependencyTester:
             return False
     
     def test_service_dependency(self) -> bool:
-        """Test service dependency injection"""
-        self.print_header("Testing Service Dependencies")
+        """Test individual service dependency injection"""
+        self.print_header("Testing Individual Service Dependencies")
         
         try:
-            from api.dependencies import get_service_manager, ServiceDep
+            from api.dependencies import (
+                get_patient_service, get_episode_service, get_diagnosis_service,
+                get_treatment_service, get_fhir_service, get_clinical_service,
+                PatientServiceDep, EpisodeServiceDep, DiagnosisServiceDep,
+                TreatmentServiceDep, FHIRServiceDep, ClinicalServiceDep
+            )
             from config.database import SessionLocal
             from repositories.repository_manager import RepositoryManager
             
@@ -204,24 +209,34 @@ class DependencyTester:
                 db = SessionLocal()
                 repos = RepositoryManager(db)
                 
-                # Test service manager creation
-                services = get_service_manager(repos)
-                self.print_success("Service manager creation successful")
+                # Test individual service creation functions
+                service_tests = [
+                    ('patient', get_patient_service, PatientServiceDep),
+                    ('episode', get_episode_service, EpisodeServiceDep),
+                    ('diagnosis', get_diagnosis_service, DiagnosisServiceDep),
+                    ('treatment', get_treatment_service, TreatmentServiceDep),
+                    ('fhir', get_fhir_service, FHIRServiceDep),
+                    ('clinical', get_clinical_service, ClinicalServiceDep)
+                ]
                 
-                # Test service access
-                required_services = ['patient', 'episode', 'diagnosis', 'treatment', 'fhir', 'clinical']
-                
-                for service_name in required_services:
-                    if hasattr(services, service_name):
-                        service = getattr(services, service_name)
-                        self.print_success(f"{service_name} service available: {type(service).__name__}")
-                    else:
-                        self.print_error(f"{service_name} service not available")
+                for service_name, service_func, service_dep in service_tests:
+                    try:
+                        service = service_func(repos)
+                        self.print_success(f"{service_name} service creation successful: {type(service).__name__}")
+                        
+                        # Test that service has repository access
+                        if hasattr(service, 'repos'):
+                            self.print_success(f"{service_name} service has repository access")
+                        else:
+                            self.print_warning(f"{service_name} service missing repository access")
+                        
+                        # Test type annotation exists
+                        self.print_success(f"{service_name} service type annotation available")
+                        
+                    except Exception as service_error:
+                        self.print_error(f"{service_name} service creation failed: {str(service_error)}")
                         db.close()
                         return False
-                
-                # Test type annotation
-                self.print_success("Service type annotation available")
                 
                 # Cleanup
                 db.close()
@@ -229,8 +244,11 @@ class DependencyTester:
             except Exception as db_error:
                 self.print_warning(f"Database connection issue: {str(db_error)}")
                 # Still test if the dependency functions exist
-                from api.dependencies import get_service_manager, ServiceDep
-                self.print_success("Service dependency functions available (connection issue)")
+                from api.dependencies import (
+                    get_patient_service, get_episode_service, get_diagnosis_service,
+                    get_treatment_service, get_fhir_service, get_clinical_service
+                )
+                self.print_success("Individual service dependency functions available (connection issue)")
             
             self.test_results['services'] = True
             return True
@@ -339,7 +357,6 @@ class DependencyTester:
             from api.dependencies import check_database_health, check_services_health
             from config.database import SessionLocal
             from repositories.repository_manager import RepositoryManager
-            from services.service_manager import ServiceManager
             
             # Test function availability first
             self.print_success("Health check dependency functions available")
@@ -348,26 +365,19 @@ class DependencyTester:
             try:
                 db = SessionLocal()
                 repos = RepositoryManager(db)
-                services = ServiceManager(repos)
                 
-                # Test database health check (async)
+                # Test database health check (synchronous)
                 try:
-                    async def test_db_health():
-                        return await check_database_health(db)
-                    
-                    db_health = asyncio.run(test_db_health())
+                    db_health = check_database_health(db)
                     self.print_success(f"Database health check working: {db_health}")
                 except Exception as e:
                     self.print_warning(f"Database health check test: {str(e)}")
                     # Still mark as success since the function exists
                     self.print_success("Database health check function available")
                 
-                # Test services health check (async)
+                # Test services health check (synchronous) - no longer needs ServiceManager
                 try:
-                    async def test_service_health():
-                        return await check_services_health(services)
-                    
-                    service_health = asyncio.run(test_service_health())
+                    service_health = check_services_health()
                     self.print_success(f"Services health check working: {service_health}")
                 except Exception as e:
                     self.print_warning(f"Services health check test: {str(e)}")

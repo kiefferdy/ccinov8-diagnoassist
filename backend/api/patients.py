@@ -7,15 +7,11 @@ from fastapi import APIRouter, Depends, Query, Path, HTTPException, status
 from typing import List, Optional
 from uuid import UUID
 
-# Force fresh import to avoid caching issues
-from api.dependencies import get_service_manager
-from fastapi import Depends
-
-# Create fresh ServiceDep to avoid cached version
-ServiceDep = Depends(get_service_manager)
-
-# Import other dependencies normally  
+# Import individual service dependencies
 from api.dependencies import (
+    PatientServiceDep,
+    EpisodeServiceDep, 
+    ClinicalServiceDep,
     CurrentUserDep,
     PaginationDep,
     SearchDep,
@@ -41,15 +37,15 @@ router = APIRouter(prefix="/patients", tags=["patients"])
 @router.post("/", response_model=PatientResponse, status_code=201)
 async def create_patient(
     patient_data: PatientCreate,
-    services = ServiceDep,
-    current_user = CurrentUserDep
+    patient_service: PatientServiceDep,
+    current_user: CurrentUserDep
 ):
     """
     Create a new patient
     
     Args:
         patient_data: Patient creation data
-        services: Injected services
+        patient_service: Injected patient service
         current_user: Current authenticated user
         
     Returns:
@@ -66,8 +62,7 @@ async def create_patient(
     #     )
     
     try:
-        # Use proper dependency injection with method calls
-        patient = services.patient.create_patient(patient_data)
+        patient = patient_service.create_patient(patient_data)
         return patient
     except Exception as e:
         # Convert service exceptions to HTTP exceptions
@@ -84,26 +79,27 @@ async def create_patient(
                 detail=error_message
             )
         else:
-            # Show actual error for debugging
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Internal server error occurred while creating patient: {error_message}"
             )
 
-@router.get("/")  # Temporarily removed response_model for debugging
+@router.get("/", response_model=PatientListResponse)
 async def list_patients(
-    pagination: PaginationParams = PaginationDep,
-    search_params: dict = SearchDep,
-    services = ServiceDep,
-    current_user = CurrentUserDep
+    patient_service: PatientServiceDep,
+    current_user: CurrentUserDep,
+    page: int = Query(1, ge=1, description="Page number"),
+    size: int = Query(20, ge=1, le=100, description="Page size"),
+    search: Optional[str] = Query(None, description="Search term")
 ):
     """
     List patients with pagination and search
     
     Args:
-        pagination: Pagination parameters
-        search_params: Search and filter parameters
-        services: Injected services
+        page: Page number
+        size: Page size
+        search: Search term
+        patient_service: Injected patient service
         current_user: Current authenticated user
         
     Returns:
@@ -117,27 +113,27 @@ async def list_patients(
     #     )
     
     try:
-        # Debug the services object
-        print(f"DEBUG: services = {services}")
-        print(f"DEBUG: services type = {type(services)}")
-        print(f"DEBUG: services.patient = {services.patient}")
-        print(f"DEBUG: services.patient type = {type(services.patient)}")
-        
-        # Return a simple response for now
-        return {"data": [], "total": 0, "page": 1, "size": 20}
+        # Get patients through service layer
+        patients = patient_service.list_patients(
+            page=page,
+            size=size,
+            search=search,
+            sort_by=None,
+            sort_order=None
+        )
+        return patients
     except Exception as e:
         error_message = str(e)
-        # Show actual error for debugging
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error occurred while listing patients: {error_message}"
+            detail="Internal server error occurred while listing patients"
         )
 
 @router.get("/{patient_id}", response_model=PatientResponse)
 async def get_patient(
-    patient_id: str = Path(..., description="Patient ID"),
-    services = ServiceDep,
-    current_user = CurrentUserDep
+    patient_service: PatientServiceDep,
+    current_user: CurrentUserDep,
+    patient_id: str = Path(..., description="Patient ID")
 ):
     """
     Get a specific patient by ID
@@ -164,8 +160,7 @@ async def get_patient(
     #     )
     
     try:
-        # Use proper dependency injection with method calls
-        patient = services.patient.get_patient(patient_id)
+        patient = patient_service.get_patient(patient_id)
         if not patient:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -190,10 +185,10 @@ async def get_patient(
 
 @router.put("/{patient_id}", response_model=PatientResponse)
 async def update_patient(
+    patient_service: PatientServiceDep,
+    current_user: CurrentUserDep,
     patient_id: str = Path(..., description="Patient ID"),
-    patient_data: PatientUpdate = ...,
-    services = ServiceDep,
-    current_user = CurrentUserDep
+    patient_data: PatientUpdate = ...
 ):
     """
     Update a specific patient
@@ -218,8 +213,7 @@ async def update_patient(
     #     )
     
     try:
-        # Use proper dependency injection with method calls
-        patient = services.patient.update_patient(patient_id, patient_data)
+        patient = patient_service.update_patient(patient_id, patient_data)
         if not patient:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -248,9 +242,9 @@ async def update_patient(
 
 @router.delete("/{patient_id}", response_model=StatusResponse)
 async def delete_patient(
-    patient_id: str = Path(..., description="Patient ID"),
-    services = ServiceDep,
-    current_user = CurrentUserDep
+    patient_service: PatientServiceDep,
+    current_user: CurrentUserDep,
+    patient_id: str = Path(..., description="Patient ID")
 ):
     """
     Delete a specific patient
@@ -274,8 +268,7 @@ async def delete_patient(
     #     )
     
     try:
-        # Use proper dependency injection with method calls
-        result = services.patient.delete_patient(patient_id)
+        result = patient_service.delete_patient(patient_id)
         
         return StatusResponse(
             status="success",
@@ -293,7 +286,7 @@ async def delete_patient(
         else:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Internal server error occurred while deleting patient: {error_message}"
+                detail="Internal server error occurred while deleting patient"
             )
 
 # =============================================================================
@@ -302,9 +295,9 @@ async def delete_patient(
 
 @router.get("/{patient_id}/episodes", response_model=List[dict])
 async def get_patient_episodes(
-    patient_id: str = Path(..., description="Patient ID"),
-    services = ServiceDep,
-    current_user = CurrentUserDep
+    episode_service: EpisodeServiceDep,
+    current_user: CurrentUserDep,
+    patient_id: str = Path(..., description="Patient ID")
 ):
     """
     Get all episodes for a specific patient
@@ -329,7 +322,7 @@ async def get_patient_episodes(
     
     try:
         # Get patient episodes through service layer
-        episodes = services.episode.get_patient_episodes(patient_id)
+        episodes = episode_service.get_patient_episodes(patient_id)
         return episodes
     except Exception as e:
         error_message = str(e)
@@ -346,9 +339,9 @@ async def get_patient_episodes(
 
 @router.get("/{patient_id}/health-summary")
 async def get_patient_health_summary(
-    patient_id: str = Path(..., description="Patient ID"),
-    services = ServiceDep,
-    current_user = CurrentUserDep
+    clinical_service: ClinicalServiceDep,
+    current_user: CurrentUserDep,
+    patient_id: str = Path(..., description="Patient ID")
 ):
     """
     Get health summary for a patient
@@ -373,7 +366,7 @@ async def get_patient_health_summary(
     
     try:
         # Get patient health summary through service layer
-        summary = services.clinical.get_patient_health_summary(patient_id)
+        summary = clinical_service.get_patient_health_summary(patient_id)
         return summary
     except Exception as e:
         error_message = str(e)

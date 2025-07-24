@@ -7,15 +7,12 @@ from fastapi import APIRouter, Depends, Query, Path, HTTPException, status
 from typing import List, Optional
 from uuid import UUID
 
-# Force fresh import to avoid caching issues
-from api.dependencies import get_service_manager
-from fastapi import Depends
-
-# Create fresh ServiceDep to avoid cached version
-ServiceDep = Depends(get_service_manager)
-
-# Import other dependencies normally
-from api.dependencies import CurrentUserDep, PaginationDep
+# Import individual service dependencies
+from api.dependencies import (
+    DiagnosisServiceDep,
+    CurrentUserDep,
+    PaginationDep
+)
 
 # Import schemas
 from schemas.diagnosis import (
@@ -44,8 +41,8 @@ router = APIRouter(prefix="/diagnoses", tags=["diagnoses"])
 @router.post("/", response_model=DiagnosisResponse, status_code=201)
 async def create_diagnosis(
     diagnosis_data: DiagnosisCreate,
-    services = ServiceDep,
-    current_user = CurrentUserDep
+    diagnosis_service: DiagnosisServiceDep,
+    current_user: CurrentUserDep
 ):
     """
     Create a new diagnosis
@@ -67,7 +64,7 @@ async def create_diagnosis(
     
     try:
         # Create diagnosis through service layer
-        diagnosis = services.diagnosis.create_diagnosis(diagnosis_data)
+        diagnosis = diagnosis_service.create_diagnosis(diagnosis_data)
         return diagnosis
     except Exception as e:
         error_message = str(e)
@@ -90,9 +87,9 @@ async def create_diagnosis(
 
 @router.get("/", response_model=DiagnosisListResponse)
 async def get_diagnoses(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
-    pagination = PaginationDep,
+    diagnosis_service: DiagnosisServiceDep,
+    current_user: CurrentUserDep,
+    pagination: PaginationDep,
     patient_id: Optional[UUID] = Query(None, description="Filter by patient ID"),
     episode_id: Optional[UUID] = Query(None, description="Filter by episode ID"),
     final_only: Optional[bool] = Query(False, description="Show only final diagnoses"),
@@ -123,7 +120,7 @@ async def get_diagnoses(
     
     try:
         # Get diagnoses through service layer using search_diagnoses method
-        diagnoses = services.diagnosis.search_diagnoses(
+        diagnoses = diagnosis_service.search_diagnoses(
             query=None,  # No text search query
             episode_id=str(episode_id) if episode_id else None,
             patient_id=str(patient_id) if patient_id else None,
@@ -142,8 +139,8 @@ async def get_diagnoses(
 
 @router.get("/{diagnosis_id}", response_model=DiagnosisResponse)
 async def get_diagnosis(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    diagnosis_service: DiagnosisServiceDep,
+    current_user: CurrentUserDep,
     diagnosis_id: UUID = Path(..., description="Diagnosis ID")
 ):
     """
@@ -167,7 +164,7 @@ async def get_diagnosis(
     
     try:
         # Get diagnosis through service layer
-        diagnosis = services.diagnosis.get_diagnosis(str(diagnosis_id))
+        diagnosis = diagnosis_service.get_diagnosis(str(diagnosis_id))
         
         if not diagnosis:
             raise HTTPException(
@@ -186,8 +183,8 @@ async def get_diagnosis(
 
 @router.put("/{diagnosis_id}", response_model=DiagnosisResponse)
 async def update_diagnosis(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    diagnosis_service: DiagnosisServiceDep,
+    current_user: CurrentUserDep,
     diagnosis_id: UUID = Path(..., description="Diagnosis ID"),
     diagnosis_data: DiagnosisUpdate = ...
 ):
@@ -213,7 +210,7 @@ async def update_diagnosis(
     
     try:
         # Update diagnosis through service layer
-        diagnosis = services.diagnosis.update_diagnosis(str(diagnosis_id), diagnosis_data)
+        diagnosis = diagnosis_service.update_diagnosis(str(diagnosis_id), diagnosis_data)
         
         if not diagnosis:
             raise HTTPException(
@@ -245,8 +242,8 @@ async def update_diagnosis(
 
 @router.delete("/{diagnosis_id}", response_model=StatusResponse)
 async def delete_diagnosis(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    diagnosis_service: DiagnosisServiceDep,
+    current_user: CurrentUserDep,
     diagnosis_id: UUID = Path(..., description="Diagnosis ID")
 ):
     """
@@ -270,7 +267,7 @@ async def delete_diagnosis(
     
     try:
         # Delete diagnosis through service layer
-        success = services.diagnosis.delete_diagnosis(str(diagnosis_id))
+        success = diagnosis_service.delete_diagnosis(str(diagnosis_id))
         
         if not success:
             raise HTTPException(
@@ -304,8 +301,8 @@ async def delete_diagnosis(
 
 @router.post("/analyze-symptoms", response_model=AIAnalysisResult)
 async def analyze_symptoms(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    diagnosis_service: DiagnosisServiceDep,
+    current_user: CurrentUserDep,
     symptom_input: SymptomAnalysisInput = ...
 ):
     """
@@ -321,7 +318,7 @@ async def analyze_symptoms(
     """
     try:
         # Analyze symptoms through service layer
-        analysis = services.diagnosis.analyze_symptoms(symptom_input)
+        analysis = diagnosis_service.analyze_symptoms(symptom_input)
         return analysis
     except Exception as e:
         raise HTTPException(
@@ -331,8 +328,8 @@ async def analyze_symptoms(
 
 @router.patch("/{diagnosis_id}/confirm", response_model=DiagnosisResponse)
 async def confirm_diagnosis(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    diagnosis_service: DiagnosisServiceDep,
+    current_user: CurrentUserDep,
     diagnosis_id: UUID = Path(..., description="Diagnosis ID"),
     confirmation: DiagnosisConfirmation = ...
 ):
@@ -350,7 +347,7 @@ async def confirm_diagnosis(
     """
     try:
         # Confirm diagnosis through service layer
-        diagnosis = services.diagnosis.confirm_diagnosis(str(diagnosis_id), confirmation)
+        diagnosis = diagnosis_service.confirm_diagnosis(str(diagnosis_id), confirmation)
         return diagnosis
     except Exception as e:
         error_message = str(e)
@@ -368,8 +365,8 @@ async def confirm_diagnosis(
 
 @router.patch("/{diagnosis_id}/refine", response_model=DiagnosisResponse)
 async def refine_diagnosis(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    diagnosis_service: DiagnosisServiceDep,
+    current_user: CurrentUserDep,
     diagnosis_id: UUID = Path(..., description="Diagnosis ID"),
     refinement: DiagnosisRefinement = ...
 ):
@@ -387,7 +384,7 @@ async def refine_diagnosis(
     """
     try:
         # Refine diagnosis through service layer
-        diagnosis = services.diagnosis.refine_diagnosis(str(diagnosis_id), refinement)
+        diagnosis = diagnosis_service.refine_diagnosis(str(diagnosis_id), refinement)
         return diagnosis
     except Exception as e:
         error_message = str(e)
@@ -405,8 +402,8 @@ async def refine_diagnosis(
 
 @router.get("/{diagnosis_id}/differential")
 async def get_differential_diagnoses(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    diagnosis_service: DiagnosisServiceDep,
+    current_user: CurrentUserDep,
     diagnosis_id: UUID = Path(..., description="Diagnosis ID")
 ):
     """
@@ -422,7 +419,7 @@ async def get_differential_diagnoses(
     """
     try:
         # Get differential diagnoses through service layer
-        differentials = services.diagnosis.get_differential_diagnoses(str(diagnosis_id))
+        differentials = diagnosis_service.get_differential_diagnoses(str(diagnosis_id))
         return differentials
     except Exception as e:
         error_message = str(e)
@@ -440,8 +437,8 @@ async def get_differential_diagnoses(
 
 @router.patch("/{diagnosis_id}/finalize", response_model=DiagnosisResponse)
 async def finalize_diagnosis(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    diagnosis_service: DiagnosisServiceDep,
+    current_user: CurrentUserDep,
     diagnosis_id: UUID = Path(..., description="Diagnosis ID")
 ):
     """
@@ -457,7 +454,7 @@ async def finalize_diagnosis(
     """
     try:
         # Finalize diagnosis through service layer
-        diagnosis = services.diagnosis.finalize_diagnosis(str(diagnosis_id))
+        diagnosis = diagnosis_service.finalize_diagnosis(str(diagnosis_id))
         return diagnosis
     except Exception as e:
         error_message = str(e)

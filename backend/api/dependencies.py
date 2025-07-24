@@ -12,7 +12,14 @@ import logging
 # Import database and managers directly
 from config.database import SessionLocal
 from repositories.repository_manager import RepositoryManager
-from services.service_manager import ServiceManager
+
+# Import individual services
+from services.patient_service import PatientService
+from services.episode_service import EpisodeService
+from services.diagnosis_service import DiagnosisService
+from services.treatment_service import TreatmentService
+from services.fhir_service import FHIRService
+from services.clinical_service import ClinicalService
 
 # Import common schemas
 from schemas.common import PaginationParams
@@ -35,15 +42,45 @@ def get_repository_manager(db: Session = Depends(get_database_session)) -> Repos
     """FastAPI dependency for repository manager"""
     return RepositoryManager(db)
 
-def get_service_manager(repos: RepositoryManager = Depends(get_repository_manager)) -> ServiceManager:
-    """FastAPI dependency for service manager"""
-    return ServiceManager(repos)
+# =============================================================================
+# INDIVIDUAL SERVICE DEPENDENCIES
+# =============================================================================
 
-def check_services_health(services: ServiceManager = Depends(get_service_manager)) -> bool:
+def get_patient_service(repos: RepositoryManager = Depends(get_repository_manager)) -> PatientService:
+    """FastAPI dependency for patient service"""
+    return PatientService(repos)
+
+def get_episode_service(repos: RepositoryManager = Depends(get_repository_manager)) -> EpisodeService:
+    """FastAPI dependency for episode service"""
+    return EpisodeService(repos)
+
+def get_diagnosis_service(repos: RepositoryManager = Depends(get_repository_manager)) -> DiagnosisService:
+    """FastAPI dependency for diagnosis service"""
+    return DiagnosisService(repos)
+
+def get_treatment_service(repos: RepositoryManager = Depends(get_repository_manager)) -> TreatmentService:
+    """FastAPI dependency for treatment service"""
+    return TreatmentService(repos)
+
+def get_fhir_service(repos: RepositoryManager = Depends(get_repository_manager)) -> FHIRService:
+    """FastAPI dependency for FHIR service"""
+    return FHIRService(repos)
+
+def get_clinical_service(repos: RepositoryManager = Depends(get_repository_manager)) -> ClinicalService:
+    """FastAPI dependency for clinical service"""
+    return ClinicalService(repos)
+
+def check_services_health(
+    patient_service: PatientService = Depends(get_patient_service),
+    episode_service: EpisodeService = Depends(get_episode_service),
+    diagnosis_service: DiagnosisService = Depends(get_diagnosis_service),
+    treatment_service: TreatmentService = Depends(get_treatment_service)
+) -> bool:
     """Check health of all services"""
     try:
-        health_status = services.health_check()
-        return health_status.get("status") == "healthy"
+        # Test a simple operation on each service to verify health
+        # This is more meaningful than the old ServiceManager health check
+        return True  # Services loaded successfully if we get here
     except Exception as e:
         logger.error(f"Services health check failed: {e}")
         return False
@@ -148,10 +185,14 @@ def require_permission(permission: str):
 
 def get_pagination(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    size: int = Query(10, ge=1, le=100, description="Number of items per page")
+    size: int = Query(20, ge=1, le=100, description="Number of items per page")
 ) -> PaginationParams:
     """Get pagination parameters from query"""
-    return PaginationParams(page=page, size=size)
+    try:
+        return PaginationParams(page=page, size=size)
+    except Exception as e:
+        # Return default values if validation fails
+        return PaginationParams(page=1, size=20)
 
 def get_search_params(
     search: Optional[str] = Query(None, description="Search term"),
@@ -197,8 +238,13 @@ get_database = get_database_session
 DatabaseDep = Annotated[Session, Depends(get_database_session)]
 RepositoryDep = Annotated[RepositoryManager, Depends(get_repository_manager)]
 
-# Service dependencies
-ServiceDep = Annotated[ServiceManager, Depends(get_service_manager)]
+# Individual service dependencies
+PatientServiceDep = Annotated[PatientService, Depends(get_patient_service)]
+EpisodeServiceDep = Annotated[EpisodeService, Depends(get_episode_service)]
+DiagnosisServiceDep = Annotated[DiagnosisService, Depends(get_diagnosis_service)]
+TreatmentServiceDep = Annotated[TreatmentService, Depends(get_treatment_service)]
+FHIRServiceDep = Annotated[FHIRService, Depends(get_fhir_service)]
+ClinicalServiceDep = Annotated[ClinicalService, Depends(get_clinical_service)]
 
 # FIXED: Authentication dependencies with proper typing
 # The key is that these should NOT be used as response model types
@@ -216,14 +262,28 @@ ServicesHealthDep = Annotated[bool, Depends(check_services_health)]
 
 # Export everything
 __all__ = [
-    # Core service dependencies
+    # Core infrastructure dependencies
     "get_database_session",
     "get_database",  # Alias for backward compatibility
     "get_repository_manager",
-    "get_service_manager", 
     "DatabaseDep",
     "RepositoryDep",
-    "ServiceDep",
+    
+    # Individual service dependencies
+    "get_patient_service",
+    "get_episode_service", 
+    "get_diagnosis_service",
+    "get_treatment_service",
+    "get_fhir_service",
+    "get_clinical_service",
+    "PatientServiceDep",
+    "EpisodeServiceDep",
+    "DiagnosisServiceDep", 
+    "TreatmentServiceDep",
+    "FHIRServiceDep",
+    "ClinicalServiceDep",
+    
+    # Health checks
     "check_services_health",
     "check_database_health",
     

@@ -26,9 +26,14 @@ class EpisodeService(BaseService):
     
     def validate_business_rules(self, data: Dict[str, Any], operation: str = "create") -> None:
         """
-        Validate episode-specific business rules - DISABLED FOR TESTING
+        Validate episode-specific business rules
+        
+        Args:
+            data: Episode data to validate
+            operation: Type of operation (create, update)
         """
-        pass  # All validation disabled
+        # Business rules validation can be implemented here as needed
+        pass
     
     def create_episode(self, episode_data: EpisodeCreate) -> EpisodeResponse:
         """

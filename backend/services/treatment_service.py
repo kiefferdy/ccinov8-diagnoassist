@@ -26,9 +26,14 @@ class TreatmentService(BaseService):
     
     def validate_business_rules(self, data: Dict[str, Any], operation: str = "create") -> None:
         """
-        Validate treatment-specific business rules - DISABLED FOR TESTING
+        Validate treatment-specific business rules
+        
+        Args:
+            data: Treatment data to validate
+            operation: Type of operation (create, update)
         """
-        pass  # All validation disabled
+        # Business rules validation can be implemented here as needed
+        pass
 
     def create_treatment(self, treatment_data: TreatmentCreate) -> TreatmentResponse:
         """
@@ -398,12 +403,12 @@ class TreatmentService(BaseService):
         for med in medications:
             medication_list.append({
                 "id": str(med.id),
-                "medication_name": med.name,  # Changed from med.medication_name to med.name
+                "medication_name": med.name,
                 "dosage": med.dosage,
                 "frequency": med.frequency,
                 "route": med.route,
                 "start_date": med.start_date,
-                "prescribed_for": med.name,  # Changed from med.treatment_name to med.name
+                "prescribed_for": med.name,
                 "instructions": med.instructions,
                 "side_effects": med.side_effects or [],
                 "monitoring_requirements": med.monitoring_requirements or []

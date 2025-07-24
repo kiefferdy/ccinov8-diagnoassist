@@ -6,9 +6,8 @@ FastAPI routers and endpoints with full dependency injection - COMPLETELY FIXED 
 from fastapi import APIRouter, Depends
 from typing import Dict, Any
 
-# Import dependencies - FIXED: Remove problematic SettingsDep for now
+# Import dependencies  
 from api.dependencies import (
-    ServiceDep,
     CurrentUserDep,
     PaginationDep,
     check_database_health,
@@ -207,7 +206,8 @@ async def list_endpoints():
 
 @api_router.get("/services/status", response_model=None)
 async def get_services_status(
-    services = ServiceDep
+    db_healthy: bool = Depends(check_database_health),
+    services_healthy: bool = Depends(check_services_health)
 ):
     """
     Get detailed status of all services
@@ -216,10 +216,13 @@ async def get_services_status(
         Detailed service status information
     """
     try:
-        # Get service status through service layer
-        status_info = services.health_check()
+        status_info = {
+            "database": "connected" if db_healthy else "disconnected",
+            "fhir_server": "running" if services_healthy else "error",
+            "overall": "healthy" if db_healthy and services_healthy else "degraded"
+        }
         return {
-            "status": "healthy",
+            "status": "healthy" if db_healthy and services_healthy else "unhealthy",
             "services": status_info,
             "timestamp": "2025-01-23T00:00:00Z"
         }

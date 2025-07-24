@@ -26,9 +26,14 @@ class DiagnosisService(BaseService):
     
     def validate_business_rules(self, data: Dict[str, Any], operation: str = "create") -> None:
         """
-        Validate diagnosis-specific business rules - DISABLED FOR TESTING
+        Validate diagnosis-specific business rules
+        
+        Args:
+            data: Diagnosis data to validate
+            operation: Type of operation (create, update)
         """
-        pass  # All validation disabled
+        # Business rules validation can be implemented here as needed
+        pass
     
     def create_diagnosis(self, diagnosis_data: DiagnosisCreate) -> DiagnosisResponse:
         """

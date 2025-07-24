@@ -396,58 +396,67 @@ def test_repositories():
         return False
 
 def test_services():
-    """Test services layer (NEW)"""
-    print("🔍 Testing Services Layer...")
+    """Test individual services layer"""
+    print("🔍 Testing Individual Services Layer...")
     
     try:
         from config.database import SessionLocal
         from repositories import RepositoryManager
         
-        # Test basic service imports first
+        # Test individual service imports
         try:
-            from services import ServiceManager, get_services
-            print("✅ Service manager imports successful")
+            from services import (
+                PatientService, EpisodeService, DiagnosisService,
+                TreatmentService, FHIRService, ClinicalService
+            )
+            print("✅ Individual service imports successful")
         except ImportError as e:
-            print(f"❌ Service manager import failed: {e}")
+            print(f"❌ Service imports failed: {e}")
             return False
         
-        # Test service manager creation
+        # Test service creation
         db = SessionLocal()
         repos = RepositoryManager(db)
-        services = ServiceManager(repos)
         
-        # Test individual service access
+        # Test individual service creation
         services_tested = []
         
         service_tests = [
-            ('patient', 'Patient service'),
-            ('episode', 'Episode service'), 
-            ('diagnosis', 'Diagnosis service'),
-            ('treatment', 'Treatment service'),
-            ('fhir', 'FHIR service'),
-            ('clinical', 'Clinical service')
+            ('patient', PatientService, 'Patient service'),
+            ('episode', EpisodeService, 'Episode service'), 
+            ('diagnosis', DiagnosisService, 'Diagnosis service'),
+            ('treatment', TreatmentService, 'Treatment service'),
+            ('fhir', FHIRService, 'FHIR service'),
+            ('clinical', ClinicalService, 'Clinical service')
         ]
         
-        for service_name, description in service_tests:
+        for service_name, service_class, description in service_tests:
             try:
-                service = getattr(services, service_name)
+                service = service_class(repos)
                 if service and hasattr(service, 'repos'):
                     services_tested.append(service_name)
-                    print(f"✅ {description} accessible")
+                    print(f"✅ {description} created successfully")
                 else:
                     print(f"❌ {description} not properly initialized")
             except Exception as e:
-                print(f"❌ {description} failed: {e}")
+                print(f"❌ {description} creation failed: {e}")
         
-        # Test service health check
+        # Test dependency injection functions
         try:
-            health = services.health_check()
-            if health.get('overall_status') == 'healthy':
-                print("✅ Service health check passed")
+            from api.dependencies import (
+                get_patient_service, get_episode_service, get_diagnosis_service,
+                get_treatment_service, get_fhir_service, get_clinical_service
+            )
+            
+            # Test one service through dependency injection
+            patient_service = get_patient_service(repos)
+            if hasattr(patient_service, 'repos'):
+                print("✅ Service dependency injection working")
             else:
-                print(f"⚠️  Service health check: {health.get('overall_status')}")
+                print("❌ Service dependency injection failed")
+                
         except Exception as e:
-            print(f"⚠️  Service health check failed: {e}")
+            print(f"⚠️  Service dependency injection test: {e}")
         
         # Test standard exception handling (using Python built-in exceptions)
         print("✅ Using standard Python exceptions (RuntimeError, ValueError, LookupError)")
@@ -488,30 +497,32 @@ def test_api_structure():
         return False
 
 def test_service_integration():
-    """Test service integration with sample operations (NEW)"""
-    print("🔍 Testing Service Integration...")
+    """Test individual service integration with dependency injection"""
+    print("🔍 Testing Individual Service Integration...")
     
     try:
         from config.database import SessionLocal
         from repositories import RepositoryManager
         
-        # Test basic imports first
+        # Test individual service imports
         try:
-            from services import ServiceManager
-            print("✅ Service manager import working")
+            from services import PatientService, EpisodeService
+            print("✅ Individual service imports working")
         except ImportError as e:
-            print(f"❌ Service manager import failed: {e}")
+            print(f"❌ Service imports failed: {e}")
             return False
         
         db = SessionLocal()
         repos = RepositoryManager(db)
-        services = ServiceManager(repos)
         
-        # Test service dependency injection function
+        # Test dependency injection functions
         try:
-            from services import get_services
-            service_instance = get_services(repos)
-            if hasattr(service_instance, 'patient'):
+            from api.dependencies import get_patient_service, get_episode_service
+            
+            patient_service = get_patient_service(repos)
+            episode_service = get_episode_service(repos)
+            
+            if hasattr(patient_service, 'repos') and hasattr(episode_service, 'repos'):
                 print("✅ Service dependency injection working")
             else:
                 print("❌ Service dependency injection failed")
@@ -525,7 +536,7 @@ def test_service_integration():
         # Test patient service basic validation (without creating data)
         try:
             # Test that service has required methods
-            if hasattr(services.patient, 'validate_business_rules'):
+            if hasattr(patient_service, 'validate_business_rules'):
                 print("✅ Patient service validation methods available")
             else:
                 print("❌ Patient service validation methods missing")
@@ -535,6 +546,13 @@ def test_service_integration():
             print(f"❌ Patient service validation test failed: {e}")
             db.close()
             return False
+        
+        # Test service type annotations
+        try:
+            from api.dependencies import PatientServiceDep, EpisodeServiceDep
+            print("✅ Service type annotations available")
+        except ImportError as e:
+            print(f"⚠️  Service type annotations: {e}")
         
         db.close()
         return True

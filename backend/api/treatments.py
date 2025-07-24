@@ -7,15 +7,12 @@ from fastapi import APIRouter, Depends, Query, Path, HTTPException, status
 from typing import List, Optional
 from uuid import UUID
 
-# Force fresh import to avoid caching issues
-from api.dependencies import get_service_manager
-from fastapi import Depends
-
-# Create fresh ServiceDep to avoid cached version
-ServiceDep = Depends(get_service_manager)
-
-# Import other dependencies normally
-from api.dependencies import CurrentUserDep, PaginationDep
+# Import individual service dependencies
+from api.dependencies import (
+    TreatmentServiceDep,
+    CurrentUserDep,
+    PaginationDep
+)
 
 # Import schemas
 from schemas.treatment import (
@@ -38,8 +35,8 @@ router = APIRouter(prefix="/treatments", tags=["treatments"])
 @router.post("/", response_model=TreatmentResponse, status_code=201)
 async def create_treatment(
     treatment_data: TreatmentCreate,
-    services = ServiceDep,
-    current_user = CurrentUserDep
+    treatment_service: TreatmentServiceDep,
+    current_user: CurrentUserDep
 ):
     """
     Create a new treatment
@@ -61,7 +58,7 @@ async def create_treatment(
     
     try:
         # Create treatment through service layer
-        treatment = services.treatment.create_treatment(treatment_data)
+        treatment = treatment_service.create_treatment(treatment_data)
         return treatment
     except Exception as e:
         error_message = str(e)
@@ -84,9 +81,9 @@ async def create_treatment(
 
 @router.get("/", response_model=TreatmentListResponse)
 async def get_treatments(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
-    pagination = PaginationDep,
+    treatment_service: TreatmentServiceDep,
+    current_user: CurrentUserDep,
+    pagination: PaginationDep,
     patient_id: Optional[UUID] = Query(None, description="Filter by patient ID"),
     episode_id: Optional[UUID] = Query(None, description="Filter by episode ID"),
     treatment_type: Optional[str] = Query(None, description="Filter by treatment type"),
@@ -117,7 +114,7 @@ async def get_treatments(
     
     try:
         # Get treatments through service layer
-        treatments = services.treatment.get_treatments(
+        treatments = treatment_service.get_treatments(
             pagination=pagination,
             patient_id=str(patient_id) if patient_id else None,
             episode_id=str(episode_id) if episode_id else None,
@@ -134,8 +131,8 @@ async def get_treatments(
 
 @router.get("/{treatment_id}", response_model=TreatmentResponse)
 async def get_treatment(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    treatment_service: TreatmentServiceDep,
+    current_user: CurrentUserDep,
     treatment_id: UUID = Path(..., description="Treatment ID")
 ):
     """
@@ -159,7 +156,7 @@ async def get_treatment(
     
     try:
         # Get treatment through service layer
-        treatment = services.treatment.get_treatment(str(treatment_id))
+        treatment = treatment_service.get_treatment(str(treatment_id))
         return treatment
     except Exception as e:
         error_message = str(e)
@@ -177,8 +174,8 @@ async def get_treatment(
 
 @router.put("/{treatment_id}", response_model=TreatmentResponse)
 async def update_treatment(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    treatment_service: TreatmentServiceDep,
+    current_user: CurrentUserDep,
     treatment_id: UUID = Path(..., description="Treatment ID"),
     treatment_data: TreatmentUpdate = ...
 ):
@@ -204,7 +201,7 @@ async def update_treatment(
     
     try:
         # Update treatment through service layer
-        treatment = services.treatment.update_treatment(str(treatment_id), treatment_data)
+        treatment = treatment_service.update_treatment(str(treatment_id), treatment_data)
         
         if not treatment:
             raise HTTPException(
@@ -236,8 +233,8 @@ async def update_treatment(
 
 @router.delete("/{treatment_id}", response_model=StatusResponse)
 async def delete_treatment(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    treatment_service: TreatmentServiceDep,
+    current_user: CurrentUserDep,
     treatment_id: UUID = Path(..., description="Treatment ID")
 ):
     """
@@ -261,7 +258,7 @@ async def delete_treatment(
     
     try:
         # Delete treatment through service layer
-        result = services.treatment.delete_treatment(str(treatment_id))
+        result = treatment_service.delete_treatment(str(treatment_id))
         return result
     except HTTPException:
         raise
@@ -285,8 +282,8 @@ async def delete_treatment(
 
 @router.patch("/{treatment_id}/start", response_model=TreatmentResponse)
 async def start_treatment(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    treatment_service: TreatmentServiceDep,
+    current_user: CurrentUserDep,
     treatment_id: UUID = Path(..., description="Treatment ID")
 ):
     """
@@ -302,7 +299,7 @@ async def start_treatment(
     """
     try:
         # Start treatment through service layer
-        treatment = services.treatment.start_treatment(str(treatment_id))
+        treatment = treatment_service.start_treatment(str(treatment_id))
         return treatment
     except Exception as e:
         error_message = str(e)
@@ -325,8 +322,8 @@ async def start_treatment(
 
 @router.patch("/{treatment_id}/complete", response_model=TreatmentResponse)
 async def complete_treatment(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    treatment_service: TreatmentServiceDep,
+    current_user: CurrentUserDep,
     treatment_id: UUID = Path(..., description="Treatment ID"),
     completion_notes: Optional[str] = Query(None, description="Completion notes")
 ):
@@ -344,7 +341,7 @@ async def complete_treatment(
     """
     try:
         # Complete treatment through service layer
-        treatment = services.treatment.complete_treatment(str(treatment_id), completion_notes)
+        treatment = treatment_service.complete_treatment(str(treatment_id), completion_notes)
         return treatment
     except Exception as e:
         error_message = str(e)
@@ -367,8 +364,8 @@ async def complete_treatment(
 
 @router.patch("/{treatment_id}/discontinue", response_model=TreatmentResponse)
 async def discontinue_treatment(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    treatment_service: TreatmentServiceDep,
+    current_user: CurrentUserDep,
     treatment_id: UUID = Path(..., description="Treatment ID"),
     discontinuation_reason: str = Query(..., description="Reason for discontinuation")
 ):
@@ -386,7 +383,7 @@ async def discontinue_treatment(
     """
     try:
         # Discontinue treatment through service layer
-        treatment = services.treatment.discontinue_treatment(str(treatment_id), discontinuation_reason)
+        treatment = treatment_service.discontinue_treatment(str(treatment_id), discontinuation_reason)
         return treatment
     except Exception as e:
         error_message = str(e)
@@ -409,8 +406,8 @@ async def discontinue_treatment(
 
 @router.get("/{treatment_id}/monitoring")
 async def get_treatment_monitoring(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    treatment_service: TreatmentServiceDep,
+    current_user: CurrentUserDep,
     treatment_id: UUID = Path(..., description="Treatment ID")
 ):
     """
@@ -426,7 +423,7 @@ async def get_treatment_monitoring(
     """
     try:
         # Get treatment monitoring through service layer
-        monitoring_data = services.treatment.get_treatment_monitoring(str(treatment_id))
+        monitoring_data = treatment_service.get_treatment_monitoring(str(treatment_id))
         return monitoring_data
     except Exception as e:
         error_message = str(e)

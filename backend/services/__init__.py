@@ -1,28 +1,20 @@
 """
 Services Module for DiagnoAssist Backend
-Business Logic Layer with comprehensive service management
+Business Logic Layer with individual service management
 
 This module provides:
 - Core domain services (Patient, Episode, Diagnosis, Treatment)
 - Integration services (FHIR)
 - Orchestration services (Clinical workflows)
-- Service management and dependency injection
+- Individual service dependency injection
 - Exception handling and validation
 - Business rule enforcement
 
 Usage:
-    from services import ServiceManager, get_services
+    from services import PatientService, EpisodeService
     
-    # In FastAPI route
-    @app.get("/patients/")
-    async def get_patients(services: ServiceManager = Depends(get_services)):
-        return services.patient.search_patients()
-    
-    # With context manager
-    with ServiceContext(repository_manager) as services:
-        patient = services.patient.create_patient(patient_data)
-        episode = services.episode.create_episode(episode_data)
-        # Auto-commit on success, rollback on exception
+    # Services are injected individually via FastAPI dependencies
+    # See api.dependencies for dependency injection setup
 """
 
 from .base_service import BaseService
@@ -34,12 +26,7 @@ from .treatment_service import TreatmentService
 from .fhir_service import FHIRService
 from .clinical_service import ClinicalService
 
-from .service_manager import (
-    ServiceManager,
-    ServiceContext,
-    get_service_manager,
-    get_services
-)
+# ServiceManager removed - using individual service dependencies instead
 
 # Version information
 __version__ = "1.0.0"
@@ -62,29 +49,12 @@ __all__ = [
     # Orchestration services
     "ClinicalService",
     
-    # Service management
-    "ServiceManager",
-    "ServiceContext",
-    "get_service_manager",
-    "get_services",
-    
     # Version info
     "__version__",
     "__author__"
 ]
 
-# Convenience function to create all services at once
-def create_services(repository_manager):
-    """
-    Convenience function to create service manager instance
-    
-    Args:
-        repository_manager: Repository manager instance
-        
-    Returns:
-        ServiceManager instance with all services initialized
-    """
-    return ServiceManager(repository_manager)
+# Individual services are created via dependency injection in api.dependencies
 
 # Service registry for dynamic access
 SERVICE_REGISTRY = {

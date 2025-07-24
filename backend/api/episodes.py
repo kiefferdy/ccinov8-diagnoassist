@@ -7,15 +7,12 @@ from fastapi import APIRouter, Depends, Query, Path, HTTPException, status
 from typing import List, Optional
 from uuid import UUID
 
-# Force fresh import to avoid caching issues
-from api.dependencies import get_service_manager
-from fastapi import Depends
-
-# Create fresh ServiceDep to avoid cached version
-ServiceDep = Depends(get_service_manager)
-
-# Import other dependencies normally
-from api.dependencies import CurrentUserDep, PaginationDep
+# Import individual service dependencies
+from api.dependencies import (
+    EpisodeServiceDep,
+    CurrentUserDep, 
+    PaginationDep
+)
 
 # Import schemas
 from schemas.episode import (
@@ -37,8 +34,8 @@ router = APIRouter(prefix="/episodes", tags=["episodes"])
 @router.post("/", response_model=EpisodeResponse, status_code=201)
 async def create_episode(
     episode_data: EpisodeCreate,
-    services = ServiceDep,
-    current_user = CurrentUserDep
+    episode_service: EpisodeServiceDep,
+    current_user: CurrentUserDep
 ):
     """
     Create a new episode
@@ -60,7 +57,7 @@ async def create_episode(
     
     try:
         # Create episode through service layer
-        episode = services.episode.create_episode(episode_data)
+        episode = episode_service.create_episode(episode_data)
         return episode
     except Exception as e:
         error_message = str(e)
@@ -83,9 +80,9 @@ async def create_episode(
 
 @router.get("/", response_model=EpisodeListResponse)
 async def get_episodes(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
-    pagination = PaginationDep,
+    episode_service: EpisodeServiceDep,
+    current_user: CurrentUserDep,
+    pagination: PaginationDep,
     patient_id: Optional[UUID] = Query(None, description="Filter by patient ID"),
     status_filter: Optional[str] = Query(None, description="Filter by episode status"),
     encounter_type: Optional[str] = Query(None, description="Filter by encounter type"),
@@ -116,7 +113,7 @@ async def get_episodes(
     
     try:
         # Get episodes through service layer
-        episodes = services.episode.get_episodes(
+        episodes = episode_service.get_episodes(
             pagination=pagination,
             patient_id=str(patient_id) if patient_id else None,
             status=status_filter,
@@ -133,8 +130,8 @@ async def get_episodes(
 
 @router.get("/{episode_id}", response_model=EpisodeResponse)
 async def get_episode(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    episode_service: EpisodeServiceDep,
+    current_user: CurrentUserDep,
     episode_id: UUID = Path(..., description="Episode ID")
 ):
     """
@@ -158,7 +155,7 @@ async def get_episode(
     
     try:
         # Get episode through service layer
-        episode = services.episode.get_episode(str(episode_id))
+        episode = episode_service.get_episode(str(episode_id))
         
         if not episode:
             raise HTTPException(
@@ -177,8 +174,8 @@ async def get_episode(
 
 @router.put("/{episode_id}", response_model=EpisodeResponse)
 async def update_episode(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    episode_service: EpisodeServiceDep,
+    current_user: CurrentUserDep,
     episode_id: UUID = Path(..., description="Episode ID"),
     episode_data: EpisodeUpdate = ...
 ):
@@ -204,7 +201,7 @@ async def update_episode(
     
     try:
         # Update episode through service layer
-        episode = services.episode.update_episode(str(episode_id), episode_data)
+        episode = episode_service.update_episode(str(episode_id), episode_data)
         
         if not episode:
             raise HTTPException(
@@ -236,8 +233,8 @@ async def update_episode(
 
 @router.delete("/{episode_id}", response_model=StatusResponse)
 async def delete_episode(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    episode_service: EpisodeServiceDep,
+    current_user: CurrentUserDep,
     episode_id: UUID = Path(..., description="Episode ID")
 ):
     """
@@ -261,7 +258,7 @@ async def delete_episode(
     
     try:
         # Delete episode through service layer
-        result = services.episode.delete_episode(str(episode_id))
+        result = episode_service.delete_episode(str(episode_id))
         return result
     except HTTPException:
         raise
@@ -285,8 +282,8 @@ async def delete_episode(
 
 @router.patch("/{episode_id}/complete", response_model=EpisodeResponse)
 async def complete_episode(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    episode_service: EpisodeServiceDep,
+    current_user: CurrentUserDep,
     episode_id: UUID = Path(..., description="Episode ID"),
     completion_notes: Optional[str] = Query(None, description="Completion notes")
 ):
@@ -304,7 +301,7 @@ async def complete_episode(
     """
     try:
         # Complete episode through service layer
-        episode = services.episode.complete_episode(str(episode_id), completion_notes)
+        episode = episode_service.complete_episode(str(episode_id), completion_notes)
         return episode
     except Exception as e:
         error_message = str(e)
@@ -327,8 +324,8 @@ async def complete_episode(
 
 @router.get("/{episode_id}/timeline")
 async def get_episode_timeline(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    episode_service: EpisodeServiceDep,
+    current_user: CurrentUserDep,
     episode_id: UUID = Path(..., description="Episode ID")
 ):
     """
@@ -344,7 +341,7 @@ async def get_episode_timeline(
     """
     try:
         # Get episode timeline through service layer
-        timeline = services.episode.get_episode_timeline(str(episode_id))
+        timeline = episode_service.get_episode_timeline(str(episode_id))
         return timeline
     except Exception as e:
         error_message = str(e)
@@ -362,8 +359,8 @@ async def get_episode_timeline(
 
 @router.patch("/{episode_id}/vitals", response_model=EpisodeResponse)
 async def update_episode_vitals(
-    services = ServiceDep,
-    current_user = CurrentUserDep,
+    episode_service: EpisodeServiceDep,
+    current_user: CurrentUserDep,
     episode_id: UUID = Path(..., description="Episode ID"),
     vitals: VitalSigns = ...
 ):
@@ -381,7 +378,7 @@ async def update_episode_vitals(
     """
     try:
         # Update episode vitals through service layer
-        episode = services.episode.update_episode_vitals(str(episode_id), vitals)
+        episode = episode_service.update_episode_vitals(str(episode_id), vitals)
         return episode
     except Exception as e:
         error_message = str(e)
