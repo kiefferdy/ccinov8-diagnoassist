@@ -26,20 +26,26 @@ app.listen(PORT, () => {
 });
 
 app.post('/track-visit', async (req, res) => {
-    const {sessionId, timestamp} = req.body;
+    const {sessionId, timestamp, variant} = req.body;
 
     const {data, error} = await supabase.from('sessions').upsert({
         session_id: sessionId,
-        start_time: timestamp
+        start_time: timestamp,
+        variant: variant
     }, {onConflict: 'session_id'});
-    console.log(`[visit] ${sessionId} at ${timestamp}`);
+    console.log(`[visit] ${sessionId} at ${timestamp} (variant: ${variant || 'unknown'})`);
+
+    if (error) {
+        console.error('Supabase error on track-visit:', error.message);
+        return res.status(500).json({ error: error.message });
+    }
 
     res.sendStatus(200);
 })
 
 
 app.post('/track-click', async (req, res) => {
-  const { type, plan, sessionId } = req.body;
+  const { type, plan, sessionId, variant } = req.body;
 
   const { error } = await supabase
     .from('button_clicks')
@@ -47,6 +53,7 @@ app.post('/track-click', async (req, res) => {
       session_id: sessionId,
       label: type,
       plan_type: plan?.name || null,
+      variant: variant,
       clicked_at: new Date().toISOString(),
     });
 
@@ -55,68 +62,123 @@ app.post('/track-click', async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 
-  
-  // console.log(`[button click] ${type} ${plan?.name || ''}`);
+  console.log(`[button click] ${type} ${plan?.name || ''} (variant: ${variant || 'unknown'})`);
   res.sendStatus(200);
 });
 
 app.get('/stats', async (req, res) => {
   try {
-    // Count clicks by type and plan
+    // Get all clicks with variant data
     const { data: clicks, error: clickError } = await supabase
       .from('button_clicks')
-      .select('label, plan_type');
+      .select('label, plan_type, variant');
 
+    // Get all visits with variant data
     const { data: visits, error: visitError } = await supabase
       .from('sessions')
-      .select('session_id');
-
-    //console.log(visits[0]);
-    const uniqueSessions = [...new Set(visits)];
+      .select('session_id, variant');
 
     if (clickError) throw clickError;
+    if (visitError) throw visitError;
 
-    //ANALYTICS:
-     let len = clicks.length;
+    // Calculate overall analytics
+    const uniqueSessions = [...new Set(visits.map(v => v.session_id))];
+    let totalSub = 0, totalDemo = 0, totalStart = 0, totalPro = 0, totalEnterprise = 0;
 
-    let sub = 0, pro = 0, start = 0, enterprise = 0, demo = 0;
-    for(let i =0; i < len; i++){
-        if(clicks[i].label == "subscribe"){
-            sub++; 
-            switch(clicks[i].plan_type){
-                case "Starter":
-                    start++;
-                    break;
-                case "Professional":
-                    pro++;
-                    break;
-                case "Enterprise":
-                    enterprise++;
-                    break;
-            };
-        }else
-            demo++;
-    };
+    // Calculate variant-specific analytics
+    const variantStats = { A: {}, B: {} };
+
+    // Initialize variant stats
+    ['A', 'B'].forEach(variant => {
+      variantStats[variant] = {
+        visits: 0,
+        totalClicks: 0,
+        subscribeClicks: 0,
+        demoClicks: 0,
+        starterClicks: 0,
+        proClicks: 0,
+        enterpriseClicks: 0,
+        conversionRate: 0
+      };
+    });
+
+    // Count visits by variant
+    visits.forEach(visit => {
+      const variant = visit.variant || 'A'; // Default to A for legacy data
+      if (variantStats[variant]) {
+        variantStats[variant].visits++;
+      }
+    });
+
+    // Count clicks by variant
+    clicks.forEach(click => {
+      const variant = click.variant || 'A'; // Default to A for legacy data
+      
+      if (variantStats[variant]) {
+        variantStats[variant].totalClicks++;
+        
+        if (click.label === "subscribe") {
+          variantStats[variant].subscribeClicks++;
+          totalSub++;
+          
+          switch(click.plan_type) {
+            case "Starter":
+              variantStats[variant].starterClicks++;
+              totalStart++;
+              break;
+            case "Professional":
+              variantStats[variant].proClicks++;
+              totalPro++;
+              break;
+            case "Enterprise":
+              variantStats[variant].enterpriseClicks++;
+              totalEnterprise++;
+              break;
+          }
+        } else {
+          variantStats[variant].demoClicks++;
+          totalDemo++;
+        }
+      }
+    });
+
+    // Calculate conversion rates
+    ['A', 'B'].forEach(variant => {
+      if (variantStats[variant].visits > 0) {
+        variantStats[variant].conversionRate = 
+          (variantStats[variant].subscribeClicks / variantStats[variant].visits * 100).toFixed(2);
+      }
+    });
+
+    console.log("============ A/B TESTING ANALYTICS ============");
+    console.log("OVERALL:");
+    console.log("  Total visits: " + uniqueSessions.length);
+    console.log("  Total clicks: " + clicks.length);
+    console.log("  Total subscribe: " + totalSub);
+    console.log("  Total demo: " + totalDemo);
+    console.log();
     
-    console.log("============ ANALYTICS ============")
-    console.log("Total visits: " + uniqueSessions.length);
-
-    console.log("Total button clicks: " + len);
-    console.log(">Total subscribe clicks: " + sub);
-    console.log("   Starter: " + start);
-    console.log("   Professional: " + pro);
-    console.log("   Enterprise: " + enterprise);
-    console.log(">Total demo clicks: " + demo);
+    console.log("VARIANT A:");
+    console.log("  Visits: " + variantStats.A.visits);
+    console.log("  Subscribe clicks: " + variantStats.A.subscribeClicks);
+    console.log("  Conversion rate: " + variantStats.A.conversionRate + "%");
+    console.log();
+    
+    console.log("VARIANT B:");
+    console.log("  Visits: " + variantStats.B.visits);
+    console.log("  Subscribe clicks: " + variantStats.B.subscribeClicks);
+    console.log("  Conversion rate: " + variantStats.B.conversionRate + "%");
     console.log();
 
-    // inside /stats route after you finish counting
     const analytics = {
-      totalClicks    : clicks.length,
-      totalSubscribe : sub,
-      starterClicks  : start,
-      proClicks      : pro,
-      enterpriseClicks: enterprise,
-      totalDemo      : demo,
+      totalClicks: clicks.length,
+      totalSubscribe: totalSub,
+      starterClicks: totalStart,
+      proClicks: totalPro,
+      enterpriseClicks: totalEnterprise,
+      totalDemo: totalDemo,
+      totalVisits: uniqueSessions.length,
+      variantStats: variantStats
     };
 
     res.json({ clicks, analytics });

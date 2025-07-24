@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Activity, Check, Star, Users, Zap, Clock, Brain, ChartBar, ArrowRight, Sparkles, Calendar, Bell, LogIn } from 'lucide-react';
 import SubscriptionModal from './SubscriptionModal';
 import DemoDisclaimer from './DemoDisclaimer';
@@ -8,16 +8,41 @@ import { trackVisit, trackClick } from '../../utils/analytics';
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [showDemoDisclaimer, setShowDemoDisclaimer] = useState(false);
+  const [variant, setVariant] = useState('A');
 
+  // Determine A/B test variant
+  const determineVariant = () => {
+    const refParam = searchParams.get('ref');
+    
+    // URL override takes priority
+    if (refParam === 'alpha') {
+      localStorage.setItem('ab_variant', 'A');
+      return 'A';
+    } else if (refParam === 'beta') {
+      localStorage.setItem('ab_variant', 'B');
+      return 'B';
+    }
+    
+    // Check for existing stored variant
+    const storedVariant = localStorage.getItem('ab_variant');
+    if (storedVariant) {
+      return storedVariant;
+    }
+    
+    // Generate random assignment (50/50 split)
+    const randomVariant = Math.random() < 0.5 ? 'A' : 'B';
+    localStorage.setItem('ab_variant', randomVariant);
+    return randomVariant;
+  };
 
-  
   const handleSubscribe = (plan) => {
     setSelectedPlan(plan);
     setShowSubscriptionModal(true);
-    trackClick('subscribe', plan);
+    trackClick('subscribe', plan, variant);
     console.log(plan);
     // fetchStats();
 
@@ -25,11 +50,11 @@ const LandingPage = () => {
   
   const handleDemo = () => {
     setShowDemoDisclaimer(true);
-    trackClick('demo');
+    trackClick('demo', null, variant);
     // fetchStats();
   };
   
-  const plans = [
+  const plansSetA = [
     {
       name: 'Starter',
       price: '₱990',
@@ -46,7 +71,8 @@ const LandingPage = () => {
       ],
       highlighted: false,
       color: 'gray',
-      discount: '33% OFF Early Bird'
+      discount: '33% OFF Early Bird',
+      formUrl: 'https://forms.gle/iFwZQRzV2WL3ap2s8'
     },
     {
       name: 'Professional',
@@ -67,7 +93,8 @@ const LandingPage = () => {
       highlighted: true,
       color: 'blue',
       badge: 'Most Popular',
-      discount: '38% OFF Early Bird'
+      discount: '38% OFF Early Bird',
+      formUrl: 'https://forms.gle/iFwZQRzV2WL3ap2s8'
     },
     {
       name: 'Enterprise',
@@ -87,9 +114,78 @@ const LandingPage = () => {
       ],
       highlighted: false,
       color: 'purple',
-      discount: 'Special Launch Pricing'
+      discount: 'Special Launch Pricing',
+      formUrl: 'https://forms.gle/iFwZQRzV2WL3ap2s8'
     }
   ];
+
+  const plansSetB = [
+    {
+      name: 'Starter',
+      price: '₱1,490',
+      originalPrice: '₱2,090',
+      period: 'per month',
+      description: 'Perfect for individual practitioners',
+      features: [
+        'Up to 50 patients/month',
+        'Patient health records',
+        'Basic AI diagnosis assistance',
+        'Treatment recommendations',
+        'Email support',
+        'Mobile app access'
+      ],
+      highlighted: false,
+      color: 'gray',
+      discount: '29% OFF Early Bird',
+      formUrl: 'https://forms.gle/DIFFERENT_FORM_URL_B'
+    },
+    {
+      name: 'Professional',
+      price: '₱3,490',
+      originalPrice: '₱4,690',
+      period: 'per month',
+      description: 'For growing medical practices',
+      features: [
+        'Everything in Starter',
+        'Up to 200 patients/month',
+        'AI audio transcription & analysis',
+        'Advanced AI diagnosis',
+        'Priority support',
+        'Test result integration',
+        'Custom report templates',
+        'Team collaboration (up to 5 users)'
+      ],
+      highlighted: true,
+      color: 'blue',
+      badge: 'Most Popular',
+      discount: '26% OFF Early Bird',
+      formUrl: 'https://forms.gle/DIFFERENT_FORM_URL_B'
+    },
+    {
+      name: 'Enterprise',
+      price: 'Custom',
+      originalPrice: '',
+      period: 'contact us',
+      description: 'For hospitals and large clinics',
+      features: [
+        'Everything in Professional',
+        'Unlimited patients',
+        'Full AI capabilities',
+        'Dedicated account manager',
+        'API access',
+        'Custom integrations',
+        'Unlimited users',
+        'On-premise deployment option'
+      ],
+      highlighted: false,
+      color: 'purple',
+      discount: 'Special Launch Pricing',
+      formUrl: 'https://forms.gle/DIFFERENT_FORM_URL_B'
+    }
+  ];
+
+  // Select plans based on variant
+  const plans = variant === 'A' ? plansSetA : plansSetB;
   
   const features = [
     {
@@ -169,9 +265,11 @@ const LandingPage = () => {
   ];
 
   useEffect(() => {
-    trackVisit();
+    const currentVariant = determineVariant();
+    setVariant(currentVariant);
+    trackVisit(currentVariant);
     // fetchStats();
-  }, []);
+  }, [searchParams]);
   
   return (
     <>
