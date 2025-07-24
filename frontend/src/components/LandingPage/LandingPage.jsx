@@ -72,9 +72,10 @@ const LandingPage = () => {
       features: [
         'Up to 50 patients/month',
         'Patient health records',
-        'Basic AI diagnosis assistance',
+        'Patient management',
+        'Context-aware AI chatbot',
+        'Appointments scheduler',
         'Treatment recommendations',
-        'Email support',
         'Mobile app access'
       ],
       highlighted: false,
@@ -91,12 +92,12 @@ const LandingPage = () => {
       features: [
         'Everything in Starter',
         'Up to 200 patients/month',
+        'Smarter AI model',
         'AI audio transcription & analysis',
-        'Advanced AI diagnosis',
-        'Priority support',
-        'Test result integration',
-        'Custom report templates',
-        'Team collaboration (up to 5 users)'
+        'File uploads',
+        'Generate reports & analytics',
+        'Team collaboration',
+        'Priority support'
       ],
       highlighted: true,
       color: 'blue',
@@ -137,9 +138,10 @@ const LandingPage = () => {
       features: [
         'Up to 50 patients/month',
         'Patient health records',
-        'Basic AI diagnosis assistance',
+        'Patient management',
+        'Context-aware AI chatbot',
+        'Appointments scheduler',
         'Treatment recommendations',
-        'Email support',
         'Mobile app access'
       ],
       highlighted: false,
@@ -156,12 +158,12 @@ const LandingPage = () => {
       features: [
         'Everything in Starter',
         'Up to 200 patients/month',
+        'Smarter AI model',
         'AI audio transcription & analysis',
-        'Advanced AI diagnosis',
-        'Priority support',
-        'Test result integration',
-        'Custom report templates',
-        'Team collaboration (up to 5 users)'
+        'File uploads',
+        'Generate reports & analytics',
+        'Team collaboration',
+        'Priority support'
       ],
       highlighted: true,
       color: 'blue',
