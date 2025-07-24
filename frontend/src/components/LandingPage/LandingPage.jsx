@@ -313,7 +313,7 @@ const LandingPage = () => {
                 See Demo
               </button>
               <button 
-                onClick={() => navigate('/dashboard')}
+                onClick={handleDemo}
                 className="px-6 py-2 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all duration-300 flex items-center space-x-2"
               >
                 <LogIn className="w-4 h-4" />
