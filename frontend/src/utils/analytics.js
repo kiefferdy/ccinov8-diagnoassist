@@ -4,7 +4,7 @@ import axios from 'axios';
 
 const BACKEND = import.meta.env.VITE_BACKEND_LANDING_URL || 'http://localhost:4000';
 
-export const trackVisit = async () => {
+export const trackVisit = async (variant = null) => {
     let sessionId = Cookies.get('session_id');
 
     if(!sessionId) { // first-time visits or Expired session id
@@ -15,8 +15,9 @@ export const trackVisit = async () => {
     await axios.post(`${BACKEND}/track-visit`, {
         sessionId: sessionId,
         timestamp: new Date().toISOString(),
+        variant: variant
     })
-    .then(() => console.log('Visit tracked'))
+    .then(() => console.log('Visit tracked', variant ? `(Variant: ${variant})` : ''))
     .catch(console.error);
 
     await fetchStats();
@@ -24,13 +25,13 @@ export const trackVisit = async () => {
 
 };
 
-export const trackClick = async (type, plan = null) => {
+export const trackClick = async (type, plan = null, variant = null) => {
     let sessionId = Cookies.get('session_id');
 
     const planType = plan ? plan.name :  '';
 
-    await axios.post(`${BACKEND}/track-click`, {type, plan, sessionId})
-    .then(() => console.log(`Button Clicked: ${type} ${planType}`))
+    await axios.post(`${BACKEND}/track-click`, {type, plan, sessionId, variant})
+    .then(() => console.log(`Button Clicked: ${type} ${planType}`, variant ? `(Variant: ${variant})` : ''))
     .catch(console.error);
 
     await fetchStats();
