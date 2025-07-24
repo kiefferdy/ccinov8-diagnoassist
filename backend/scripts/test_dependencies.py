@@ -375,7 +375,7 @@ class DependencyTester:
                     # Still mark as success since the function exists
                     self.print_success("Database health check function available")
                 
-                # Test services health check (synchronous) - no longer needs ServiceManager
+                # Test services health check (synchronous)
                 try:
                     service_health = check_services_health()
                     self.print_success(f"Services health check working: {service_health}")

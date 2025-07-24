@@ -97,7 +97,7 @@ class MedicationTreatment(BaseModel):
 class NonPharmacologicalTreatment(BaseModel):
     """Schema for non-medication treatments"""
     name: str  # Changed from treatment_name to match SQL schema
-    treatment_type: str = Field(..., pattern="^(therapy|procedure|lifestyle|education|monitoring)$")  # FIXED: regex -> pattern
+    treatment_type: str = Field(..., pattern="^(therapy|procedure|lifestyle|education|monitoring)$")
     description: str
     instructions: Optional[str] = None
     duration: Optional[str] = None

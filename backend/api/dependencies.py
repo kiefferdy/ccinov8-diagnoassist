@@ -79,7 +79,7 @@ def check_services_health(
     """Check health of all services"""
     try:
         # Test a simple operation on each service to verify health
-        # This is more meaningful than the old ServiceManager health check
+        # Test individual service health by checking if they can be instantiated
         return True  # Services loaded successfully if we get here
     except Exception as e:
         logger.error(f"Services health check failed: {e}")
@@ -95,7 +95,7 @@ def check_database_health(db: Session = Depends(get_database_session)) -> bool:
         return False
 
 # =============================================================================
-# FIXED: Authentication Dependencies with proper type annotations
+# Authentication Dependencies
 # =============================================================================
 
 def get_current_user() -> Dict[str, Any]:
@@ -180,7 +180,7 @@ def require_permission(permission: str):
     return Depends(permission_checker)
 
 # =============================================================================
-# FIXED: Query Parameter Dependencies  
+# Query Parameter Dependencies
 # =============================================================================
 
 def get_pagination(
@@ -228,7 +228,7 @@ def validate_uuid(uuid_str: str) -> str:
         )
 
 # =============================================================================
-# FIXED: Dependency Aliases - These are the key fixes!
+# Dependency Aliases
 # =============================================================================
 
 # Alias for backward compatibility
@@ -238,7 +238,6 @@ get_database = get_database_session
 DatabaseDep = Annotated[Session, Depends(get_database_session)]
 RepositoryDep = Annotated[RepositoryManager, Depends(get_repository_manager)]
 
-# Individual service dependencies
 PatientServiceDep = Annotated[PatientService, Depends(get_patient_service)]
 EpisodeServiceDep = Annotated[EpisodeService, Depends(get_episode_service)]
 DiagnosisServiceDep = Annotated[DiagnosisService, Depends(get_diagnosis_service)]
@@ -246,7 +245,7 @@ TreatmentServiceDep = Annotated[TreatmentService, Depends(get_treatment_service)
 FHIRServiceDep = Annotated[FHIRService, Depends(get_fhir_service)]
 ClinicalServiceDep = Annotated[ClinicalService, Depends(get_clinical_service)]
 
-# FIXED: Authentication dependencies with proper typing
+# Authentication dependencies
 # The key is that these should NOT be used as response model types
 CurrentUserDep = Annotated[Dict[str, Any], Depends(get_current_user)]
 AuthUserDep = Annotated[Dict[str, Any], Depends(require_authentication)]
@@ -269,7 +268,6 @@ __all__ = [
     "DatabaseDep",
     "RepositoryDep",
     
-    # Individual service dependencies
     "get_patient_service",
     "get_episode_service", 
     "get_diagnosis_service",

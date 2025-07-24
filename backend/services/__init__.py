@@ -26,7 +26,6 @@ from .treatment_service import TreatmentService
 from .fhir_service import FHIRService
 from .clinical_service import ClinicalService
 
-# ServiceManager removed - using individual service dependencies instead
 
 # Version information
 __version__ = "1.0.0"
@@ -54,7 +53,6 @@ __all__ = [
     "__author__"
 ]
 
-# Individual services are created via dependency injection in api.dependencies
 
 # Service registry for dynamic access
 SERVICE_REGISTRY = {

@@ -1,5 +1,5 @@
 """
-FHIR API Router for DiagnoAssist - COMPLETELY FIXED VERSION
+FHIR API Router for DiagnoAssist
 FHIR R4 compliant resource management
 """
 
@@ -26,10 +26,10 @@ from schemas.common import StatusResponse
 router = APIRouter(prefix="/fhir", tags=["fhir"])
 
 # =============================================================================
-# FHIR Resource Operations - ALL FIXED with response_model handling
+# FHIR Resource Operations
 # =============================================================================
 
-@router.post("/", response_model=None, status_code=201)  # FIXED: Added response_model=None
+@router.post("/", response_model=None, status_code=201)
 async def create_fhir_resource(
     resource_data: FHIRResourceCreate,
     fhir_service: FHIRServiceDep,
@@ -52,7 +52,7 @@ async def create_fhir_resource(
                 detail=f"Failed to create FHIR resource: {error_message}"
             )
 
-@router.get("/", response_model=None)  # FIXED: Added response_model=None
+@router.get("/", response_model=None)
 async def get_fhir_resources(
     fhir_service: FHIRServiceDep,
     current_user: CurrentUserDep,
@@ -76,7 +76,7 @@ async def get_fhir_resources(
             detail=f"Failed to retrieve FHIR resources: {str(e)}"
         )
 
-@router.get("/{resource_id}", response_model=None)  # FIXED: Added response_model=None
+@router.get("/{resource_id}", response_model=None)
 async def get_fhir_resource(
     fhir_service: FHIRServiceDep,
     current_user: CurrentUserDep,
@@ -101,7 +101,7 @@ async def get_fhir_resource(
             detail=f"Failed to retrieve FHIR resource: {str(e)}"
         )
 
-@router.put("/{resource_id}", response_model=None)  # FIXED: Added response_model=None
+@router.put("/{resource_id}", response_model=None)
 async def update_fhir_resource(
     fhir_service: FHIRServiceDep,
     current_user: CurrentUserDep,
@@ -140,7 +140,7 @@ async def update_fhir_resource(
                 detail=f"Failed to update FHIR resource: {error_message}"
             )
 
-@router.delete("/{resource_id}", response_model=None)  # FIXED: Added response_model=None
+@router.delete("/{resource_id}", response_model=None)
 async def delete_fhir_resource(
     fhir_service: FHIRServiceDep,
     current_user: CurrentUserDep,
@@ -177,7 +177,7 @@ async def delete_fhir_resource(
             )
 
 # =============================================================================
-# FHIR Special Operations - ALL FIXED
+# FHIR Special Operations
 # =============================================================================
 
 @router.get("/Patient/{patient_id}/everything", response_model=None)

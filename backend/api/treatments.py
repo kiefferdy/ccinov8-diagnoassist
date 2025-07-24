@@ -1,5 +1,5 @@
 """
-Treatment API Router for DiagnoAssist - IMPORT FIXED VERSION
+Treatment API Router for DiagnoAssist
 CRUD operations for treatment management
 """
 

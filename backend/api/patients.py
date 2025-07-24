@@ -1,5 +1,5 @@
 """
-Patient API Router for DiagnoAssist - IMPORT FIXED VERSION
+Patient API Router for DiagnoAssist
 CRUD operations for patient management with proper FastAPI exceptions
 """
 

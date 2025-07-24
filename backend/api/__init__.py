@@ -1,6 +1,6 @@
 """
 API Module for DiagnoAssist Backend
-FastAPI routers and endpoints with full dependency injection - COMPLETELY FIXED VERSION
+FastAPI routers and endpoints with full dependency injection
 """
 
 from fastapi import APIRouter, Depends

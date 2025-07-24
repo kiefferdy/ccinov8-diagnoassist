@@ -1,5 +1,5 @@
 """
-Diagnosis API Router for DiagnoAssist - IMPORT FIXED VERSION
+Diagnosis API Router for DiagnoAssist
 CRUD operations for diagnosis management with AI integration
 """
 
