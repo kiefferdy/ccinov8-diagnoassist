@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Activity, Check, Star, Users, Zap, Clock, Brain, ChartBar, ArrowRight, Sparkles, Calendar, Bell, LogIn } from 'lucide-react';
 import SubscriptionModal from './SubscriptionModal';
 import DemoDisclaimer from './DemoDisclaimer';
