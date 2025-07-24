@@ -80,13 +80,22 @@ class ValidationAwareCRUDTest:
     def test_health_check(self):
         """Test if API is running"""
         print("\n🏥 Testing API Health")
-        result = self.request("GET", "/health")
-        if result and not result.get('error'):
-            self.print_success("API is running")
-            print(f"   Status: {result}")
-            return True
-        else:
-            self.print_error("API is not responding")
+        # Health endpoint is at root, not under /api/v1
+        url = f"{self.base_url.replace('/api/v1', '')}/health"
+        try:
+            response = requests.get(url, headers=self.headers, timeout=10)
+            print(f"   GET /health → {response.status_code}")
+            
+            if response.status_code == 200:
+                result = response.json()
+                self.print_success("API is running")
+                print(f"   Status: {result}")
+                return True
+            else:
+                self.print_error("API is not responding")
+                return False
+        except Exception as e:
+            self.print_error(f"Connection error: {e}")
             return False
     
     def test_patient_crud(self):

@@ -477,3 +477,25 @@ class DiagnosisRepository(BaseRepository[Diagnosis]):
         except Exception as e:
             logger.error(f"Error counting diagnoses for patient {patient_id}: {str(e)}")
             return 0
+    
+    def get_final_diagnosis_by_episode(self, episode_id: str) -> Optional[Diagnosis]:
+        """
+        Get the final diagnosis for a specific episode
+        
+        Args:
+            episode_id: Episode UUID
+            
+        Returns:
+            Final diagnosis for the episode or None if not found
+        """
+        try:
+            return self.db.query(Diagnosis).filter(
+                and_(
+                    Diagnosis.episode_id == episode_id,
+                    Diagnosis.final_diagnosis == True
+                )
+            ).first()
+            
+        except Exception as e:
+            logger.error(f"Error getting final diagnosis for episode {episode_id}: {str(e)}")
+            return None

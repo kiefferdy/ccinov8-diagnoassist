@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from repositories.repository_manager import RepositoryManager
 
 from services.base_service import BaseService
+from schemas.episode import EpisodeResponse
 
 class EpisodeService(BaseService):
     """
@@ -391,6 +392,16 @@ class EpisodeService(BaseService):
             duration = episode.end_date - episode.start_date
             duration_seconds = duration.total_seconds()
         
+        # Build vital_signs dictionary from individual fields
+        vital_signs = {
+            "blood_pressure_systolic": episode.blood_pressure_systolic,
+            "blood_pressure_diastolic": episode.blood_pressure_diastolic,
+            "heart_rate": episode.heart_rate,
+            "temperature": float(episode.temperature) if episode.temperature else None,
+            "respiratory_rate": episode.respiratory_rate,
+            "oxygen_saturation": episode.oxygen_saturation
+        }
+        
         # Convert to response model
         episode_dict = {
             "id": episode.id,
@@ -403,7 +414,7 @@ class EpisodeService(BaseService):
             "end_time": episode.end_date,
             "provider_id": episode.provider_id,
             "location": episode.location,
-            "vital_signs": episode.vital_signs,
+            "vital_signs": vital_signs,
             "symptoms": episode.symptoms,
             "physical_exam_findings": episode.physical_exam_findings,
             "clinical_notes": episode.clinical_notes,
@@ -453,3 +464,95 @@ class EpisodeService(BaseService):
                         field=field,
                         value=value
                     )
+    
+    def get_episodes(self, pagination=None, patient_id: Optional[str] = None, 
+                    status: Optional[str] = None, encounter_type: Optional[str] = None,
+                    priority: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Get episodes with pagination and filtering
+        
+        Args:
+            pagination: Pagination parameters (skip, limit)
+            patient_id: Filter by patient ID
+            status: Filter by episode status
+            encounter_type: Filter by encounter type
+            priority: Filter by priority
+            
+        Returns:
+            Dict containing episodes list and metadata
+        """
+        try:
+            # Extract pagination parameters
+            skip = getattr(pagination, 'skip', 0) if pagination else 0
+            limit = getattr(pagination, 'limit', 100) if pagination else 100
+            
+            # Use existing method for patient-specific episodes
+            if patient_id:
+                episodes = self.get_episodes_by_patient(patient_id, status, skip, limit)
+                total = self.repos.episode.count_by_patient(patient_id)
+            else:
+                # Get all episodes with filters
+                episodes_data = self.repos.episode.get_all(skip=skip, limit=limit)
+                episodes = [self._build_episode_response(ep) for ep in episodes_data]
+                total = self.repos.episode.count()
+            
+            # Calculate pagination metadata
+            current_page = (skip // limit) + 1 if limit > 0 else 1
+            total_pages = (total + limit - 1) // limit if limit > 0 else 1
+            
+            return {
+                "data": episodes,
+                "total": total,
+                "skip": skip,
+                "limit": limit,
+                "current_page": current_page,
+                "total_pages": total_pages
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error retrieving episodes: {e}")
+            raise
+    
+    def delete_episode(self, episode_id: str) -> Dict[str, Any]:
+        """
+        Delete an episode (soft delete by setting status to deleted)
+        
+        Args:
+            episode_id: Episode UUID
+            
+        Returns:
+            Dict containing deletion status
+        """
+        try:
+            self.validate_uuid(episode_id, "episode_id")
+            episode = self.get_or_raise("Episode", episode_id, self.repos.episode.get_by_id)
+            
+            # Check if episode can be deleted (business rules)
+            if episode.status == "completed":
+                raise RuntimeError("Cannot delete completed episodes")
+            
+            # Soft delete by setting status to deleted
+            self.repos.episode.update(episode_id, {"status": "deleted"})
+            self.safe_commit("episode deletion")
+            
+            return {
+                "status": "success",
+                "message": f"Episode {episode_id} deleted successfully"
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error deleting episode {episode_id}: {e}")
+            raise
+    
+    def update_episode_vitals(self, episode_id: str, vital_signs: VitalSigns) -> EpisodeResponse:
+        """
+        Alias for update_vital_signs method to match router expectations
+        
+        Args:
+            episode_id: Episode UUID
+            vital_signs: VitalSigns data
+            
+        Returns:
+            EpisodeResponse: Updated episode
+        """
+        return self.update_vital_signs(episode_id, vital_signs)

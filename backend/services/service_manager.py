@@ -39,6 +39,14 @@ class ServiceManager:
         
         # Initialize all services
         self._initialize_services()
+        
+        # Set up direct attribute access (avoids @property issues with FastAPI)
+        self.patient = self._services['patient']
+        self.episode = self._services['episode']
+        self.diagnosis = self._services['diagnosis']
+        self.treatment = self._services['treatment']
+        self.fhir = self._services['fhir']
+        self.clinical = self._services['clinical']
     
     def _initialize_services(self) -> None:
         """Initialize all service instances"""
@@ -62,35 +70,8 @@ class ServiceManager:
             logger.error(f"Failed to initialize services: {e}")
             raise
     
-    @property
-    def patient(self) -> PatientService:
-        """Get patient service instance"""
-        return self._services['patient']
-    
-    @property
-    def episode(self) -> EpisodeService:
-        """Get episode service instance"""
-        return self._services['episode']
-    
-    @property
-    def diagnosis(self) -> DiagnosisService:
-        """Get diagnosis service instance"""
-        return self._services['diagnosis']
-    
-    @property
-    def treatment(self) -> TreatmentService:
-        """Get treatment service instance"""
-        return self._services['treatment']
-    
-    @property
-    def fhir(self) -> FHIRService:
-        """Get FHIR service instance"""
-        return self._services['fhir']
-    
-    @property
-    def clinical(self) -> ClinicalService:
-        """Get clinical orchestration service instance"""
-        return self._services['clinical']
+    # Services are now available as direct attributes (set in __init__)
+    # This avoids @property descriptor issues with FastAPI dependency injection
     
     def get_service(self, service_name: str) -> Optional[BaseService]:
         """

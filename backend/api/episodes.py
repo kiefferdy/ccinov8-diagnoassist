@@ -7,8 +7,15 @@ from fastapi import APIRouter, Depends, Query, Path, HTTPException, status
 from typing import List, Optional
 from uuid import UUID
 
-# FIXED: Import dependencies properly
-from api.dependencies import ServiceDep, CurrentUserDep, PaginationDep
+# Force fresh import to avoid caching issues
+from api.dependencies import get_service_manager
+from fastapi import Depends
+
+# Create fresh ServiceDep to avoid cached version
+ServiceDep = Depends(get_service_manager)
+
+# Import other dependencies normally
+from api.dependencies import CurrentUserDep, PaginationDep
 
 # Import schemas
 from schemas.episode import (
@@ -254,18 +261,8 @@ async def delete_episode(
     
     try:
         # Delete episode through service layer
-        success = services.episode.delete_episode(str(episode_id))
-        
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Episode with ID {episode_id} not found"
-            )
-        
-        return StatusResponse(
-            success=True,
-            message=f"Episode {episode_id} deleted successfully"
-        )
+        result = services.episode.delete_episode(str(episode_id))
+        return result
     except HTTPException:
         raise
     except Exception as e:

@@ -7,8 +7,15 @@ from fastapi import APIRouter, Depends, Query, Path, HTTPException, status
 from typing import List, Optional
 from uuid import UUID
 
-# FIXED: Import dependencies properly
-from api.dependencies import ServiceDep, CurrentUserDep, PaginationDep
+# Force fresh import to avoid caching issues
+from api.dependencies import get_service_manager
+from fastapi import Depends
+
+# Create fresh ServiceDep to avoid cached version
+ServiceDep = Depends(get_service_manager)
+
+# Import other dependencies normally
+from api.dependencies import CurrentUserDep, PaginationDep
 
 # Import schemas
 from schemas.treatment import (
@@ -142,6 +149,31 @@ async def get_treatment(
     Returns:
         Treatment data
     """
+    # Authorization check (commented out for MVP)
+    # if not current_user:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_401_UNAUTHORIZED,
+    #         detail="Authentication required",
+    #         headers={"WWW-Authenticate": "Bearer"}
+    #     )
+    
+    try:
+        # Get treatment through service layer
+        treatment = services.treatment.get_treatment(str(treatment_id))
+        return treatment
+    except Exception as e:
+        error_message = str(e)
+        
+        if "not found" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Treatment with ID {treatment_id} not found"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to retrieve treatment: {error_message}"
+            )
 
 @router.put("/{treatment_id}", response_model=TreatmentResponse)
 async def update_treatment(
@@ -229,18 +261,8 @@ async def delete_treatment(
     
     try:
         # Delete treatment through service layer
-        success = services.treatment.delete_treatment(str(treatment_id))
-        
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Treatment with ID {treatment_id} not found"
-            )
-        
-        return StatusResponse(
-            success=True,
-            message=f"Treatment {treatment_id} deleted successfully"
-        )
+        result = services.treatment.delete_treatment(str(treatment_id))
+        return result
     except HTTPException:
         raise
     except Exception as e:

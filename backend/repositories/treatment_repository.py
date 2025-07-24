@@ -561,3 +561,22 @@ class TreatmentRepository(BaseRepository[Treatment]):
         except Exception as e:
             logger.error(f"Error getting treatments with interactions: {str(e)}")
             return []
+    
+    def get_by_diagnosis_id(self, diagnosis_id: str) -> List[Treatment]:
+        """
+        Get treatments for a specific diagnosis
+        
+        Args:
+            diagnosis_id: Diagnosis UUID
+            
+        Returns:
+            List of treatments for the diagnosis
+        """
+        try:
+            return self.db.query(Treatment).filter(
+                Treatment.diagnosis_id == diagnosis_id
+            ).order_by(desc(Treatment.created_at)).all()
+            
+        except Exception as e:
+            logger.error(f"Error getting treatments for diagnosis {diagnosis_id}: {str(e)}")
+            return []

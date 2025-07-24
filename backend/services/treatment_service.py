@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from repositories.repository_manager import RepositoryManager
 
 from services.base_service import BaseService
+from schemas.treatment import TreatmentResponse
 
 class TreatmentService(BaseService):
     """
@@ -52,7 +53,7 @@ class TreatmentService(BaseService):
             episode = self.get_or_raise("Episode", str(data_dict["episode_id"]), 
                                       self.repos.episode.get_by_id)
             
-            if episode.status != "in-progress":
+            if episode.status not in ["in-progress", "diagnosed"]:
                 raise RuntimeError(
                     "Cannot add treatment to completed or cancelled episode"
                 )
@@ -75,10 +76,10 @@ class TreatmentService(BaseService):
             # Check for duplicate treatments
             existing_treatments = self.repos.treatment.get_by_episode(str(data_dict["episode_id"]))
             for existing in existing_treatments:
-                if (existing.treatment_name.lower().strip() == data_dict["treatment_name"].lower().strip() and
+                if (existing.name.lower().strip() == data_dict["name"].lower().strip() and
                     existing.status in ["planned", "approved", "active"]):
                     raise RuntimeError(
-                        f"Active treatment '{data_dict['treatment_name']}' already exists for this episode"
+                        f"Active treatment '{data_dict['name']}' already exists for this episode"
                     )
             
             # Set default values
@@ -95,7 +96,7 @@ class TreatmentService(BaseService):
             # Audit log
             self.audit_log("create", "Treatment", str(treatment.id), {
                 "episode_id": str(treatment.episode_id),
-                "treatment_name": treatment.treatment_name,
+                "treatment_name": treatment.name,
                 "treatment_type": treatment.treatment_type
             })
             
@@ -314,7 +315,7 @@ class TreatmentService(BaseService):
             # Audit log
             self.audit_log("activate", "Treatment", treatment_id, {
                 "episode_id": str(treatment.episode_id),
-                "treatment_name": treatment.treatment_name
+                "treatment_name": treatment.name
             })
             
             return TreatmentResponse.model_validate(updated_treatment)
@@ -492,3 +493,95 @@ class TreatmentService(BaseService):
                 interactions.append(f"Hypoglycemia masking: {treatment.name} + {other.name}")
         
         return interactions
+    
+    def get_treatments(self, pagination=None, patient_id: Optional[str] = None,
+                      episode_id: Optional[str] = None, status: Optional[str] = None,
+                      treatment_type: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Get treatments with pagination and filtering
+        
+        Args:
+            pagination: Pagination parameters (skip, limit)
+            patient_id: Filter by patient ID  
+            episode_id: Filter by episode ID
+            status: Filter by treatment status
+            treatment_type: Filter by treatment type
+            
+        Returns:
+            Dict containing treatments list and metadata
+        """
+        try:
+            # Extract pagination parameters
+            skip = getattr(pagination, 'skip', 0) if pagination else 0
+            limit = getattr(pagination, 'limit', 100) if pagination else 100
+            
+            # Use existing methods for specific filters
+            if episode_id:
+                treatments = self.get_treatments_by_episode(episode_id)
+                total = len(treatments)
+            elif patient_id and status == "active":
+                treatments = self.get_active_treatments_by_patient(patient_id)
+                total = len(treatments)
+            else:
+                # Get all treatments with pagination
+                treatments_data = self.repos.treatment.get_all(skip=skip, limit=limit)
+                treatments = [TreatmentResponse.model_validate(t) for t in treatments_data]
+                total = self.repos.treatment.count()
+            
+            # Apply pagination if we got data from specific methods
+            if episode_id or (patient_id and status == "active"):
+                treatments = treatments[skip:skip + limit] if limit > 0 else treatments
+            
+            # Calculate pagination metadata
+            current_page = (skip // limit) + 1 if limit > 0 else 1
+            total_pages = (total + limit - 1) // limit if limit > 0 else 1
+            
+            return {
+                "data": treatments,
+                "total": total,
+                "skip": skip,
+                "limit": limit,
+                "current_page": current_page,
+                "total_pages": total_pages
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error retrieving treatments: {e}")
+            raise
+    
+    def delete_treatment(self, treatment_id: str) -> Dict[str, Any]:
+        """
+        Delete a treatment (soft delete by setting status to inactive)
+        
+        Args:
+            treatment_id: Treatment UUID
+            
+        Returns:
+            Dict containing deletion status
+        """
+        try:
+            self.validate_uuid(treatment_id, "treatment_id")
+            treatment = self.get_or_raise("Treatment", treatment_id, self.repos.treatment.get_by_id)
+            
+            # Check if treatment can be deleted (business rules)
+            if treatment.status == "completed":
+                raise RuntimeError("Cannot delete completed treatments")
+            
+            # Soft delete by setting status to inactive
+            self.repos.treatment.update(treatment_id, {"status": "inactive"})
+            self.safe_commit("treatment deletion")
+            
+            # Log deletion
+            self.audit_log("delete", "Treatment", treatment_id, {
+                "episode_id": str(treatment.episode_id),
+                "treatment_name": treatment.name
+            })
+            
+            return {
+                "status": "success",
+                "message": f"Treatment {treatment_id} deleted successfully"
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error deleting treatment {treatment_id}: {e}")
+            raise

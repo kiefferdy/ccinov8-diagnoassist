@@ -7,8 +7,15 @@ from fastapi import APIRouter, Depends, Query, Path, HTTPException, status
 from typing import List, Optional, Dict, Any
 from uuid import UUID
 
-# FIXED: Import dependencies properly
-from api.dependencies import ServiceDep, CurrentUserDep, PaginationDep
+# Force fresh import to avoid caching issues
+from api.dependencies import get_service_manager
+from fastapi import Depends
+
+# Create fresh ServiceDep to avoid cached version
+ServiceDep = Depends(get_service_manager)
+
+# Import other dependencies normally
+from api.dependencies import CurrentUserDep, PaginationDep
 
 # Import schemas
 from schemas.fhir_resource import (

@@ -7,8 +7,15 @@ from fastapi import APIRouter, Depends, Query, Path, HTTPException, status
 from typing import List, Optional
 from uuid import UUID
 
-# FIXED: Import dependencies properly
-from api.dependencies import ServiceDep, CurrentUserDep, PaginationDep
+# Force fresh import to avoid caching issues
+from api.dependencies import get_service_manager
+from fastapi import Depends
+
+# Create fresh ServiceDep to avoid cached version
+ServiceDep = Depends(get_service_manager)
+
+# Import other dependencies normally
+from api.dependencies import CurrentUserDep, PaginationDep
 
 # Import schemas
 from schemas.diagnosis import (
@@ -115,13 +122,15 @@ async def get_diagnoses(
     #     )
     
     try:
-        # Get diagnoses through service layer
-        diagnoses = services.diagnosis.get_diagnoses(
-            pagination=pagination,
-            patient_id=str(patient_id) if patient_id else None,
+        # Get diagnoses through service layer using search_diagnoses method
+        diagnoses = services.diagnosis.search_diagnoses(
+            query=None,  # No text search query
             episode_id=str(episode_id) if episode_id else None,
+            patient_id=str(patient_id) if patient_id else None,
+            confidence_level=None,  # All confidence levels
             final_only=final_only,
-            confirmed_only=confirmed_only
+            skip=getattr(pagination, 'skip', 0) if pagination else 0,
+            limit=getattr(pagination, 'limit', 100) if pagination else 100
         )
         
         return diagnoses
@@ -270,7 +279,7 @@ async def delete_diagnosis(
             )
         
         return StatusResponse(
-            success=True,
+            status="success",
             message=f"Diagnosis {diagnosis_id} deleted successfully"
         )
     except HTTPException:

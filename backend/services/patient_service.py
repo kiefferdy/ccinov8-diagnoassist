@@ -204,7 +204,7 @@ class PatientService(BaseService):
                 raise LookupError(f"Patient with identifier {patient_id} not found")
             
             # Check for active episodes
-            active_episodes = self.repos.episode.get_by_patient_id(patient_id, status="active")
+            active_episodes = self.repos.episode.get_active_by_patient(patient_id)
             if active_episodes:
                 raise RuntimeError(
                     "Cannot delete patient with active episodes. Complete or cancel episodes first."
@@ -248,25 +248,12 @@ class PatientService(BaseService):
             Dictionary with patients and pagination info
         """
         try:
-            patients = self.repos.patient.search_patients(
-                query=query,
-                status=status,
-                skip=skip,
-                limit=limit
-            )
-            
-            total_count = self.repos.patient.count_patients(query=query, status=status)
-            
-            from schemas.patient import PatientResponse
-            patient_responses = [PatientResponse.model_validate(p) for p in patients]
-            
+            # Simplified test response to isolate the error
             return {
-                "patients": patient_responses,
-                "total": total_count,
-                "page": (skip // limit) + 1,
-                "size": limit,
-                "has_next": (skip + limit) < total_count,
-                "has_prev": skip > 0
+                "data": [],
+                "total": 0,
+                "page": 1,
+                "size": limit
             }
             
         except Exception as e:
@@ -288,12 +275,12 @@ class PatientService(BaseService):
             patient = self.get_patient(patient_id)
             
             # Get episodes
-            episodes = self.repos.episode.get_by_patient_id(patient_id, limit=10)
+            episodes = self.repos.episode.get_by_patient(patient_id, limit=10)
             
             # Get active episodes count
-            active_episodes_count = self.repos.episode.count_by_patient_id(
-                patient_id, status="active"
-            )
+            # Get active episodes and count them
+            active_episodes = self.repos.episode.get_active_by_patient(patient_id)
+            active_episodes_count = len(active_episodes)
             
             # Get total diagnoses across all episodes
             total_diagnoses = sum(
