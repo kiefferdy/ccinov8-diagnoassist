@@ -55,6 +55,7 @@ const LandingPage = () => {
   };
 
   const scrollToPricing = () => {
+    trackClick('scroll_to_pricing', null, variant);
     const pricingSection = document.getElementById('pricing');
     if (pricingSection) {
       pricingSection.scrollIntoView({ behavior: 'smooth' });
