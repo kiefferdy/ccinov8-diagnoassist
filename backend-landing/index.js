@@ -82,12 +82,12 @@ app.get('/stats', async (req, res) => {
     // Calculate overall analytics
     const uniqueSessions = [...new Set(visits.map(v => v.session_id))];
     
-    // Deduplicate clicks by session_id + label combination
-    // This ensures each user is only counted once per action type (subscribe/demo)
-    // Prevents multiple clicks from same user inflating conversion metrics
+    // Deduplicate clicks by session_id + label + variant combination
+    // This ensures each user is only counted once per action type per variant
+    // Allows users to test both variants and have both conversions counted
     const uniqueClicks = new Map();
     clicks.forEach(click => {
-      const key = `${click.session_id}_${click.label}`;
+      const key = `${click.session_id}_${click.label}_${click.variant || 'A'}`;
       if (!uniqueClicks.has(key)) {
         uniqueClicks.set(key, click);
       }
