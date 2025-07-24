@@ -194,38 +194,6 @@ def get_pagination(
         # Return default values if validation fails
         return PaginationParams(page=1, size=20)
 
-def get_search_params(
-    search: Optional[str] = Query(None, description="Search term"),
-    sort_by: Optional[str] = Query(None, description="Field to sort by"), 
-    sort_order: Optional[str] = Query("asc", pattern="^(asc|desc)$", description="Sort order")
-) -> Dict[str, Any]:
-    """Get search and sorting parameters"""
-    return {
-        "search": search,
-        "sort_by": sort_by,
-        "sort_order": sort_order
-    }
-
-def get_settings() -> Dict[str, Any]:
-    """Get application settings"""
-    return {
-        "api_version": "1.0.0",
-        "debug": True,
-        "max_page_size": 100,
-        "default_page_size": 10
-    }
-
-def validate_uuid(uuid_str: str) -> str:
-    """Validate UUID format"""
-    import uuid
-    try:
-        uuid.UUID(uuid_str)
-        return uuid_str
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid UUID format: {uuid_str}"
-        )
 
 # =============================================================================
 # Dependency Aliases
@@ -252,8 +220,6 @@ AuthUserDep = Annotated[Dict[str, Any], Depends(require_authentication)]
 
 # Query parameter dependencies  
 PaginationDep = Annotated[PaginationParams, Depends(get_pagination)]
-SearchDep = Annotated[Dict[str, Any], Depends(get_search_params)]
-SettingsDep = Annotated[Dict[str, Any], Depends(get_settings)]
 
 # Database and service health
 DatabaseHealthDep = Annotated[bool, Depends(check_database_health)]
@@ -294,16 +260,9 @@ __all__ = [
     
     # Query parameter dependencies
     "get_pagination", 
-    "get_search_params",
-    "get_settings",
     "PaginationDep",
-    "SearchDep",
-    "SettingsDep",
     
     # Health dependencies
     "DatabaseHealthDep",
-    "ServicesHealthDep",
-    
-    # Validation
-    "validate_uuid"
+    "ServicesHealthDep"
 ]

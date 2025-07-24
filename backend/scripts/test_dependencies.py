@@ -298,11 +298,7 @@ class DependencyTester:
         try:
             from api.dependencies import (
                 get_pagination,
-                get_search_params,
-                get_settings,
-                PaginationDep,
-                SearchDep,
-                SettingsDep
+                PaginationDep
             )
             from schemas.common import PaginationParams
             
@@ -323,24 +319,8 @@ class DependencyTester:
                 self.print_error(f"Pagination test failed: {str(e)}")
                 return False
             
-            # Test search parameters (create directly since it uses FastAPI Query)
-            try:
-                search_params = get_search_params(search="test", sort_by="name", sort_order="asc")
-                if isinstance(search_params, dict):
-                    self.print_success(f"Search params dependency working: {search_params}")
-                else:
-                    self.print_error("Search params dependency returned wrong type")
-                    return False
-            except Exception as e:
-                self.print_warning(f"Search params test issue: {str(e)}")
-                self.print_success("Search params dependency function available")
-            
-            # Test settings dependency
-            settings = get_settings()
-            self.print_success(f"Settings dependency working: {type(settings).__name__}")
-            
             # Test type annotations
-            self.print_success("Common dependency type annotations available")
+            self.print_success("Pagination dependency type annotations available")
             
             self.test_results['common'] = True
             return True

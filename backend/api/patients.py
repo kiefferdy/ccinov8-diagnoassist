@@ -13,9 +13,7 @@ from api.dependencies import (
     EpisodeServiceDep, 
     ClinicalServiceDep,
     CurrentUserDep,
-    PaginationDep,
-    SearchDep,
-    validate_uuid
+    PaginationDep
 )
 
 # Import schemas
