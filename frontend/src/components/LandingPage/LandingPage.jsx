@@ -72,7 +72,7 @@ const LandingPage = () => {
       highlighted: false,
       color: 'gray',
       discount: '33% OFF Early Bird',
-      formUrl: 'https://forms.gle/iFwZQRzV2WL3ap2s8'
+      formUrl: 'https://forms.gle/6wfSmtAZy7mEUycA8'
     },
     {
       name: 'Professional',
@@ -94,7 +94,7 @@ const LandingPage = () => {
       color: 'blue',
       badge: 'Most Popular',
       discount: '38% OFF Early Bird',
-      formUrl: 'https://forms.gle/iFwZQRzV2WL3ap2s8'
+      formUrl: 'https://forms.gle/6wfSmtAZy7mEUycA8'
     },
     {
       name: 'Enterprise',
@@ -115,7 +115,7 @@ const LandingPage = () => {
       highlighted: false,
       color: 'purple',
       discount: 'Special Launch Pricing',
-      formUrl: 'https://forms.gle/iFwZQRzV2WL3ap2s8'
+      formUrl: 'https://forms.gle/6wfSmtAZy7mEUycA8'
     }
   ];
 
@@ -137,7 +137,7 @@ const LandingPage = () => {
       highlighted: false,
       color: 'gray',
       discount: '29% OFF Early Bird',
-      formUrl: 'https://forms.gle/DIFFERENT_FORM_URL_B'
+      formUrl: 'https://forms.gle/Pw8zjCtXX5MBFDfe6'
     },
     {
       name: 'Professional',
@@ -159,7 +159,7 @@ const LandingPage = () => {
       color: 'blue',
       badge: 'Most Popular',
       discount: '26% OFF Early Bird',
-      formUrl: 'https://forms.gle/DIFFERENT_FORM_URL_B'
+      formUrl: 'https://forms.gle/Pw8zjCtXX5MBFDfe6'
     },
     {
       name: 'Enterprise',
@@ -180,7 +180,7 @@ const LandingPage = () => {
       highlighted: false,
       color: 'purple',
       discount: 'Special Launch Pricing',
-      formUrl: 'https://forms.gle/DIFFERENT_FORM_URL_B'
+      formUrl: 'https://forms.gle/Pw8zjCtXX5MBFDfe6'
     }
   ];
 
