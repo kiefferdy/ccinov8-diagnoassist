@@ -83,6 +83,19 @@ app.get('/stats', async (req, res) => {
 
     // Calculate overall analytics
     const uniqueSessions = [...new Set(visits.map(v => v.session_id))];
+    
+    // Deduplicate clicks by session_id + label combination
+    // This ensures each user is only counted once per action type (subscribe/demo)
+    // Prevents multiple clicks from same user inflating conversion metrics
+    const uniqueClicks = new Map();
+    clicks.forEach(click => {
+      const key = `${click.session_id}_${click.label}`;
+      if (!uniqueClicks.has(key)) {
+        uniqueClicks.set(key, click);
+      }
+    });
+    const deduplicatedClicks = Array.from(uniqueClicks.values());
+
     let totalSub = 0, totalDemo = 0, totalStart = 0, totalPro = 0, totalEnterprise = 0;
 
     // Calculate variant-specific analytics
@@ -92,7 +105,7 @@ app.get('/stats', async (req, res) => {
     ['A', 'B'].forEach(variant => {
       variantStats[variant] = {
         visits: 0,
-        totalClicks: 0,
+        uniqueClicks: 0,
         subscribeClicks: 0,
         demoClicks: 0,
         starterClicks: 0,
@@ -110,12 +123,12 @@ app.get('/stats', async (req, res) => {
       }
     });
 
-    // Count clicks by variant
-    clicks.forEach(click => {
+    // Count deduplicated clicks by variant
+    deduplicatedClicks.forEach(click => {
       const variant = click.variant || 'A'; // Default to A for legacy data
       
       if (variantStats[variant]) {
-        variantStats[variant].totalClicks++;
+        variantStats[variant].uniqueClicks++;
         
         if (click.label === "subscribe") {
           variantStats[variant].subscribeClicks++;
@@ -153,31 +166,36 @@ app.get('/stats', async (req, res) => {
     console.log("============ A/B TESTING ANALYTICS ============");
     console.log("OVERALL:");
     console.log("  Total visits: " + uniqueSessions.length);
-    console.log("  Total clicks: " + clicks.length);
-    console.log("  Total subscribe: " + totalSub);
-    console.log("  Total demo: " + totalDemo);
+    console.log("  Raw clicks: " + clicks.length);
+    console.log("  Unique clicks (deduplicated): " + deduplicatedClicks.length);
+    console.log("  Duplicate clicks filtered: " + (clicks.length - deduplicatedClicks.length));
+    console.log("  Unique subscribe clicks: " + totalSub);
+    console.log("  Unique demo clicks: " + totalDemo);
     console.log();
     
     console.log("VARIANT A:");
     console.log("  Visits: " + variantStats.A.visits);
-    console.log("  Subscribe clicks: " + variantStats.A.subscribeClicks);
+    console.log("  Unique subscribe clicks: " + variantStats.A.subscribeClicks);
     console.log("  Conversion rate: " + variantStats.A.conversionRate + "%");
     console.log();
     
     console.log("VARIANT B:");
     console.log("  Visits: " + variantStats.B.visits);
-    console.log("  Subscribe clicks: " + variantStats.B.subscribeClicks);
+    console.log("  Unique subscribe clicks: " + variantStats.B.subscribeClicks);
     console.log("  Conversion rate: " + variantStats.B.conversionRate + "%");
     console.log();
 
     const analytics = {
-      totalClicks: clicks.length,
+      totalRawClicks: clicks.length,
+      totalUniqueClicks: deduplicatedClicks.length,
+      duplicatesFiltered: clicks.length - deduplicatedClicks.length,
       totalSubscribe: totalSub,
       starterClicks: totalStart,
       proClicks: totalPro,
       enterpriseClicks: totalEnterprise,
       totalDemo: totalDemo,
       totalVisits: uniqueSessions.length,
+      conversionRate: uniqueSessions.length > 0 ? (totalSub / uniqueSessions.length * 100).toFixed(2) : 0,
       variantStats: variantStats
     };
 
