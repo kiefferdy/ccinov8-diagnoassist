@@ -265,7 +265,10 @@ const SubscriptionModal = ({ plan, onClose }) => {
         {/* Action Buttons */}
         <div className="w-full flex justify-around">
          <button
-               onClick={() => (window.location.href = plan?.formUrl || 'https://forms.gle/iFwZQRzV2WL3ap2s8')}
+               onClick={() => {
+                 window.open(plan?.formUrl || 'https://forms.gle/iFwZQRzV2WL3ap2s8', '_blank');
+                 onClose();
+               }}
               className='px-6 py-2 w-full bg-blue-600 text-white hover:bg-blue-700 rounded-md'
             >Reserve now</button>
           </div>

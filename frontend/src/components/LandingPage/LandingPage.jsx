@@ -53,6 +53,13 @@ const LandingPage = () => {
     trackClick('demo', null, variant);
     // fetchStats();
   };
+
+  const scrollToPricing = () => {
+    const pricingSection = document.getElementById('pricing');
+    if (pricingSection) {
+      pricingSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
   
   const plansSetA = [
     {
@@ -310,7 +317,7 @@ const LandingPage = () => {
                 <span>Doctor Login</span>
               </button>
               <button 
-                onClick={() => handleSubscribe(plans[1])}
+                onClick={scrollToPricing}
                 className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl"
               >
                 Reserve Your Spot
@@ -335,7 +342,7 @@ const LandingPage = () => {
             </p>
             <div className="flex justify-center space-x-4 mb-16">
               <button 
-                onClick={() => handleSubscribe(plans[1])}
+                onClick={scrollToPricing}
                 className="px-8 py-4 bg-blue-600 text-white text-lg font-medium rounded-xl hover:bg-blue-700 transition-all transform hover:scale-105 shadow-lg"
               >
                 Reserve Early Access
