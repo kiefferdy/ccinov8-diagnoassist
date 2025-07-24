@@ -7,7 +7,6 @@ import CountdownTimer from './CountdownTimer';
 import { trackVisit, trackClick } from '../../utils/analytics';
 
 const LandingPage = () => {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
