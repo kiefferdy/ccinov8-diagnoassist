@@ -40,7 +40,7 @@ app.post('/track-visit', async (req, res) => {
         session_id: sessionId,
         start_time: timestamp,
         variant: variant
-    }, {onConflict: 'session_id'});
+    }, {onConflict: 'session_id,variant'});
     log.verbose(`visit: ${sessionId} at ${timestamp} (variant: ${variant || 'unknown'})`);
 
     if (error) {
@@ -89,8 +89,27 @@ app.get('/stats', async (req, res) => {
     if (clickError) throw clickError;
     if (visitError) throw visitError;
 
-    // Calculate overall analytics
+    // Calculate session analytics
     const uniqueSessions = [...new Set(visits.map(v => v.session_id))];
+    
+    // Identify cross-variant users (users who tested both variants)
+    const sessionVariantMap = {};
+    visits.forEach(visit => {
+      const sessionId = visit.session_id;
+      if (!sessionVariantMap[sessionId]) {
+        sessionVariantMap[sessionId] = new Set();
+      }
+      sessionVariantMap[sessionId].add(visit.variant || 'A');
+    });
+    
+    const crossVariantUsers = Object.keys(sessionVariantMap)
+      .filter(sessionId => sessionVariantMap[sessionId].size > 1);
+    
+    // Filter for pure A/B testing (exclude cross-variant users)
+    const pureVisits = visits.filter(visit => 
+      !crossVariantUsers.includes(visit.session_id)
+    );
+    const pureUniqueSessions = [...new Set(pureVisits.map(v => v.session_id))];
     
     // Deduplicate clicks by session_id + label + variant combination
     // This ensures each user is only counted once per action type per variant
@@ -106,10 +125,11 @@ app.get('/stats', async (req, res) => {
 
     let totalSub = 0, totalDemo = 0, totalStart = 0, totalPro = 0, totalEnterprise = 0;
 
-    // Calculate variant-specific analytics
+    // Calculate variant-specific analytics (using pure visits for clean A/B testing)
     const variantStats = { A: {}, B: {} };
+    const overallVariantStats = { A: {}, B: {} };
 
-    // Initialize variant stats
+    // Initialize variant stats for both pure and overall
     ['A', 'B'].forEach(variant => {
       variantStats[variant] = {
         visits: 0,
@@ -121,13 +141,22 @@ app.get('/stats', async (req, res) => {
         enterpriseClicks: 0,
         conversionRate: 0
       };
+      overallVariantStats[variant] = { ...variantStats[variant] };
     });
 
-    // Count visits by variant
-    visits.forEach(visit => {
+    // Count pure visits by variant (for clean A/B testing)
+    pureVisits.forEach(visit => {
       const variant = visit.variant || 'A'; // Default to A for legacy data
       if (variantStats[variant]) {
         variantStats[variant].visits++;
+      }
+    });
+
+    // Count overall visits by variant (including cross-variant users)
+    visits.forEach(visit => {
+      const variant = visit.variant || 'A'; // Default to A for legacy data
+      if (overallVariantStats[variant]) {
+        overallVariantStats[variant].visits++;
       }
     });
 
@@ -173,7 +202,10 @@ app.get('/stats', async (req, res) => {
 
     log.analytics("============ A/B TESTING ANALYTICS ============");
     log.analytics("OVERALL:");
-    log.analytics("  Total visits: " + uniqueSessions.length);
+    log.analytics("  Total unique sessions: " + uniqueSessions.length);
+    log.analytics("  Pure sessions (single-variant): " + pureUniqueSessions.length);
+    log.analytics("  Cross-variant sessions: " + crossVariantUsers.length);
+    log.analytics("  Contamination rate: " + (crossVariantUsers.length / uniqueSessions.length * 100).toFixed(1) + "%");
     log.analytics("  Raw clicks: " + clicks.length);
     log.analytics("  Unique clicks (deduplicated): " + deduplicatedClicks.length);
     log.analytics("  Duplicate clicks filtered: " + (clicks.length - deduplicatedClicks.length));
@@ -181,6 +213,7 @@ app.get('/stats', async (req, res) => {
     log.analytics("  Unique demo clicks: " + totalDemo);
     log.analytics("");
     
+    log.analytics("PURE A/B TEST (excluding cross-variant users):");
     log.analytics("VARIANT A:");
     log.analytics("  Visits: " + variantStats.A.visits);
     log.analytics("  Unique subscribe clicks: " + variantStats.A.subscribeClicks);
@@ -194,6 +227,7 @@ app.get('/stats', async (req, res) => {
     log.analytics("");
 
     const analytics = {
+      // Overall metrics
       totalRawClicks: clicks.length,
       totalUniqueClicks: deduplicatedClicks.length,
       duplicatesFiltered: clicks.length - deduplicatedClicks.length,
@@ -202,9 +236,32 @@ app.get('/stats', async (req, res) => {
       proClicks: totalPro,
       enterpriseClicks: totalEnterprise,
       totalDemo: totalDemo,
-      totalVisits: uniqueSessions.length,
-      conversionRate: uniqueSessions.length > 0 ? (totalSub / uniqueSessions.length * 100).toFixed(2) : 0,
-      variantStats: variantStats
+      
+      // Session metrics
+      totalUniqueSessions: uniqueSessions.length,
+      pureUniqueSessions: pureUniqueSessions.length,
+      crossVariantSessions: crossVariantUsers.length,
+      contaminationRate: uniqueSessions.length > 0 ? 
+        (crossVariantUsers.length / uniqueSessions.length * 100).toFixed(1) : 0,
+      
+      // Conversion rates
+      overallConversionRate: uniqueSessions.length > 0 ? 
+        (totalSub / uniqueSessions.length * 100).toFixed(2) : 0,
+      pureConversionRate: pureUniqueSessions.length > 0 ? 
+        (totalSub / pureUniqueSessions.length * 100).toFixed(2) : 0,
+      
+      // Variant stats (pure A/B testing)
+      variantStats: variantStats,
+      
+      // Overall variant stats (including cross-variant users)
+      overallVariantStats: overallVariantStats,
+      
+      // Quality metrics
+      dataQuality: {
+        isClean: crossVariantUsers.length === 0,
+        contaminationLevel: crossVariantUsers.length / uniqueSessions.length < 0.05 ? 'Low' : 
+                          crossVariantUsers.length / uniqueSessions.length < 0.15 ? 'Medium' : 'High'
+      }
     };
 
     res.json({ analytics });
@@ -231,6 +288,56 @@ app.get('/clicks', async (_, res) => {
 
   } catch (error) {
     log.error(`Clicks error: ${error.message}`);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/cross-variant-sessions', async (_, res) => {
+  try {
+    // Get all visits to identify cross-variant users
+    const { data: visits, error: visitError } = await supabase
+      .from('sessions')
+      .select('session_id, variant, start_time')
+      .order('start_time', { ascending: false });
+
+    if (visitError) throw visitError;
+
+    // Group by session_id to find cross-variant users
+    const sessionVariantMap = {};
+    visits.forEach(visit => {
+      const sessionId = visit.session_id;
+      if (!sessionVariantMap[sessionId]) {
+        sessionVariantMap[sessionId] = [];
+      }
+      sessionVariantMap[sessionId].push(visit);
+    });
+
+    // Filter for sessions that tested multiple variants
+    const crossVariantSessions = Object.keys(sessionVariantMap)
+      .filter(sessionId => {
+        const variants = new Set(sessionVariantMap[sessionId].map(v => v.variant || 'A'));
+        return variants.size > 1;
+      })
+      .map(sessionId => ({
+        session_id: sessionId,
+        visits: sessionVariantMap[sessionId],
+        variants_tested: [...new Set(sessionVariantMap[sessionId].map(v => v.variant || 'A'))]
+      }));
+
+    log.info(`Found ${crossVariantSessions.length} cross-variant sessions`);
+    
+    res.json({ 
+      crossVariantSessions, 
+      totalSessions: crossVariantSessions.length,
+      summary: {
+        totalUniqueSessions: Object.keys(sessionVariantMap).length,
+        crossVariantCount: crossVariantSessions.length,
+        contaminationRate: (crossVariantSessions.length / Object.keys(sessionVariantMap).length * 100).toFixed(1) + '%'
+      }
+    });
+
+  } catch (error) {
+    log.error(`Cross-variant sessions error: ${error.message}`);
     res.status(500).json({ error: error.message });
   }
 });
