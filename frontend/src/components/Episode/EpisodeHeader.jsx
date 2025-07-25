@@ -2,16 +2,17 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Activity, Clock, Calendar, ChevronLeft, AlertCircle, Archive, 
-  CheckCircle, Tag, User, Sparkles, MoreVertical, X, Check
+  CheckCircle, Tag, User, Sparkles, MoreVertical, X, Check, Trash2
 } from 'lucide-react';
 import { useEpisode } from '../../contexts/EpisodeContext';
 
 const EpisodeHeader = ({ episode, patient }) => {
   const navigate = useNavigate();
-  const { resolveEpisode, updateEpisode } = useEpisode();
+  const { resolveEpisode, updateEpisode, deleteEpisode } = useEpisode();
   const [showResolveDialog, setShowResolveDialog] = useState(false);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showTagsModal, setShowTagsModal] = useState(false);
   const [newTag, setNewTag] = useState('');
   const [episodeTags, setEpisodeTags] = useState(episode.tags || []);
@@ -78,6 +79,26 @@ const EpisodeHeader = ({ episode, patient }) => {
       window.showNotification('Episode archived successfully', 'success');
     }
     navigate(`/patient/${patient.id}`);
+  };
+
+  const handleDeleteEpisode = async () => {
+    try {
+      console.log('Starting episode deletion...');
+      await deleteEpisode(episode.id);
+      setShowDeleteDialog(false);
+      if (window.showNotification) {
+        window.showNotification('Episode deleted successfully', 'success');
+      }
+      console.log('Navigating back to patient dashboard...');
+      navigate(`/patient/${patient.id}`);
+    } catch (error) {
+      console.error('Delete episode failed:', error);
+      setShowDeleteDialog(false);
+      if (window.showNotification) {
+        window.showNotification(`Failed to delete episode: ${error.message}`, 'error');
+      }
+      // Don't navigate away if delete failed
+    }
   };
   
   const handleAddTag = () => {
@@ -154,6 +175,17 @@ const EpisodeHeader = ({ episode, patient }) => {
                     >
                       <Tag className="w-4 h-4" />
                       <span>Manage Tags</span>
+                    </button>
+                    <div className="border-t border-gray-200 my-1"></div>
+                    <button 
+                      onClick={() => {
+                        setShowDeleteDialog(true);
+                        setShowMoreOptions(false);
+                      }}
+                      className="w-full px-4 py-2 text-left text-red-700 hover:bg-red-50 flex items-center space-x-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Delete Episode</span>
                     </button>
                   </div>
                 )}
@@ -308,6 +340,57 @@ const EpisodeHeader = ({ episode, patient }) => {
               >
                 <Archive className="w-5 h-5" />
                 <span>Archive Episode</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Delete Episode Dialog */}
+      {showDeleteDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-fadeIn">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-red-900">Delete Episode</h3>
+              <button
+                onClick={() => setShowDeleteDialog(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to permanently delete this episode? This action cannot be undone and will remove all associated data including encounters and notes.
+            </p>
+            
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <div className="flex items-start space-x-3">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-red-900 mb-1">This will permanently delete:</p>
+                  <ul className="text-red-800 space-y-1">
+                    <li>• Episode record and all clinical notes</li>
+                    <li>• All associated encounters and SOAP notes</li>
+                    <li>• Any uploaded documents or attachments</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowDeleteDialog(false)}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteEpisode}
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 transition-all duration-300 flex items-center justify-center space-x-2"
+              >
+                <Trash2 className="w-5 h-5" />
+                <span>Delete Episode</span>
               </button>
             </div>
           </div>

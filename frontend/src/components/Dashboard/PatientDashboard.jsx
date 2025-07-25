@@ -21,8 +21,8 @@ import {
 const PatientDashboard = () => {
   const { patientId } = useParams();
   const navigate = useNavigate();
-  const { getPatientById, patients } = usePatient();
-  const { getPatientEpisodes, getEpisodeStats } = useEpisode();
+  const { getPatientById, patients, loading: patientsLoading } = usePatient();
+  const { getPatientEpisodes, getEpisodeStats, loading: episodesLoading } = useEpisode();
   const { getEpisodeEncounters } = useEncounter();
   
   const [patient, setPatient] = useState(null);
@@ -38,19 +38,34 @@ const PatientDashboard = () => {
   const [selectedTimeRange, setSelectedTimeRange] = useState('all'); // all, month, year
   const [quickNotesCount, setQuickNotesCount] = useState(0);
 
-  // Load patient and episodes
+  // Load patient and episodes - wait for contexts to finish loading first
   useEffect(() => {
+    if (!patientId) return;
+    
+    // Don't try to load data while contexts are still loading
+    if (patientsLoading || episodesLoading) {
+      setLoading(true);
+      return;
+    }
+    
     const loadData = () => {
-      const patientData = getPatientById(patientId);
-      if (patientData) {
-        setPatient(patientData);
-        const patientEpisodes = getPatientEpisodes(patientId, true);
-        setEpisodes(patientEpisodes);
+      try {
+        const patientData = getPatientById(patientId);
+        if (patientData) {
+          setPatient(patientData);
+          const patientEpisodes = getPatientEpisodes(patientId, true);
+          setEpisodes(patientEpisodes);
+        } else {
+          console.error(`Patient not found: ${patientId}`);
+        }
+      } catch (error) {
+        console.error('Error loading patient data:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     loadData();
-  }, [patientId, getPatientById, getPatientEpisodes, patients]); // Added patients to dependency array
+  }, [patientId, getPatientById, getPatientEpisodes, patients, patientsLoading, episodesLoading]);
 
   // Calculate quick notes count
   useEffect(() => {

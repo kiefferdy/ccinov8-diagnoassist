@@ -13,8 +13,8 @@ import { Activity, Plus, AlertCircle } from 'lucide-react';
 const EpisodeWorkspace = () => {
   const { patientId, episodeId } = useParams();
   const navigate = useNavigate();
-  const { getPatientById } = usePatient();
-  const { getEpisodeById } = useEpisode();
+  const { getPatientById, loading: patientsLoading } = usePatient();
+  const { getEpisodeById, loading: episodesLoading } = useEpisode();
   const { getEpisodeEncounters, currentEncounter, createEncounter, setCurrentEncounter } = useEncounter();
   const { navigateTo } = useNavigation();
   
@@ -80,17 +80,35 @@ const EpisodeWorkspace = () => {
     }
   }, [episode, patient, createEncounter, episodeId, patientId, setCurrentEncounter, navigateTo]);
 
-  // Load data
+  // Load data - wait for contexts to finish loading first
   useEffect(() => {
     if (!patientId || !episodeId) return;
+    
+    // Don't try to load data while contexts are still loading
+    if (patientsLoading || episodesLoading) {
+      setLoading(true);
+      return;
+    }
     
     const loadData = async () => {
       setLoading(true);
       
-      const patientData = getPatientById(patientId);
-      const episodeData = getEpisodeById(episodeId);
-      
-      if (patientData && episodeData) {
+      try {
+        const patientData = getPatientById(patientId);
+        const episodeData = getEpisodeById(episodeId);
+        
+        if (!patientData) {
+          console.error(`Patient not found: ${patientId}`);
+          setLoading(false);
+          return;
+        }
+        
+        if (!episodeData) {
+          console.error(`Episode not found: ${episodeId}`);
+          setLoading(false);
+          return;
+        }
+        
         setPatient(patientData);
         setEpisode(episodeData);
         
@@ -104,12 +122,15 @@ const EpisodeWorkspace = () => {
           // Set the most recent encounter as current
           setCurrentEncounter(episodeEncounters[0]);
         }
+      } catch (error) {
+        console.error('Error loading episode data:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     
     loadData();
-  }, [patientId, episodeId, getPatientById, getEpisodeById, getEpisodeEncounters, setCurrentEncounter]);
+  }, [patientId, episodeId, getPatientById, getEpisodeById, getEpisodeEncounters, setCurrentEncounter, patientsLoading, episodesLoading]);
 
   // Create initial encounter when needed
   useEffect(() => {

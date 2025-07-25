@@ -141,7 +141,7 @@ const NewEpisodeModal = ({ patientId, onClose, onSuccess }) => {
     setError('');
     
     try {
-      const newEpisode = createEpisode(patientId, {
+      const newEpisode = await createEpisode(patientId, {
         chiefComplaint: formData.chiefComplaint.trim(),
         category: formData.category,
         tags: [...formData.tags, formData.urgency !== 'normal' ? formData.urgency : null].filter(Boolean)

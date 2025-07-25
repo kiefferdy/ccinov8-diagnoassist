@@ -4,7 +4,7 @@ import { useEpisode } from '../contexts/EpisodeContext';
 
 const TestIntegration = () => {
   const { patients, loading: patientsLoading, error: patientsError, createPatient } = usePatient();
-  const { episodes, loading: episodesLoading, error: episodesError, createEpisode } = useEpisode();
+  const { episodes, loading: episodesLoading, error: episodesError, createEpisode, deleteEpisode } = useEpisode();
   const [testResult, setTestResult] = useState('');
 
   const handleTestCreatePatient = async () => {
@@ -45,6 +45,25 @@ const TestIntegration = () => {
       setTestResult(`✅ Successfully created episode: ${newEpisode.chiefComplaint} (ID: ${newEpisode.id})`);
     } catch (error) {
       setTestResult(`❌ Failed to create episode: ${error.message}`);
+    }
+  };
+
+  const handleTestDeleteEpisode = async () => {
+    if (episodes.length === 0) {
+      setTestResult('❌ No episodes available to delete');
+      return;
+    }
+
+    try {
+      setTestResult('Testing episode deletion...');
+      const episodeToDelete = episodes[0]; // Delete the first episode
+      console.log('Attempting to delete episode:', episodeToDelete.id);
+      
+      await deleteEpisode(episodeToDelete.id);
+      setTestResult(`✅ Successfully deleted episode: ${episodeToDelete.chiefComplaint} (ID: ${episodeToDelete.id})`);
+    } catch (error) {
+      console.error('Delete test failed:', error);
+      setTestResult(`❌ Failed to delete episode: ${error.message}`);
     }
   };
 
@@ -89,6 +108,9 @@ const TestIntegration = () => {
         </button>
         <button onClick={handleTestCreateEpisode} style={{ margin: '5px', padding: '10px' }}>
           Test Create Episode
+        </button>
+        <button onClick={handleTestDeleteEpisode} style={{ margin: '5px', padding: '10px' }}>
+          Test Delete Episode
         </button>
         <div style={{ marginTop: '10px', padding: '10px', background: '#f0f0f0' }}>
           <strong>Result:</strong> {testResult}

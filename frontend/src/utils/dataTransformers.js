@@ -74,9 +74,9 @@ export const transformPatientFromBackend = (backendPatient) => {
 // Transform frontend episode data to backend format
 export const transformEpisodeToBackend = (frontendEpisode, patientId) => {
   return {
-    patient_id: patientId,
+    patient_id: patientId || frontendEpisode.patientId,
     chief_complaint: frontendEpisode.chiefComplaint || '',
-    status: frontendEpisode.status || 'active',
+    status: mapFrontendStatusToBackend(frontendEpisode.status || 'active'),
     encounter_type: mapCategoryToEncounterType(frontendEpisode.category),
     priority: 'routine', // Default
     symptoms: frontendEpisode.tags ? frontendEpisode.tags.join(', ') : '',
@@ -97,7 +97,7 @@ export const transformEpisodeFromBackend = (backendEpisode) => {
     patientId: backendEpisode.patient_id,
     chiefComplaint: backendEpisode.chief_complaint,
     category: mapEncounterTypeToCategory(backendEpisode.encounter_type),
-    status: backendEpisode.status,
+    status: mapBackendStatusToFrontend(backendEpisode.status),
     createdAt: backendEpisode.start_date || backendEpisode.created_at,
     resolvedAt: backendEpisode.end_date,
     lastEncounterId: null, // Frontend concept, not in backend
@@ -204,6 +204,38 @@ const mapEncounterTypeToCategory = (encounterType) => {
       return 'emergency';
     default:
       return 'acute';
+  }
+};
+
+const mapBackendStatusToFrontend = (backendStatus) => {
+  switch (backendStatus) {
+    case 'active':
+      return 'active';
+    case 'in-progress':
+      return 'active';
+    case 'completed':
+      return 'resolved';
+    case 'closed':
+      return 'resolved';
+    case 'chronic':
+      return 'chronic-management';
+    case 'deleted':
+      return 'deleted'; // Keep deleted status for filtering
+    default:
+      return 'active';
+  }
+};
+
+const mapFrontendStatusToBackend = (frontendStatus) => {
+  switch (frontendStatus) {
+    case 'active':
+      return 'active';
+    case 'resolved':
+      return 'completed';
+    case 'chronic-management':
+      return 'chronic';
+    default:
+      return 'active';
   }
 };
 

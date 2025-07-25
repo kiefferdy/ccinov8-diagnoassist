@@ -28,7 +28,9 @@ export const EpisodeProvider = ({ children }) => {
         setError(null);
         const response = await apiService.getEpisodes();
         const backendEpisodes = response.data || response;
-        const transformedEpisodes = backendEpisodes.map(transformEpisodeFromBackend);
+        // Filter out deleted episodes before transforming
+        const activeEpisodes = backendEpisodes.filter(episode => episode.status !== 'deleted');
+        const transformedEpisodes = activeEpisodes.map(transformEpisodeFromBackend);
         setEpisodes(transformedEpisodes);
         // Also save to localStorage as backup
         StorageManager.saveEpisodes(transformedEpisodes);
@@ -54,7 +56,8 @@ export const EpisodeProvider = ({ children }) => {
     return episodes.filter(e => {
       const matchesPatient = e.patientId === patientId;
       const matchesStatus = includeResolved || e.status !== 'resolved';
-      return matchesPatient && matchesStatus;
+      const notDeleted = e.status !== 'deleted'; // Always filter out deleted episodes
+      return matchesPatient && matchesStatus && notDeleted;
     });
   }, [episodes]);
 
@@ -208,6 +211,38 @@ export const EpisodeProvider = ({ children }) => {
     };
   }, [getPatientEpisodes]);
 
+  // Delete a single episode
+  const deleteEpisode = useCallback(async (episodeId) => {
+    try {
+      setError(null);
+      console.log('Deleting episode:', episodeId);
+      
+      // Make sure the API call actually succeeds
+      const response = await apiService.deleteEpisode(episodeId);
+      console.log('Delete response:', response);
+      
+      // Only update local state if API call succeeded
+      const updatedEpisodes = episodes.filter(e => e.id !== episodeId);
+      setEpisodes(updatedEpisodes);
+      StorageManager.saveEpisodes(updatedEpisodes);
+      
+      // Clear current episode if it's the one being deleted
+      if (currentEpisode?.id === episodeId) {
+        setCurrentEpisode(null);
+      }
+      
+      console.log('Episode deleted successfully from local state');
+      return true;
+    } catch (error) {
+      console.error('Error deleting episode from API:', error);
+      setError(`Failed to delete episode: ${error.message}`);
+      
+      // DO NOT fallback to localStorage deletion if API fails
+      // This was causing the sync issue
+      throw error; // Re-throw so UI can handle the error
+    }
+  }, [episodes, currentEpisode]);
+
   // Delete all episodes for a patient
   const deletePatientEpisodes = useCallback((patientId) => {
     const updatedEpisodes = episodes.filter(e => e.patientId !== patientId);
@@ -229,6 +264,7 @@ export const EpisodeProvider = ({ children }) => {
     getEpisodeById,
     getActiveEpisodeCount,
     getEpisodeStats,
+    deleteEpisode,
     deletePatientEpisodes
   };
 
