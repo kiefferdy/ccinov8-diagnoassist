@@ -309,6 +309,14 @@ app.get('/stats', async (_, res) => {
     log.analytics("UNFILTERED (including all users):");
     log.analytics("  Sessions: " + unfilteredTotals.sessions);
     log.analytics("  Clicks: " + unfilteredTotals.clicks);
+    log.analytics("VARIANT A:");
+    log.analytics("  Visits: " + unfilteredVariantStats.A.visits);
+    log.analytics("  Interested users: " + unfilteredVariantStats.A.interestedUsers);
+    log.analytics("  Conversion rate: " + unfilteredVariantStats.A.conversionRate + "%");
+    log.analytics("VARIANT B:");
+    log.analytics("  Visits: " + unfilteredVariantStats.B.visits);
+    log.analytics("  Interested users: " + unfilteredVariantStats.B.interestedUsers);
+    log.analytics("  Conversion rate: " + unfilteredVariantStats.B.conversionRate + "%");
     log.analytics("");
 
     const analytics = {
@@ -353,7 +361,7 @@ app.get('/stats', async (_, res) => {
    }
 });
 
-app.get('/clicks', async (_, res) => {
+app.get('/raw-clicks', async (_, res) => {
   try {
     // Get all raw clicks data
     const { data: clicks, error: clickError } = await supabase
