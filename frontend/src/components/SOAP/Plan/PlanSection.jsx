@@ -4,7 +4,7 @@ import {
   Activity, AlertCircle, Clock, Send, FileText, Heart,
   Shield, Info, CheckCircle, Download, Printer, ChevronRight,
   Sparkles, Search, Star, Zap, Package, AlertTriangle,
-  Phone, MapPin, Globe, MessageSquare, Video, User
+  Phone, MapPin, Globe, MessageSquare, Video, User, Stethoscope
 } from 'lucide-react';
 import { generateId } from '../../../utils/storage';
 

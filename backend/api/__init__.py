@@ -35,20 +35,20 @@ try:
     api_router.include_router(episodes_router)
     api_router.include_router(treatments_router)
     
-    print("✅ All CRUD routers included successfully")
+    print("All CRUD routers included successfully")
     CRUD_ROUTERS_AVAILABLE = True
     
 except ImportError as e:
-    print(f"⚠️  Some CRUD routers not available: {e}")
+    print(f"Some CRUD routers not available: {e}")
     CRUD_ROUTERS_AVAILABLE = False
 
 # Try to include diagnosis router if available
 try:
     from api.diagnoses import router as diagnoses_router
     api_router.include_router(diagnoses_router)
-    print("✅ Diagnoses router included")
+    print("Diagnoses router included")
 except ImportError:
-    print("⚠️  Diagnoses router not available")
+    print("Diagnoses router not available")
 
 # =============================================================================
 # Health Check Endpoints - FIXED: Removed SettingsDep

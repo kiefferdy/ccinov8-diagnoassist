@@ -41,9 +41,9 @@ export const useICD10Search = (initialQuery = '', options = {}) => {
     setError(null);
 
     try {
-      console.log('Making API request to:', `${API_BASE_URL}/api/icd10`);
+      console.log('Making API request to:', `${API_BASE_URL}/api/v1/icd10`);
       
-      const url = new URL(`${API_BASE_URL}/api/icd10`);
+      const url = new URL(`${API_BASE_URL}/api/v1/icd10`);
       url.searchParams.set('q', searchQuery.trim());
       url.searchParams.set('limit', maxResults.toString());
 
@@ -141,7 +141,7 @@ export const useICD10Search = (initialQuery = '', options = {}) => {
 
   const getCodeDetails = useCallback(async (code) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/icd10/${encodeURIComponent(code)}`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/icd10/${encodeURIComponent(code)}`, {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'

@@ -49,7 +49,7 @@ const DoctorDashboard = () => {
     yearsOfExperience: 12,
     patientsToday: 8,
     completedToday: 5,
-    totalPatients: 1247
+    totalPatients: patients?.length || 0
   };
   
   useEffect(() => {

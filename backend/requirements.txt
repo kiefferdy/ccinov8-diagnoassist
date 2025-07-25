@@ -19,6 +19,7 @@ gotrue>=1.0.0,<2.0.0
 
 # FHIR & Medical Standards
 fhir.resources>=7.0.0,<8.0.0
+icd10-cm>=0.0.5
 
 # Validation & Serialization - FIXED for Pydantic V2
 pydantic>=2.0.0,<3.0.0

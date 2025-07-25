@@ -64,7 +64,8 @@ components_status = {
     "episodes_router": False,
     "treatments_router": False,
     "diagnoses_router": False,
-    "fhir_router": False
+    "fhir_router": False,
+    "icd10_router": False
 }
 
 # Startup
@@ -85,30 +86,60 @@ except Exception as e:
 def safe_include_router(router_module: str, router_name: str, prefix: str = "/api/v1"):
     """Safely include a router with error handling"""
     try:
+        logger.info(f"Attempting to include {router_module} router...")
         module = __import__(router_module, fromlist=[router_name])
+        logger.info(f"Successfully imported module {router_module}")
         router = getattr(module, router_name)
+        logger.info(f"Successfully got router attribute: {router}")
+        logger.info(f"Router prefix: {router.prefix}")
+        logger.info(f"Router routes: {[route.path for route in router.routes]}")
         app.include_router(router, prefix=prefix)
+        logger.info(f"Successfully included router with prefix {prefix}")
         component_key = router_module.split('.')[-1] + "_router"
         components_status[component_key] = True
+        logger.info(f"Set component status {component_key} = True")
         logger.info(f"{router_module} router included successfully")
         return True
     except Exception as e:
-        logger.warning(f"{router_module} router failed: {e}")
+        logger.error(f"{router_module} router failed: {e}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         return False
 
-# Include all routers
-routers_to_include = [
-    ("api.patients", "router"),
-    ("api.episodes", "router"), 
-    ("api.treatments", "router"),
-    ("api.diagnoses", "router"),
-    ("api.fhir", "router")
-]
-
+# Include individual routers directly
 successful_routers = 0
-for module_name, router_name in routers_to_include:
-    if safe_include_router(module_name, router_name):
-        successful_routers += 1
+
+# Include patients router
+if safe_include_router("api.patients", "router"):
+    successful_routers += 1
+
+# Include episodes router  
+if safe_include_router("api.episodes", "router"):
+    successful_routers += 1
+
+# Include treatments router
+if safe_include_router("api.treatments", "router"):
+    successful_routers += 1
+
+# Include diagnoses router
+if safe_include_router("api.diagnoses", "router"):
+    successful_routers += 1
+
+# Include fhir router
+if safe_include_router("api.fhir", "router"):
+    successful_routers += 1
+
+# Include ICD10 router directly (without safe wrapper to debug)
+try:
+    from api.icd10 import router as icd10_router
+    app.include_router(icd10_router, prefix="/api/v1")
+    components_status["icd10_router"] = True
+    logger.info("ICD10 router included successfully (direct method)")
+    successful_routers += 1
+except Exception as e:
+    logger.error(f"ICD10 router failed (direct method): {e}")
+    import traceback
+    logger.error(f"Full traceback: {traceback.format_exc()}")
 
 # Try to include the main API router (but don't fail if it doesn't work)
 try:
@@ -136,7 +167,8 @@ async def root():
             "episodes": "/api/v1/episodes/",
             "treatments": "/api/v1/treatments/",
             "diagnoses": "/api/v1/diagnoses/",
-            "fhir": "/api/v1/fhir/"
+            "fhir": "/api/v1/fhir/",
+            "icd10": "/api/v1/icd10/"
         }
     }
 
@@ -151,7 +183,7 @@ async def health_check():
         "components": components_status,
         "summary": f"{working_components}/{total_components} components working",
         "database": "connected" if components_status["database"] else "disconnected",
-        "routers": f"{successful_routers}/5 routers loaded"
+        "routers": f"{successful_routers}/6 routers loaded"
     }
 
 @app.get("/api/status")
@@ -221,7 +253,7 @@ async def api_status():
     }
 
 
-logger.info(f"Router Summary: {successful_routers}/5 routers loaded")
+logger.info(f"Router Summary: {successful_routers}/6 routers loaded")
 logger.info("DiagnoAssist API startup completed")
 
 # Development server
@@ -230,6 +262,6 @@ if __name__ == "__main__":
         "main:app",
         host="0.0.0.0",
         port=8000,
-        reload=True,
+        reload=False,
         log_level="info"
     )
