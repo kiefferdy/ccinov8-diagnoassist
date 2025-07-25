@@ -6,6 +6,16 @@ const app = express();
 const supabase = require('./supabaseClient');
 const PORT = process.env.PORT || 4000;
 
+// Configurable logging system
+const LOG_LEVEL = process.env.LOG_LEVEL || 'normal';
+
+const log = {
+  error: (msg) => console.error(`[ERROR] ${msg}`),
+  info: (msg) => LOG_LEVEL !== 'silent' && console.log(`[INFO] ${msg}`),
+  verbose: (msg) => LOG_LEVEL === 'verbose' && console.log(`[VERBOSE] ${msg}`),
+  analytics: (msg) => LOG_LEVEL === 'verbose' && console.log(msg)
+};
+
 // CORS configuration
 const corsOptions = {
   origin: [
@@ -20,7 +30,7 @@ app.use(cors(corsOptions));
 app.use(express.json());
 
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  log.info(`Server is running on port ${PORT}`);
 });
 
 app.post('/track-visit', async (req, res) => {
@@ -31,10 +41,10 @@ app.post('/track-visit', async (req, res) => {
         start_time: timestamp,
         variant: variant
     }, {onConflict: 'session_id'});
-    console.log(`[visit] ${sessionId} at ${timestamp} (variant: ${variant || 'unknown'})`);
+    log.verbose(`visit: ${sessionId} at ${timestamp} (variant: ${variant || 'unknown'})`);
 
     if (error) {
-        console.error('Supabase error on track-visit:', error.message);
+        log.error(`Supabase error on track-visit: ${error.message}`);
         return res.status(500).json({ error: error.message });
     }
 
@@ -56,11 +66,11 @@ app.post('/track-click', async (req, res) => {
     });
 
   if (error) {
-    console.error('Supabase error on track-click:', error.message);
+    log.error(`Supabase error on track-click: ${error.message}`);
     return res.status(500).json({ error: error.message });
   }
 
-  console.log(`[button click] ${type} ${plan?.name || ''} (variant: ${variant || 'unknown'})`);
+  log.verbose(`button click: ${type} ${plan?.name || ''} (variant: ${variant || 'unknown'})`);
   res.sendStatus(200);
 });
 
@@ -161,27 +171,27 @@ app.get('/stats', async (req, res) => {
       }
     });
 
-    console.log("============ A/B TESTING ANALYTICS ============");
-    console.log("OVERALL:");
-    console.log("  Total visits: " + uniqueSessions.length);
-    console.log("  Raw clicks: " + clicks.length);
-    console.log("  Unique clicks (deduplicated): " + deduplicatedClicks.length);
-    console.log("  Duplicate clicks filtered: " + (clicks.length - deduplicatedClicks.length));
-    console.log("  Unique subscribe clicks: " + totalSub);
-    console.log("  Unique demo clicks: " + totalDemo);
-    console.log();
+    log.analytics("============ A/B TESTING ANALYTICS ============");
+    log.analytics("OVERALL:");
+    log.analytics("  Total visits: " + uniqueSessions.length);
+    log.analytics("  Raw clicks: " + clicks.length);
+    log.analytics("  Unique clicks (deduplicated): " + deduplicatedClicks.length);
+    log.analytics("  Duplicate clicks filtered: " + (clicks.length - deduplicatedClicks.length));
+    log.analytics("  Unique subscribe clicks: " + totalSub);
+    log.analytics("  Unique demo clicks: " + totalDemo);
+    log.analytics("");
     
-    console.log("VARIANT A:");
-    console.log("  Visits: " + variantStats.A.visits);
-    console.log("  Unique subscribe clicks: " + variantStats.A.subscribeClicks);
-    console.log("  Conversion rate: " + variantStats.A.conversionRate + "%");
-    console.log();
+    log.analytics("VARIANT A:");
+    log.analytics("  Visits: " + variantStats.A.visits);
+    log.analytics("  Unique subscribe clicks: " + variantStats.A.subscribeClicks);
+    log.analytics("  Conversion rate: " + variantStats.A.conversionRate + "%");
+    log.analytics("");
     
-    console.log("VARIANT B:");
-    console.log("  Visits: " + variantStats.B.visits);
-    console.log("  Unique subscribe clicks: " + variantStats.B.subscribeClicks);
-    console.log("  Conversion rate: " + variantStats.B.conversionRate + "%");
-    console.log();
+    log.analytics("VARIANT B:");
+    log.analytics("  Visits: " + variantStats.B.visits);
+    log.analytics("  Unique subscribe clicks: " + variantStats.B.subscribeClicks);
+    log.analytics("  Conversion rate: " + variantStats.B.conversionRate + "%");
+    log.analytics("");
 
     const analytics = {
       totalRawClicks: clicks.length,
@@ -200,7 +210,7 @@ app.get('/stats', async (req, res) => {
     res.json({ analytics });
 
   } catch (error) {
-    console.error('Stats error:', error.message);
+    log.error(`Stats error: ${error.message}`);
     res.status(500).json({ error: error.message });
    }
 });
@@ -215,12 +225,12 @@ app.get('/clicks', async (_, res) => {
 
     if (clickError) throw clickError;
 
-    console.log(`[clicks] Returning ${clicks.length} click records`);
+    log.info(`Returning ${clicks.length} click records`);
     
     res.json({ clicks, totalRecords: clicks.length });
 
   } catch (error) {
-    console.error('Clicks error:', error.message);
+    log.error(`Clicks error: ${error.message}`);
     res.status(500).json({ error: error.message });
   }
 });
