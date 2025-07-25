@@ -125,13 +125,13 @@ app.get('/stats', async (req, res) => {
 
     let totalSub = 0, totalDemo = 0, totalStart = 0, totalPro = 0, totalEnterprise = 0;
 
-    // Calculate variant-specific analytics (using pure visits for clean A/B testing)
-    const variantStats = { A: {}, B: {} };
-    const overallVariantStats = { A: {}, B: {} };
+    // Calculate variant-specific analytics
+    const filteredVariantStats = { A: {}, B: {} };
+    const unfilteredVariantStats = { A: {}, B: {} };
 
-    // Initialize variant stats for both pure and overall
+    // Initialize variant stats for both filtered and unfiltered
     ['A', 'B'].forEach(variant => {
-      variantStats[variant] = {
+      filteredVariantStats[variant] = {
         visits: 0,
         uniqueClicks: 0,
         subscribeClicks: 0,
@@ -141,96 +141,140 @@ app.get('/stats', async (req, res) => {
         enterpriseClicks: 0,
         conversionRate: 0
       };
-      overallVariantStats[variant] = { ...variantStats[variant] };
+      unfilteredVariantStats[variant] = { ...filteredVariantStats[variant] };
     });
 
-    // Count pure visits by variant (for clean A/B testing)
+    // Count filtered visits by variant (excludes cross-variant users)
     pureVisits.forEach(visit => {
       const variant = visit.variant || 'A'; // Default to A for legacy data
-      if (variantStats[variant]) {
-        variantStats[variant].visits++;
+      if (filteredVariantStats[variant]) {
+        filteredVariantStats[variant].visits++;
       }
     });
 
-    // Count overall visits by variant (including cross-variant users)
+    // Count unfiltered visits by variant (includes all users)
     visits.forEach(visit => {
       const variant = visit.variant || 'A'; // Default to A for legacy data
-      if (overallVariantStats[variant]) {
-        overallVariantStats[variant].visits++;
+      if (unfilteredVariantStats[variant]) {
+        unfilteredVariantStats[variant].visits++;
       }
     });
 
-    // Count deduplicated clicks by variant
+    // Count deduplicated clicks by variant (for both filtered and unfiltered stats)
     deduplicatedClicks.forEach(click => {
       const variant = click.variant || 'A'; // Default to A for legacy data
+      const isFromCrossVariantUser = crossVariantUsers.includes(click.session_id);
       
-      if (variantStats[variant]) {
-        variantStats[variant].uniqueClicks++;
+      // Count for unfiltered stats (all clicks)
+      if (unfilteredVariantStats[variant]) {
+        unfilteredVariantStats[variant].uniqueClicks++;
         
         if (click.label === "subscribe") {
-          variantStats[variant].subscribeClicks++;
+          unfilteredVariantStats[variant].subscribeClicks++;
+          
+          switch(click.plan_type) {
+            case "Starter":
+              unfilteredVariantStats[variant].starterClicks++;
+              break;
+            case "Professional":  
+              unfilteredVariantStats[variant].proClicks++;
+              break;
+            case "Enterprise":
+              unfilteredVariantStats[variant].enterpriseClicks++;
+              break;
+          }
+        } else {
+          unfilteredVariantStats[variant].demoClicks++;
+        }
+      }
+      
+      // Count for filtered stats (exclude cross-variant users) and totals
+      if (filteredVariantStats[variant]) {
+        if (!isFromCrossVariantUser) {
+          filteredVariantStats[variant].uniqueClicks++;
+        }
+        
+        if (click.label === "subscribe") {
+          if (!isFromCrossVariantUser) {
+            filteredVariantStats[variant].subscribeClicks++;
+          }
           totalSub++;
           
           switch(click.plan_type) {
             case "Starter":
-              variantStats[variant].starterClicks++;
+              if (!isFromCrossVariantUser) {
+                filteredVariantStats[variant].starterClicks++;
+              }
               totalStart++;
               break;
             case "Professional":
-              variantStats[variant].proClicks++;
+              if (!isFromCrossVariantUser) {
+                filteredVariantStats[variant].proClicks++;
+              }
               totalPro++;
               break;
             case "Enterprise":
-              variantStats[variant].enterpriseClicks++;
+              if (!isFromCrossVariantUser) {
+                filteredVariantStats[variant].enterpriseClicks++;
+              }
               totalEnterprise++;
               break;
           }
         } else {
-          variantStats[variant].demoClicks++;
+          if (!isFromCrossVariantUser) {
+            filteredVariantStats[variant].demoClicks++;
+          }
           totalDemo++;
         }
       }
     });
 
-    // Calculate conversion rates
+    // Calculate conversion rates for both filtered and unfiltered stats
     ['A', 'B'].forEach(variant => {
-      if (variantStats[variant].visits > 0) {
-        variantStats[variant].conversionRate = 
-          (variantStats[variant].subscribeClicks / variantStats[variant].visits * 100).toFixed(2);
+      // Filtered A/B conversion rates (excludes cross-variant users)
+      if (filteredVariantStats[variant].visits > 0) {
+        filteredVariantStats[variant].conversionRate = 
+          (filteredVariantStats[variant].subscribeClicks / filteredVariantStats[variant].visits * 100).toFixed(2);
+      }
+      
+      // Unfiltered conversion rates (includes all users)
+      if (unfilteredVariantStats[variant].visits > 0) {
+        unfilteredVariantStats[variant].conversionRate = 
+          (unfilteredVariantStats[variant].subscribeClicks / unfilteredVariantStats[variant].visits * 100).toFixed(2);
       }
     });
 
     log.analytics("============ A/B TESTING ANALYTICS ============");
     log.analytics("OVERALL:");
-    log.analytics("  Total unique sessions: " + uniqueSessions.length);
-    log.analytics("  Pure sessions (single-variant): " + pureUniqueSessions.length);
+    log.analytics("  Unfiltered unique sessions: " + uniqueSessions.length);
+    log.analytics("  Filtered sessions (single-variant): " + pureUniqueSessions.length);
     log.analytics("  Cross-variant sessions: " + crossVariantUsers.length);
     log.analytics("  Contamination rate: " + (crossVariantUsers.length / uniqueSessions.length * 100).toFixed(1) + "%");
     log.analytics("  Raw clicks: " + clicks.length);
     log.analytics("  Unique clicks (deduplicated): " + deduplicatedClicks.length);
-    log.analytics("  Duplicate clicks filtered: " + (clicks.length - deduplicatedClicks.length));
+    log.analytics("  Duplicate clicks removed: " + (clicks.length - deduplicatedClicks.length));
     log.analytics("  Unique subscribe clicks: " + totalSub);
     log.analytics("  Unique demo clicks: " + totalDemo);
     log.analytics("");
     
-    log.analytics("PURE A/B TEST (excluding cross-variant users):");
+    log.analytics("FILTERED A/B TEST (excluding cross-variant users):");
     log.analytics("VARIANT A:");
-    log.analytics("  Visits: " + variantStats.A.visits);
-    log.analytics("  Unique subscribe clicks: " + variantStats.A.subscribeClicks);
-    log.analytics("  Conversion rate: " + variantStats.A.conversionRate + "%");
+    log.analytics("  Visits: " + filteredVariantStats.A.visits);
+    log.analytics("  Unique subscribe clicks: " + filteredVariantStats.A.subscribeClicks);
+    log.analytics("  Conversion rate: " + filteredVariantStats.A.conversionRate + "%");
     log.analytics("");
     
     log.analytics("VARIANT B:");
-    log.analytics("  Visits: " + variantStats.B.visits);
-    log.analytics("  Unique subscribe clicks: " + variantStats.B.subscribeClicks);
-    log.analytics("  Conversion rate: " + variantStats.B.conversionRate + "%");
+    log.analytics("  Visits: " + filteredVariantStats.B.visits);
+    log.analytics("  Unique subscribe clicks: " + filteredVariantStats.B.subscribeClicks);
+    log.analytics("  Conversion rate: " + filteredVariantStats.B.conversionRate + "%");
     log.analytics("");
 
     const analytics = {
       // Overall metrics
       totalRawClicks: clicks.length,
       totalUniqueClicks: deduplicatedClicks.length,
-      duplicatesFiltered: clicks.length - deduplicatedClicks.length,
+      duplicatesRemoved: clicks.length - deduplicatedClicks.length,
       totalSubscribe: totalSub,
       starterClicks: totalStart,
       proClicks: totalPro,
@@ -238,23 +282,23 @@ app.get('/stats', async (req, res) => {
       totalDemo: totalDemo,
       
       // Session metrics
-      totalUniqueSessions: uniqueSessions.length,
-      pureUniqueSessions: pureUniqueSessions.length,
+      unfilteredUniqueSessions: uniqueSessions.length,
+      filteredUniqueSessions: pureUniqueSessions.length,
       crossVariantSessions: crossVariantUsers.length,
       contaminationRate: uniqueSessions.length > 0 ? 
         (crossVariantUsers.length / uniqueSessions.length * 100).toFixed(1) : 0,
       
       // Conversion rates
-      overallConversionRate: uniqueSessions.length > 0 ? 
+      unfilteredConversionRate: uniqueSessions.length > 0 ? 
         (totalSub / uniqueSessions.length * 100).toFixed(2) : 0,
-      pureConversionRate: pureUniqueSessions.length > 0 ? 
+      filteredConversionRate: pureUniqueSessions.length > 0 ? 
         (totalSub / pureUniqueSessions.length * 100).toFixed(2) : 0,
       
-      // Variant stats (pure A/B testing)
-      variantStats: variantStats,
+      // Filtered variant stats (excludes cross-variant users for clean A/B testing)
+      filteredVariantStats: filteredVariantStats,
       
-      // Overall variant stats (including cross-variant users)
-      overallVariantStats: overallVariantStats,
+      // Unfiltered variant stats (includes all users for engagement analysis)
+      unfilteredVariantStats: unfilteredVariantStats,
       
       // Quality metrics
       dataQuality: {
