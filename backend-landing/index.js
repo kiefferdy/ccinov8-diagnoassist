@@ -36,7 +36,7 @@ app.listen(PORT, () => {
 app.post('/track-visit', async (req, res) => {
     const {sessionId, timestamp, variant} = req.body;
 
-    const {data, error} = await supabase.from('sessions').upsert({
+    const {error} = await supabase.from('sessions').upsert({
         session_id: sessionId,
         start_time: timestamp,
         variant: variant
@@ -74,12 +74,12 @@ app.post('/track-click', async (req, res) => {
   res.sendStatus(200);
 });
 
-app.get('/stats', async (req, res) => {
+app.get('/stats', async (_, res) => {
   try {
     // Get all clicks with variant data
     const { data: clicks, error: clickError } = await supabase
       .from('button_clicks')
-      .select('label, plan_type, variant');
+      .select('session_id, label, plan_type, variant');
 
     // Get all visits with variant data
     const { data: visits, error: visitError } = await supabase
@@ -105,25 +105,23 @@ app.get('/stats', async (req, res) => {
     const crossVariantUsers = Object.keys(sessionVariantMap)
       .filter(sessionId => sessionVariantMap[sessionId].size > 1);
     
+    
     // Filter for pure A/B testing (exclude cross-variant users)
     const pureVisits = visits.filter(visit => 
       !crossVariantUsers.includes(visit.session_id)
     );
-    const pureUniqueSessions = [...new Set(pureVisits.map(v => v.session_id))];
     
-    // Deduplicate clicks by session_id + label + variant combination
-    // This ensures each user is only counted once per action type per variant
-    // Allows users to test both variants and have both conversions counted
+    // Deduplicate clicks by session_id + label + variant + plan_type combination
+    // This ensures each user is only counted once per action type per variant per plan
+    // Allows users to click multiple plans within same variant
     const uniqueClicks = new Map();
     clicks.forEach(click => {
-      const key = `${click.session_id}_${click.label}_${click.variant || 'A'}`;
+      const key = `${click.session_id}_${click.label}_${click.variant || 'A'}_${click.plan_type || 'unknown'}`;
       if (!uniqueClicks.has(key)) {
         uniqueClicks.set(key, click);
       }
     });
     const deduplicatedClicks = Array.from(uniqueClicks.values());
-
-    let totalSub = 0, totalDemo = 0, totalStart = 0, totalPro = 0, totalEnterprise = 0;
 
     // Calculate variant-specific analytics
     const filteredVariantStats = { A: {}, B: {} };
@@ -133,8 +131,8 @@ app.get('/stats', async (req, res) => {
     ['A', 'B'].forEach(variant => {
       filteredVariantStats[variant] = {
         visits: 0,
-        uniqueClicks: 0,
-        subscribeClicks: 0,
+        clicks: 0,
+        interestedUsers: 0,  // Users who clicked any subscribe button
         demoClicks: 0,
         starterClicks: 0,
         proClicks: 0,
@@ -160,18 +158,46 @@ app.get('/stats', async (req, res) => {
       }
     });
 
-    // Count deduplicated clicks by variant (for both filtered and unfiltered stats)
-    deduplicatedClicks.forEach(click => {
-      const variant = click.variant || 'A'; // Default to A for legacy data
-      const isFromCrossVariantUser = crossVariantUsers.includes(click.session_id);
-      
-      // Count for unfiltered stats (all clicks)
+    // Separate clicks into filtered and unfiltered for cleaner processing
+    const filteredClicks = deduplicatedClicks.filter(click => 
+      !crossVariantUsers.includes(click.session_id)
+    );
+    
+    // Per-variant user deduplication (allows cross-variant users in both variants)
+    const perVariantUserSubscribeIntentMap = new Map();
+    clicks.forEach(click => {
+      if (click.label === "subscribe") {
+        const key = `${click.session_id}_${click.variant || 'A'}`; // Include variant so cross-variant users count in both
+        if (!perVariantUserSubscribeIntentMap.has(key)) {
+          perVariantUserSubscribeIntentMap.set(key, click);
+        }
+      }
+    });
+    const perVariantUniqueUserSubscribeClicks = Array.from(perVariantUserSubscribeIntentMap.values());
+    
+    // Filter per-variant deduplication for clean A/B testing
+    const filteredPerVariantUserSubscribeClicks = perVariantUniqueUserSubscribeClicks.filter(click => 
+      !crossVariantUsers.includes(click.session_id)
+    );
+    
+    
+    // Count unfiltered stats - user intent (using per-variant deduplication)
+    perVariantUniqueUserSubscribeClicks.forEach(click => {
+      const variant = click.variant || 'A';
       if (unfilteredVariantStats[variant]) {
-        unfilteredVariantStats[variant].uniqueClicks++;
+        unfilteredVariantStats[variant].interestedUsers++;
+      }
+    });
+    
+    // Count unfiltered stats - plan-specific clicks and other metrics
+    deduplicatedClicks.forEach(click => {
+      const variant = click.variant || 'A';
+      
+      if (unfilteredVariantStats[variant]) {
+        unfilteredVariantStats[variant].clicks++;
         
         if (click.label === "subscribe") {
-          unfilteredVariantStats[variant].subscribeClicks++;
-          
+          // Plan-specific clicks (allows multiple per user)
           switch(click.plan_type) {
             case "Starter":
               unfilteredVariantStats[variant].starterClicks++;
@@ -187,124 +213,135 @@ app.get('/stats', async (req, res) => {
           unfilteredVariantStats[variant].demoClicks++;
         }
       }
-      
-      // Count for filtered stats (exclude cross-variant users) and totals
+    });
+    
+    // Count filtered stats - user intent (using per-variant deduplication)
+    filteredPerVariantUserSubscribeClicks.forEach(click => {
+      const variant = click.variant || 'A';
       if (filteredVariantStats[variant]) {
-        if (!isFromCrossVariantUser) {
-          filteredVariantStats[variant].uniqueClicks++;
-        }
+        filteredVariantStats[variant].interestedUsers++;
+      }
+    });
+    
+    // Count filtered stats - plan-specific clicks and other metrics
+    filteredClicks.forEach(click => {
+      const variant = click.variant || 'A';
+      
+      if (filteredVariantStats[variant]) {
+        filteredVariantStats[variant].clicks++;
         
         if (click.label === "subscribe") {
-          if (!isFromCrossVariantUser) {
-            filteredVariantStats[variant].subscribeClicks++;
-          }
-          totalSub++;
-          
+          // Plan-specific clicks (allows multiple per user)
           switch(click.plan_type) {
             case "Starter":
-              if (!isFromCrossVariantUser) {
-                filteredVariantStats[variant].starterClicks++;
-              }
-              totalStart++;
+              filteredVariantStats[variant].starterClicks++;
               break;
             case "Professional":
-              if (!isFromCrossVariantUser) {
-                filteredVariantStats[variant].proClicks++;
-              }
-              totalPro++;
+              filteredVariantStats[variant].proClicks++;
               break;
             case "Enterprise":
-              if (!isFromCrossVariantUser) {
-                filteredVariantStats[variant].enterpriseClicks++;
-              }
-              totalEnterprise++;
+              filteredVariantStats[variant].enterpriseClicks++;
               break;
           }
         } else {
-          if (!isFromCrossVariantUser) {
-            filteredVariantStats[variant].demoClicks++;
-          }
-          totalDemo++;
+          filteredVariantStats[variant].demoClicks++;
         }
       }
     });
-
+    
     // Calculate conversion rates for both filtered and unfiltered stats
     ['A', 'B'].forEach(variant => {
       // Filtered A/B conversion rates (excludes cross-variant users)
       if (filteredVariantStats[variant].visits > 0) {
         filteredVariantStats[variant].conversionRate = 
-          (filteredVariantStats[variant].subscribeClicks / filteredVariantStats[variant].visits * 100).toFixed(2);
+          (filteredVariantStats[variant].interestedUsers / filteredVariantStats[variant].visits * 100).toFixed(2);
       }
       
       // Unfiltered conversion rates (includes all users)
       if (unfilteredVariantStats[variant].visits > 0) {
         unfilteredVariantStats[variant].conversionRate = 
-          (unfilteredVariantStats[variant].subscribeClicks / unfilteredVariantStats[variant].visits * 100).toFixed(2);
+          (unfilteredVariantStats[variant].interestedUsers / unfilteredVariantStats[variant].visits * 100).toFixed(2);
       }
     });
 
+    // Calculate filtered totals by summing variant stats
+    const filteredTotals = {
+      sessions: filteredVariantStats.A.visits + filteredVariantStats.B.visits,
+      clicks: filteredVariantStats.A.clicks + filteredVariantStats.B.clicks,
+      demoClicks: filteredVariantStats.A.demoClicks + filteredVariantStats.B.demoClicks,
+      starterClicks: filteredVariantStats.A.starterClicks + filteredVariantStats.B.starterClicks,
+      proClicks: filteredVariantStats.A.proClicks + filteredVariantStats.B.proClicks,
+      enterpriseClicks: filteredVariantStats.A.enterpriseClicks + filteredVariantStats.B.enterpriseClicks
+    };
+
+    // Calculate unfiltered totals by summing variant stats
+    const unfilteredTotals = {
+      sessions: unfilteredVariantStats.A.visits + unfilteredVariantStats.B.visits,
+      clicks: unfilteredVariantStats.A.clicks + unfilteredVariantStats.B.clicks,
+      demoClicks: unfilteredVariantStats.A.demoClicks + unfilteredVariantStats.B.demoClicks,
+      starterClicks: unfilteredVariantStats.A.starterClicks + unfilteredVariantStats.B.starterClicks,
+      proClicks: unfilteredVariantStats.A.proClicks + unfilteredVariantStats.B.proClicks,
+      enterpriseClicks: unfilteredVariantStats.A.enterpriseClicks + unfilteredVariantStats.B.enterpriseClicks
+    };
+
     log.analytics("============ A/B TESTING ANALYTICS ============");
     log.analytics("OVERALL:");
-    log.analytics("  Unfiltered unique sessions: " + uniqueSessions.length);
-    log.analytics("  Filtered sessions (single-variant): " + pureUniqueSessions.length);
+    log.analytics("  Raw clicks: " + clicks.length);
+    log.analytics("  Clicks: " + deduplicatedClicks.length);
+    log.analytics("  Duplicate clicks excluded: " + (clicks.length - deduplicatedClicks.length));
     log.analytics("  Cross-variant sessions: " + crossVariantUsers.length);
     log.analytics("  Contamination rate: " + (crossVariantUsers.length / uniqueSessions.length * 100).toFixed(1) + "%");
-    log.analytics("  Raw clicks: " + clicks.length);
-    log.analytics("  Unique clicks (deduplicated): " + deduplicatedClicks.length);
-    log.analytics("  Duplicate clicks removed: " + (clicks.length - deduplicatedClicks.length));
-    log.analytics("  Unique subscribe clicks: " + totalSub);
-    log.analytics("  Unique demo clicks: " + totalDemo);
     log.analytics("");
     
     log.analytics("FILTERED A/B TEST (excluding cross-variant users):");
+    log.analytics("  Sessions: " + filteredTotals.sessions);
+    log.analytics("  Clicks: " + filteredTotals.clicks);
     log.analytics("VARIANT A:");
     log.analytics("  Visits: " + filteredVariantStats.A.visits);
-    log.analytics("  Unique subscribe clicks: " + filteredVariantStats.A.subscribeClicks);
+    log.analytics("  Interested users: " + filteredVariantStats.A.interestedUsers);
     log.analytics("  Conversion rate: " + filteredVariantStats.A.conversionRate + "%");
-    log.analytics("");
-    
     log.analytics("VARIANT B:");
     log.analytics("  Visits: " + filteredVariantStats.B.visits);
-    log.analytics("  Unique subscribe clicks: " + filteredVariantStats.B.subscribeClicks);
+    log.analytics("  Interested users: " + filteredVariantStats.B.interestedUsers);
     log.analytics("  Conversion rate: " + filteredVariantStats.B.conversionRate + "%");
+    log.analytics("");
+    
+    log.analytics("UNFILTERED (including all users):");
+    log.analytics("  Sessions: " + unfilteredTotals.sessions);
+    log.analytics("  Clicks: " + unfilteredTotals.clicks);
     log.analytics("");
 
     const analytics = {
-      // Overall metrics
-      totalRawClicks: clicks.length,
-      totalUniqueClicks: deduplicatedClicks.length,
-      duplicatesRemoved: clicks.length - deduplicatedClicks.length,
-      totalSubscribe: totalSub,
-      starterClicks: totalStart,
-      proClicks: totalPro,
-      enterpriseClicks: totalEnterprise,
-      totalDemo: totalDemo,
-      
-      // Session metrics
-      unfilteredUniqueSessions: uniqueSessions.length,
-      filteredUniqueSessions: pureUniqueSessions.length,
-      crossVariantSessions: crossVariantUsers.length,
-      contaminationRate: uniqueSessions.length > 0 ? 
-        (crossVariantUsers.length / uniqueSessions.length * 100).toFixed(1) : 0,
-      
-      // Conversion rates
-      unfilteredConversionRate: uniqueSessions.length > 0 ? 
-        (totalSub / uniqueSessions.length * 100).toFixed(2) : 0,
-      filteredConversionRate: pureUniqueSessions.length > 0 ? 
-        (totalSub / pureUniqueSessions.length * 100).toFixed(2) : 0,
-      
-      // Filtered variant stats (excludes cross-variant users for clean A/B testing)
-      filteredVariantStats: filteredVariantStats,
-      
-      // Unfiltered variant stats (includes all users for engagement analysis)
-      unfilteredVariantStats: unfilteredVariantStats,
-      
-      // Quality metrics
-      dataQuality: {
-        isClean: crossVariantUsers.length === 0,
-        contaminationLevel: crossVariantUsers.length / uniqueSessions.length < 0.05 ? 'Low' : 
-                          crossVariantUsers.length / uniqueSessions.length < 0.15 ? 'Medium' : 'High'
+      overall: {
+        rawClicks: clicks.length,
+        duplicatesExcluded: clicks.length - deduplicatedClicks.length,
+        crossVariantSessions: crossVariantUsers.length,
+        contaminationRate: uniqueSessions.length > 0 ? 
+          (crossVariantUsers.length / uniqueSessions.length * 100).toFixed(1) : 0,
+        dataQuality: {
+          isClean: crossVariantUsers.length === 0,
+          contaminationLevel: crossVariantUsers.length === 0 ? 'None' : 
+                            crossVariantUsers.length / uniqueSessions.length < 0.05 ? 'Low' : 
+                            crossVariantUsers.length / uniqueSessions.length < 0.15 ? 'Medium' : 'High'
+        }
+      },
+      filtered: {
+        sessions: filteredTotals.sessions,
+        clicks: filteredTotals.clicks,
+        demoClicks: filteredTotals.demoClicks,
+        starterClicks: filteredTotals.starterClicks,
+        proClicks: filteredTotals.proClicks,
+        enterpriseClicks: filteredTotals.enterpriseClicks,
+        variantStats: filteredVariantStats
+      },
+      unfiltered: {
+        sessions: unfilteredTotals.sessions,
+        clicks: unfilteredTotals.clicks,
+        demoClicks: unfilteredTotals.demoClicks,
+        starterClicks: unfilteredTotals.starterClicks,
+        proClicks: unfilteredTotals.proClicks,
+        enterpriseClicks: unfilteredTotals.enterpriseClicks,
+        variantStats: unfilteredVariantStats
       }
     };
 
