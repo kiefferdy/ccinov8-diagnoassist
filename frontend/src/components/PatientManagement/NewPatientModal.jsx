@@ -70,7 +70,7 @@ const NewPatientModal = ({ onClose, onSuccess }) => {
     setIsSubmitting(true);
     
     try {
-      const newPatient = createPatient(formData);
+      const newPatient = await createPatient(formData);
       
       if (window.showNotification) {
         window.showNotification('Patient created successfully', 'success');

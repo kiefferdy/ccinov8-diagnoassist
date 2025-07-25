@@ -16,8 +16,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Print loaded env vars for debugging
-print(f"🔍 DATABASE_URL loaded: {'✅ Yes' if os.getenv('DATABASE_URL') else '❌ No'}")
-print(f"🔍 SUPABASE_URL loaded: {'✅ Yes' if os.getenv('SUPABASE_URL') else '❌ No'}")
+print(f"DATABASE_URL loaded: {'Yes' if os.getenv('DATABASE_URL') else 'No'}")
+print(f"SUPABASE_URL loaded: {'Yes' if os.getenv('SUPABASE_URL') else 'No'}")
 
 # Simple settings
 class Settings:
@@ -68,7 +68,7 @@ components_status = {
 }
 
 # Startup
-logger.info("🚀 DiagnoAssist API starting...")
+logger.info("DiagnoAssist API starting...")
 
 # Test database
 try:
@@ -77,9 +77,9 @@ try:
     db.execute(text("SELECT 1"))
     db.close()
     components_status["database"] = True
-    logger.info("✅ Database connection successful")
+    logger.info("Database connection successful")
 except Exception as e:
-    logger.warning(f"⚠️ Database connection failed: {e}")
+    logger.warning(f"Database connection failed: {e}")
 
 # Include individual routers directly (skip the problematic main API router for now)
 def safe_include_router(router_module: str, router_name: str, prefix: str = "/api/v1"):
@@ -90,10 +90,10 @@ def safe_include_router(router_module: str, router_name: str, prefix: str = "/ap
         app.include_router(router, prefix=prefix)
         component_key = router_module.split('.')[-1] + "_router"
         components_status[component_key] = True
-        logger.info(f"✅ {router_module} router included successfully")
+        logger.info(f"{router_module} router included successfully")
         return True
     except Exception as e:
-        logger.warning(f"⚠️ {router_module} router failed: {e}")
+        logger.warning(f"{router_module} router failed: {e}")
         return False
 
 # Include all routers
@@ -117,9 +117,9 @@ try:
     if successful_routers == 0:
         app.include_router(api_router)
         components_status["api_router"] = True
-        logger.info("✅ Main API router included as fallback")
+        logger.info("Main API router included as fallback")
 except Exception as e:
-    logger.warning(f"⚠️ Main API router failed (using individual routers instead): {e}")
+    logger.warning(f"Main API router failed (using individual routers instead): {e}")
 
 # Basic endpoints
 @app.get("/")
@@ -221,8 +221,8 @@ async def api_status():
     }
 
 
-logger.info(f"📊 Router Summary: {successful_routers}/5 routers loaded")
-logger.info("✅ DiagnoAssist API startup completed")
+logger.info(f"Router Summary: {successful_routers}/5 routers loaded")
+logger.info("DiagnoAssist API startup completed")
 
 # Development server
 if __name__ == "__main__":

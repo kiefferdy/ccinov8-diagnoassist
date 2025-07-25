@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { StorageManager, generateId } from '../utils/storage';
+import apiService from '../services/apiService';
+import { transformEpisodeToBackend, transformEpisodeFromBackend } from '../utils/dataTransformers';
 
 const EpisodeContext = createContext(null);
 
@@ -16,16 +18,31 @@ export const EpisodeProvider = ({ children }) => {
   const [episodes, setEpisodes] = useState([]);
   const [currentEpisode, setCurrentEpisode] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Load episodes from storage on mount
+  // Load episodes from API on mount
   useEffect(() => {
-    const loadEpisodes = () => {
+    const loadEpisodes = async () => {
       try {
-        const storedEpisodes = StorageManager.getEpisodes();
-        setEpisodes(storedEpisodes);
-        setLoading(false);
+        setLoading(true);
+        setError(null);
+        const response = await apiService.getEpisodes();
+        const backendEpisodes = response.data || response;
+        const transformedEpisodes = backendEpisodes.map(transformEpisodeFromBackend);
+        setEpisodes(transformedEpisodes);
+        // Also save to localStorage as backup
+        StorageManager.saveEpisodes(transformedEpisodes);
       } catch (error) {
-        console.error('Error loading episodes:', error);
+        console.error('Error loading episodes from API:', error);
+        setError(error.message);
+        // Fallback to localStorage if API fails
+        try {
+          const storedEpisodes = StorageManager.getEpisodes();
+          setEpisodes(storedEpisodes);
+        } catch (localError) {
+          console.error('Error loading episodes from storage:', localError);
+        }
+      } finally {
         setLoading(false);
       }
     };
@@ -42,40 +59,94 @@ export const EpisodeProvider = ({ children }) => {
   }, [episodes]);
 
   // Create a new episode
-  const createEpisode = useCallback((patientId, episodeData) => {
-    const newEpisode = {
-      id: generateId('E'),
-      patientId,
-      chiefComplaint: episodeData.chiefComplaint,
-      category: episodeData.category || 'acute',
-      status: 'active',
-      createdAt: new Date().toISOString(),
-      resolvedAt: null,
-      lastEncounterId: null,
-      relatedEpisodeIds: episodeData.relatedEpisodeIds || [],
-      tags: episodeData.tags || []
-    };
+  const createEpisode = useCallback(async (patientId, episodeData) => {
+    try {
+      setError(null);
+      const frontendEpisode = {
+        patientId,
+        chiefComplaint: episodeData.chiefComplaint,
+        category: episodeData.category || 'acute',
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        resolvedAt: null,
+        lastEncounterId: null,
+        relatedEpisodeIds: episodeData.relatedEpisodeIds || [],
+        tags: episodeData.tags || []
+      };
+      
+      const backendEpisodeData = transformEpisodeToBackend(frontendEpisode, patientId);
+      const backendEpisode = await apiService.createEpisode(backendEpisodeData);
+      const transformedEpisode = transformEpisodeFromBackend(backendEpisode);
+      
+      const updatedEpisodes = [...episodes, transformedEpisode];
+      setEpisodes(updatedEpisodes);
+      StorageManager.saveEpisodes(updatedEpisodes);
+      
+      return transformedEpisode;
+    } catch (error) {
+      console.error('Error creating episode:', error);
+      setError(error.message);
+      // Fallback to localStorage creation
+      const newEpisode = {
+        id: generateId('E'),
+        patientId,
+        chiefComplaint: episodeData.chiefComplaint,
+        category: episodeData.category || 'acute',
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        resolvedAt: null,
+        lastEncounterId: null,
+        relatedEpisodeIds: episodeData.relatedEpisodeIds || [],
+        tags: episodeData.tags || []
+      };
 
-    const updatedEpisodes = [...episodes, newEpisode];
-    setEpisodes(updatedEpisodes);
-    StorageManager.saveEpisodes(updatedEpisodes);
-    
-    return newEpisode;
+      const updatedEpisodes = [...episodes, newEpisode];
+      setEpisodes(updatedEpisodes);
+      StorageManager.saveEpisodes(updatedEpisodes);
+      
+      return newEpisode;
+    }
   }, [episodes]);
   // Update an episode
-  const updateEpisode = useCallback((episodeId, updates) => {
-    const updatedEpisodes = episodes.map(e => 
-      e.id === episodeId ? { ...e, ...updates } : e
-    );
-    setEpisodes(updatedEpisodes);
-    StorageManager.saveEpisodes(updatedEpisodes);
-    
-    // Update current episode if it's the one being updated
-    if (currentEpisode?.id === episodeId) {
-      setCurrentEpisode(prev => ({ ...prev, ...updates }));
+  const updateEpisode = useCallback(async (episodeId, updates) => {
+    try {
+      setError(null);
+      const episode = episodes.find(e => e.id === episodeId);
+      if (!episode) throw new Error('Episode not found');
+      
+      const updatedEpisodeData = { ...episode, ...updates };
+      const backendEpisodeData = transformEpisodeToBackend(updatedEpisodeData, episode.patientId);
+      const backendEpisode = await apiService.updateEpisode(episodeId, backendEpisodeData);
+      const transformedEpisode = transformEpisodeFromBackend(backendEpisode);
+      
+      const updatedEpisodes = episodes.map(e => 
+        e.id === episodeId ? transformedEpisode : e
+      );
+      setEpisodes(updatedEpisodes);
+      StorageManager.saveEpisodes(updatedEpisodes);
+      
+      // Update current episode if it's the one being updated
+      if (currentEpisode?.id === episodeId) {
+        setCurrentEpisode(transformedEpisode);
+      }
+      
+      return transformedEpisode;
+    } catch (error) {
+      console.error('Error updating episode:', error);
+      setError(error.message);
+      // Fallback to localStorage update
+      const updatedEpisodes = episodes.map(e => 
+        e.id === episodeId ? { ...e, ...updates } : e
+      );
+      setEpisodes(updatedEpisodes);
+      StorageManager.saveEpisodes(updatedEpisodes);
+      
+      if (currentEpisode?.id === episodeId) {
+        setCurrentEpisode(prev => ({ ...prev, ...updates }));
+      }
+      
+      return updatedEpisodes.find(e => e.id === episodeId);
     }
-    
-    return updatedEpisodes.find(e => e.id === episodeId);
   }, [episodes, currentEpisode]);
 
   // Resolve an episode
@@ -149,6 +220,7 @@ export const EpisodeProvider = ({ children }) => {
     currentEpisode,
     setCurrentEpisode,
     loading,
+    error,
     getPatientEpisodes,
     createEpisode,
     updateEpisode,

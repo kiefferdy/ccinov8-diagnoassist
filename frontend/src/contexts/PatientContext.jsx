@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { StorageManager, generateId } from '../utils/storage';
+import apiService from '../services/apiService';
+import { transformPatientToBackend, transformPatientFromBackend } from '../utils/dataTransformers';
 
 const PatientContext = createContext(null);
 
@@ -16,86 +18,145 @@ export const PatientProvider = ({ children }) => {
   const [patients, setPatients] = useState([]);
   const [currentPatient, setCurrentPatient] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Load patients from storage on mount
+  // Load patients from API on mount
   useEffect(() => {
-    const loadPatients = () => {
+    const loadPatients = async () => {
       try {
-        const storedPatients = StorageManager.getPatients();
-        setPatients(storedPatients);
-        setLoading(false);
+        setLoading(true);
+        setError(null);
+        const response = await apiService.getPatients();
+        const backendPatients = response.data || response;
+        const transformedPatients = backendPatients.map(transformPatientFromBackend);
+        setPatients(transformedPatients);
+        // Also save to localStorage as backup
+        StorageManager.savePatients(transformedPatients);
       } catch (error) {
-        console.error('Error loading patients:', error);
+        console.error('Error loading patients from API:', error);
+        setError(error.message);
+        // Fallback to localStorage if API fails
+        try {
+          const storedPatients = StorageManager.getPatients();
+          setPatients(storedPatients);
+        } catch (localError) {
+          console.error('Error loading patients from storage:', localError);
+        }
+      } finally {
         setLoading(false);
       }
     };
     loadPatients();
   }, []);
-  // Initialize with sample data if needed
+  // Initialize with sample data if needed (only as fallback)
   useEffect(() => {
-    if (!loading && patients.length === 0) {
+    if (!loading && patients.length === 0 && error) {
       StorageManager.initializeWithSampleData();
       const storedPatients = StorageManager.getPatients();
       setPatients(storedPatients);
     }
-  }, [loading, patients.length]);
+  }, [loading, patients.length, error]);
 
   // Create a new patient
-  const createPatient = useCallback((patientData) => {
-    const newPatient = {
-      id: generateId('P'),
-      demographics: {
-        name: patientData.name,
-        dateOfBirth: patientData.dateOfBirth,
-        gender: patientData.gender,
-        phone: patientData.phone || '',
-        email: patientData.email || '',
-        address: patientData.address || '',
-        emergencyContact: patientData.emergencyContact || '',
-        insuranceInfo: patientData.insuranceInfo || {}
-      },
-      medicalBackground: {
-        allergies: patientData.allergies || [],
-        medications: patientData.medications || [],
-        chronicConditions: patientData.chronicConditions || [],
-        pastMedicalHistory: patientData.pastMedicalHistory || '',
-        pastSurgicalHistory: patientData.pastSurgicalHistory || '',
-        familyHistory: patientData.familyHistory || '',
-        socialHistory: patientData.socialHistory || ''
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    const updatedPatients = [...patients, newPatient];
-    setPatients(updatedPatients);
-    StorageManager.savePatients(updatedPatients);
-    
-    return newPatient;
+  const createPatient = useCallback(async (patientData) => {
+    try {
+      setError(null);
+      const backendPatientData = transformPatientToBackend(patientData);
+      const backendPatient = await apiService.createPatient(backendPatientData);
+      const transformedPatient = transformPatientFromBackend(backendPatient);
+      
+      const updatedPatients = [...patients, transformedPatient];
+      setPatients(updatedPatients);
+      // Also save to localStorage as backup
+      StorageManager.savePatients(updatedPatients);
+      return transformedPatient;
+    } catch (error) {
+      console.error('Error creating patient:', error);
+      setError(error.message);
+      // Fallback to localStorage creation
+      const newPatient = {
+        id: generateId('P'),
+        demographics: {
+          name: patientData.name,
+          dateOfBirth: patientData.dateOfBirth,
+          gender: patientData.gender,
+          phone: patientData.phone || '',
+          email: patientData.email || '',
+          address: patientData.address || '',
+          emergencyContact: patientData.emergencyContact || '',
+          insuranceInfo: patientData.insuranceInfo || {}
+        },
+        medicalBackground: {
+          allergies: patientData.allergies || [],
+          medications: patientData.medications || [],
+          chronicConditions: patientData.chronicConditions || [],
+          pastMedicalHistory: patientData.pastMedicalHistory || '',
+          pastSurgicalHistory: patientData.pastSurgicalHistory || '',
+          familyHistory: patientData.familyHistory || '',
+          socialHistory: patientData.socialHistory || ''
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      const updatedPatients = [...patients, newPatient];
+      setPatients(updatedPatients);
+      StorageManager.savePatients(updatedPatients);
+      return newPatient;
+    }
   }, [patients]);
 
   // Update patient demographics
-  const updatePatientDemographics = useCallback((patientId, updates) => {
-    const updatedPatients = patients.map(p => 
-      p.id === patientId 
-        ? { 
-            ...p, 
-            demographics: { ...p.demographics, ...updates },
-            updatedAt: new Date().toISOString()
-          } 
-        : p
-    );
-    
-    setPatients(updatedPatients);
-    StorageManager.savePatients(updatedPatients);
-    
-    // Update current patient if it's the one being updated
-    if (currentPatient?.id === patientId) {
-      setCurrentPatient(prev => ({
-        ...prev,
-        demographics: { ...prev.demographics, ...updates },
+  const updatePatientDemographics = useCallback(async (patientId, updates) => {
+    try {
+      setError(null);
+      const patient = patients.find(p => p.id === patientId);
+      if (!patient) throw new Error('Patient not found');
+      
+      const updatedPatientData = {
+        ...patient,
+        demographics: { ...patient.demographics, ...updates },
         updatedAt: new Date().toISOString()
-      }));
+      };
+      
+      const backendPatientData = transformPatientToBackend(updatedPatientData);
+      const backendPatient = await apiService.updatePatient(patient.id, backendPatientData);
+      const transformedPatient = transformPatientFromBackend(backendPatient);
+      
+      const updatedPatients = patients.map(p => 
+        p.id === patientId ? transformedPatient : p
+      );
+      
+      setPatients(updatedPatients);
+      StorageManager.savePatients(updatedPatients);
+      
+      // Update current patient if it's the one being updated
+      if (currentPatient?.id === patientId) {
+        setCurrentPatient(transformedPatient);
+      }
+    } catch (error) {
+      console.error('Error updating patient demographics:', error);
+      setError(error.message);
+      // Fallback to localStorage update
+      const updatedPatients = patients.map(p => 
+        p.id === patientId 
+          ? { 
+              ...p, 
+              demographics: { ...p.demographics, ...updates },
+              updatedAt: new Date().toISOString()
+            } 
+          : p
+      );
+      
+      setPatients(updatedPatients);
+      StorageManager.savePatients(updatedPatients);
+      
+      if (currentPatient?.id === patientId) {
+        setCurrentPatient(prev => ({
+          ...prev,
+          demographics: { ...prev.demographics, ...updates },
+          updatedAt: new Date().toISOString()
+        }));
+      }
     }
   }, [patients, currentPatient]);
 
@@ -202,14 +263,30 @@ export const PatientProvider = ({ children }) => {
   }, []);
 
   // Delete patient
-  const deletePatient = useCallback((patientId) => {
-    const updatedPatients = patients.filter(p => p.id !== patientId);
-    setPatients(updatedPatients);
-    StorageManager.savePatients(updatedPatients);
-    
-    // Clear current patient if it's the one being deleted
-    if (currentPatient?.id === patientId) {
-      setCurrentPatient(null);
+  const deletePatient = useCallback(async (patientId) => {
+    try {
+      setError(null);
+      await apiService.deletePatient(patientId);
+      
+      const updatedPatients = patients.filter(p => p.id !== patientId);
+      setPatients(updatedPatients);
+      StorageManager.savePatients(updatedPatients);
+      
+      // Clear current patient if it's the one being deleted
+      if (currentPatient?.id === patientId) {
+        setCurrentPatient(null);
+      }
+    } catch (error) {
+      console.error('Error deleting patient:', error);
+      setError(error.message);
+      // Fallback to localStorage deletion
+      const updatedPatients = patients.filter(p => p.id !== patientId);
+      setPatients(updatedPatients);
+      StorageManager.savePatients(updatedPatients);
+      
+      if (currentPatient?.id === patientId) {
+        setCurrentPatient(null);
+      }
     }
   }, [patients, currentPatient]);
 
@@ -243,6 +320,7 @@ export const PatientProvider = ({ children }) => {
     currentPatient,
     setCurrentPatient,
     loading,
+    error,
     createPatient,
     updatePatient,
     updatePatientDemographics,

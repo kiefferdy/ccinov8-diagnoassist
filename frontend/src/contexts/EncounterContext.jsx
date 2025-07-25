@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { StorageManager, generateId } from '../utils/storage';
+import apiService from '../services/apiService';
 
 const EncounterContext = createContext(null);
 
@@ -16,19 +17,24 @@ export const EncounterProvider = ({ children }) => {
   const [encounters, setEncounters] = useState([]);
   const [currentEncounter, setCurrentEncounter] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
   const [lastSaved, setLastSaved] = useState(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Load encounters from storage on mount
+  // Load encounters (stored as SOAP data within episodes) from storage on mount
   useEffect(() => {
-    const loadEncounters = () => {
+    const loadEncounters = async () => {
       try {
+        setLoading(true);
+        setError(null);
+        // For encounters, we primarily use localStorage since backend stores SOAP data differently
         const storedEncounters = StorageManager.getEncounters();
         setEncounters(storedEncounters);
-        setLoading(false);
       } catch (error) {
         console.error('Error loading encounters:', error);
+        setError(error.message);
+      } finally {
         setLoading(false);
       }
     };
@@ -168,24 +174,69 @@ export const EncounterProvider = ({ children }) => {
   }, [currentEncounter]);
 
   // Save current encounter
-  const saveCurrentEncounter = useCallback(() => {
+  const saveCurrentEncounter = useCallback(async () => {
     if (!currentEncounter) return false;
     
-    const updatedEncounters = encounters.map(e => 
-      e.id === currentEncounter.id ? currentEncounter : e
-    );
-    
-    // If it's a new encounter not yet in the list
-    if (!encounters.find(e => e.id === currentEncounter.id)) {
-      updatedEncounters.push(currentEncounter);
+    try {
+      setError(null);
+      
+      // Update encounters list
+      const updatedEncounters = encounters.map(e => 
+        e.id === currentEncounter.id ? currentEncounter : e
+      );
+      
+      // If it's a new encounter not yet in the list
+      if (!encounters.find(e => e.id === currentEncounter.id)) {
+        updatedEncounters.push(currentEncounter);
+      }
+      
+      setEncounters(updatedEncounters);
+      StorageManager.saveEncounters(updatedEncounters);
+      
+      // Also update the related episode with clinical notes
+      if (currentEncounter.episodeId) {
+        const clinicalNotes = [
+          `SOAP Notes (${new Date().toLocaleDateString()}):`,
+          `S: ${currentEncounter.soap?.subjective?.hpi || 'No subjective data'}`,
+          `O: ${currentEncounter.soap?.objective?.physicalExam?.general || 'No objective data'}`, 
+          `A: ${currentEncounter.soap?.assessment?.clinicalImpression || 'No assessment'}`,
+          `P: ${currentEncounter.soap?.plan?.followUp?.instructions || 'No plan'}`
+        ].join('\n');
+        
+        try {
+          await apiService.updateEpisode(currentEncounter.episodeId, {
+            clinical_notes: clinicalNotes,
+            assessment_notes: currentEncounter.soap?.assessment?.clinicalImpression || '',
+            plan_notes: currentEncounter.soap?.plan?.followUp?.instructions || ''
+          });
+        } catch (apiError) {
+          console.warn('Failed to sync encounter to episode:', apiError);
+        }
+      }
+      
+      setLastSaved(new Date().toISOString());
+      setHasUnsavedChanges(false);
+      
+      return true;
+    } catch (error) {
+      console.error('Error saving encounter:', error);
+      setError(error.message);
+      // Fallback to localStorage only
+      const updatedEncounters = encounters.map(e => 
+        e.id === currentEncounter.id ? currentEncounter : e
+      );
+      
+      if (!encounters.find(e => e.id === currentEncounter.id)) {
+        updatedEncounters.push(currentEncounter);
+      }
+      
+      setEncounters(updatedEncounters);
+      StorageManager.saveEncounters(updatedEncounters);
+      setLastSaved(new Date().toISOString());
+      setHasUnsavedChanges(false);
+      
+      return true;
     }
-    
-    setEncounters(updatedEncounters);
-    StorageManager.saveEncounters(updatedEncounters);
-    setLastSaved(new Date().toISOString());
-    setHasUnsavedChanges(false);
-    
-    return true;
   }, [currentEncounter, encounters]);
 
   // Auto-save functionality
@@ -311,6 +362,7 @@ export const EncounterProvider = ({ children }) => {
     currentEncounter,
     setCurrentEncounter,
     loading,
+    error,
     autoSaveEnabled,
     setAutoSaveEnabled,
     lastSaved,

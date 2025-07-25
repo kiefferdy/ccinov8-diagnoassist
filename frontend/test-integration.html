@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Integration Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button { margin: 5px; padding: 10px; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>DiagnoAssist API Integration Test</h1>
+    
+    <div>
+        <button onclick="testHealthCheck()">Test Health Check</button>
+        <button onclick="testPatients()">Test Patients API</button>
+        <button onclick="testEpisodes()">Test Episodes API</button>
+        <button onclick="testCreatePatient()">Test Create Patient</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        
+        function addResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = message;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function testHealthCheck() {
+            try {
+                addResult('Testing health check...', 'info');
+                const response = await fetch(`${API_BASE_URL}/health`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                addResult(`✅ Health Check Success: ${data.status}`, 'success');
+                addResult(`<pre>${JSON.stringify(data, null, 2)}</pre>`, 'info');
+            } catch (error) {
+                addResult(`❌ Health Check Failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testPatients() {
+            try {
+                addResult('Testing patients API...', 'info');
+                const response = await fetch(`${API_BASE_URL}/api/v1/patients/`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                addResult(`✅ Patients API Success: Found ${data.data.length} patients`, 'success');
+                addResult(`<pre>${JSON.stringify(data.data.slice(0, 2), null, 2)}</pre>`, 'info');
+            } catch (error) {
+                addResult(`❌ Patients API Failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testEpisodes() {
+            try {
+                addResult('Testing episodes API...', 'info');
+                const response = await fetch(`${API_BASE_URL}/api/v1/episodes/`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                addResult(`✅ Episodes API Success: Found ${data.data ? data.data.length : data.length} episodes`, 'success');
+                const episodes = data.data || data;
+                addResult(`<pre>${JSON.stringify(episodes.slice(0, 2), null, 2)}</pre>`, 'info');
+            } catch (error) {
+                addResult(`❌ Episodes API Failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testCreatePatient() {
+            try {
+                addResult('Testing create patient...', 'info');
+                const testPatient = {
+                    medical_record_number: `TEST_${Date.now()}`,
+                    first_name: 'Integration',
+                    last_name: 'Test',
+                    date_of_birth: '1990-01-01',
+                    gender: 'other',
+                    email: `test_${Date.now()}@example.com`,
+                    phone: '+1-555-0123',
+                    address: '123 Test Street',
+                    medical_history: 'Test patient created by integration test',
+                    allergies: 'None',
+                    current_medications: 'None'
+                };
+                
+                const response = await fetch(`${API_BASE_URL}/api/v1/patients/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(testPatient)
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+                const data = await response.json();
+                addResult(`✅ Create Patient Success: Created patient with ID ${data.id}`, 'success');
+                addResult(`<pre>${JSON.stringify(data, null, 2)}</pre>`, 'info');
+            } catch (error) {
+                addResult(`❌ Create Patient Failed: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
