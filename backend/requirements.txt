@@ -10,14 +10,13 @@ pymongo==4.6.0
 # Authentication & Security
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-python-multipart==0.0.6
 
 # AI Integration
 google-generativeai==0.3.2
 httpx==0.25.2
 
 # Data validation
-pydantic==2.5.0
+pydantic==2.7.4
 pydantic-settings==2.1.0
 
 # Environment variables
@@ -30,7 +29,7 @@ fastapi-cors==0.0.6
 websockets==12.0
 
 # FHIR Integration
-fhir.resources==7.0.2
+fhir.resources==8.1.0
 fhirclient==4.1.0
 requests==2.31.0
 
@@ -38,7 +37,6 @@ requests==2.31.0
 pytest==7.4.3
 pytest-asyncio==0.21.1
 pytest-cov==4.1.0
-httpx==0.25.2
 
 # Development
 black==23.11.0
@@ -49,4 +47,4 @@ isort==5.12.0
 python-dateutil==2.8.2
 
 # Validation utilities
-email-validator==2.1.0
+email-validator==2.2.0
