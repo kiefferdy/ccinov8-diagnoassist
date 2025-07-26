@@ -8,9 +8,8 @@ import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 
-from app.core.clinical_decision_support import (
-    clinical_decision_support, ClinicalAlert, DiagnosisSuggestion, 
-    TreatmentRecommendation, RiskAssessment, AlertSeverity, AlertType
+from app.core.ai_medical_assistant import (
+    ai_medical_assistant, MedicalAlert, AIInsight, AlertSeverity, AlertType
 )
 from app.models.patient import PatientModel
 from app.models.encounter import EncounterModel
@@ -26,7 +25,7 @@ class ClinicalDecisionService:
     """High-level clinical decision support service"""
     
     def __init__(self):
-        self.cds_system = clinical_decision_support
+        self.ai_assistant = ai_medical_assistant
         self.patient_repo = patient_repository
         self.encounter_repo = encounter_repository
         
@@ -80,7 +79,7 @@ class ClinicalDecisionService:
                 "analysis_type": "encounter" if encounter else "patient"
             }
             
-            analysis = await self.cds_system.analyze_patient(patient, encounter, context)
+            analysis = await self.ai_assistant.analyze_patient(patient, encounter, context)
             
             # Cache the result
             self._analysis_cache[cache_key] = {
@@ -126,22 +125,25 @@ class ClinicalDecisionService:
             if not encounter:
                 raise NotFoundError("Encounter", encounter_id)
             
-            # Use diagnosis engine specifically
-            from app.core.clinical_decision_support import DiagnosisEngine
-            diagnosis_engine = DiagnosisEngine()
-            
-            # Add additional symptoms to context if provided
+            # Use AI assistant for diagnosis suggestions
             context = {"additional_symptoms": symptoms} if symptoms else None
             
-            # Get diagnosis-related alerts
-            alerts = await diagnosis_engine.analyze(patient, encounter, context)
+            # Get AI analysis with insights
+            analysis = await self.ai_assistant.analyze_patient(patient, encounter, context)
             
-            # Extract diagnosis suggestions from alerts
+            # Extract AI insights that are diagnosis-related
             suggestions = []
-            for alert in alerts:
-                if alert.alert_type == AlertType.DIAGNOSTIC_REMINDER and "diagnosis_suggestion" in alert.metadata:
-                    suggestion_data = alert.metadata["diagnosis_suggestion"]
-                    suggestions.append(suggestion_data)
+            for insight_data in analysis.get("ai_insights", []):
+                if insight_data.get("insight_type") == "differential_diagnosis":
+                    suggestions.append({
+                        "title": insight_data.get("title", "AI Diagnosis Suggestion"),
+                        "content": insight_data.get("content", ""),
+                        "confidence_score": insight_data.get("confidence_score", 0.5),
+                        "suggested_actions": insight_data.get("suggested_actions", []),
+                        "requires_followup": insight_data.get("requires_followup", True),
+                        "ai_generated": True,
+                        "disclaimer": insight_data.get("disclaimer", "AI-generated suggestion requiring physician review")
+                    })
             
             logger.info(f"Generated {len(suggestions)} diagnosis suggestions for encounter {encounter_id}")
             
@@ -172,13 +174,22 @@ class ClinicalDecisionService:
             if not patient:
                 raise NotFoundError("Patient", patient_id)
             
-            # Get treatment recommendations
-            recommendations = await self.cds_system.get_treatment_recommendations(diagnosis, patient)
+            # Note: Treatment recommendations are now integrated into AI analysis
+            # For specific diagnosis recommendations, use the main analyze_patient method
+            logger.warning("get_treatment_recommendations is deprecated. Use analyze_patient_encounter for AI-powered insights.")
             
-            # Convert to dict format
-            recommendation_dicts = [rec.model_dump() for rec in recommendations]
+            # Return basic recommendation to consult AI analysis
+            recommendation_dicts = [{
+                "treatment_type": "ai_consultation",
+                "treatment_name": "AI-Powered Treatment Analysis",
+                "indication": f"Treatment recommendations for {diagnosis}",
+                "recommendation": "Use the main AI analysis for comprehensive treatment suggestions",
+                "ai_generated": True,
+                "requires_physician_review": True,
+                "disclaimer": "For detailed treatment recommendations, use the comprehensive AI analysis feature"
+            }]
             
-            logger.info(f"Retrieved {len(recommendations)} treatment recommendations for {diagnosis}")
+            logger.info(f"Retrieved {len(recommendation_dicts)} treatment recommendations for {diagnosis}")
             
             return recommendation_dicts
             
@@ -207,31 +218,12 @@ class ClinicalDecisionService:
             if not patient:
                 raise NotFoundError("Patient", patient_id)
             
-            # Create temporary encounter with medications for analysis
-            from app.models.encounter import EncounterModel, EncounterTypeEnum
-            from app.models.soap import SOAPModel, PlanSection
+            # Use AI assistant's drug safety checker for medication analysis
+            drug_interaction_alerts = self.ai_assistant.drug_safety.check_drug_interactions(medications, patient_id)
+            allergy_alerts = self.ai_assistant.drug_safety.check_allergy_conflicts(medications, patient)
             
-            temp_encounter = EncounterModel(
-                patient_id=patient_id,
-                type=EncounterTypeEnum.MEDICATION_REVIEW,
-                soap=SOAPModel(
-                    plan=PlanSection(
-                        treatment_plan=f"Medications: {', '.join(medications)}"
-                    )
-                )
-            )
-            
-            # Use drug interaction engine specifically
-            from app.core.clinical_decision_support import DrugInteractionEngine
-            drug_engine = DrugInteractionEngine()
-            
-            alerts = await drug_engine.analyze(patient, temp_encounter)
-            
-            # Filter for drug-related alerts
-            drug_alerts = [
-                alert for alert in alerts 
-                if alert.alert_type in [AlertType.DRUG_INTERACTION, AlertType.ALLERGY_WARNING]
-            ]
+            # Combine all drug-related alerts
+            drug_alerts = drug_interaction_alerts + allergy_alerts
             
             logger.info(f"Found {len(drug_alerts)} drug-related alerts for {len(medications)} medications")
             
@@ -260,19 +252,29 @@ class ClinicalDecisionService:
             if not patient:
                 raise NotFoundError("Patient", patient_id)
             
-            # Use risk assessment engine specifically
-            from app.core.clinical_decision_support import RiskAssessmentEngine
-            risk_engine = RiskAssessmentEngine()
+            # Use main AI assistant analysis for risk assessment
+            analysis = await self.ai_assistant.analyze_patient(patient)
             
-            alerts = await risk_engine.analyze(patient)
-            
-            # Extract risk assessments from alerts
+            # Extract risk-related alerts
             risk_scores = {}
-            for alert in alerts:
-                if alert.alert_type == AlertType.RISK_ASSESSMENT and "risk_assessment" in alert.metadata:
-                    risk_data = alert.metadata["risk_assessment"]
-                    risk_type = risk_data["risk_type"]
-                    risk_scores[risk_type] = risk_data
+            for alert_data in analysis.get("alerts", []):
+                if alert_data.get("alert_type") == "risk_assessment":
+                    metadata = alert_data.get("metadata", {})
+                    if "risk_assessment" in metadata:
+                        risk_data = metadata["risk_assessment"]
+                        risk_type = risk_data.get("risk_type", "unknown")
+                        risk_scores[risk_type] = risk_data
+            
+            # If no specific risk scores found, provide basic assessment
+            if not risk_scores:
+                age = self._calculate_age(patient.demographics.date_of_birth) if patient.demographics.date_of_birth else None
+                if age and age >= 65:
+                    risk_scores["general"] = {
+                        "risk_type": "general",
+                        "risk_category": "age_related",
+                        "message": "Patient age indicates need for enhanced monitoring",
+                        "ai_note": "Comprehensive risk assessment available through main AI analysis"
+                    }
             
             logger.info(f"Calculated {len(risk_scores)} risk scores for patient {patient_id}")
             

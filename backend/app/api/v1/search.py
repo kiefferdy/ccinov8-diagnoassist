@@ -12,7 +12,7 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends, Query, Body, Path
 from datetime import datetime, timedelta
 
-from app.models.auth import UserModel, UserRole
+from app.models.auth import UserModel, UserRoleEnum
 from app.models.search import (
     SearchRequest, SearchResponse, SearchEntity, SearchType,
     QuickSearch, SavedSearch, SearchAnalytics, SearchSuggestion,
@@ -449,7 +449,7 @@ async def get_search_analytics(
     """
     try:
         # Check permissions for analytics
-        if current_user.role not in [UserRole.ADMIN, UserRole.DOCTOR]:
+        if current_user.role not in [UserRoleEnum.ADMIN, UserRoleEnum.DOCTOR]:
             raise PermissionDeniedError("Insufficient permissions for search analytics")
         
         end_date = datetime.utcnow()

@@ -16,7 +16,7 @@ from app.models.ai_models import (
 )
 from app.models.patient import PatientModel, PatientDemographics, MedicalBackground
 from app.models.encounter import EncounterModel, EncounterStatusEnum, EncounterTypeEnum
-from app.models.soap import SOAPModel, SubjectiveSection
+from app.models.soap import SOAPModel, SOAPSubjective
 from app.core.exceptions import AIServiceException
 
 
@@ -52,7 +52,7 @@ class TestAIService:
             type=EncounterTypeEnum.INITIAL,
             status=EncounterStatusEnum.DRAFT,
             soap=SOAPModel(
-                subjective=SubjectiveSection(
+                subjective=SOAPSubjective(
                     chief_complaint="Chest pain",
                     history_present_illness="Patient reports chest pain that started 2 hours ago"
                 )

@@ -14,7 +14,7 @@ from fastapi.responses import StreamingResponse
 from datetime import datetime, date
 from io import BytesIO
 
-from app.models.auth import UserModel, UserRole
+from app.models.auth import UserModel, UserRoleEnum
 from app.models.reports import (
     ReportModel, ReportRequest, ReportFilter, ReportType, ReportStatus,
     ReportScope, ReportFormat, PatientSummaryReport, EpisodeReport,
@@ -276,7 +276,7 @@ async def generate_practice_analytics(
     """
     try:
         # Check permissions for practice-wide analytics
-        if current_user.role not in [UserRole.ADMIN, UserRole.DOCTOR]:
+        if current_user.role not in [UserRoleEnum.ADMIN, UserRoleEnum.DOCTOR]:
             raise PermissionDeniedError("Insufficient permissions for practice analytics")
         
         report = await report_service.generate_practice_analytics_report(
@@ -531,7 +531,7 @@ async def get_clinical_quick_metrics(
     """
     try:
         # Check permissions
-        if current_user.role not in [UserRole.ADMIN, UserRole.DOCTOR]:
+        if current_user.role not in [UserRoleEnum.ADMIN, UserRoleEnum.DOCTOR]:
             raise PermissionDeniedError("Insufficient permissions for clinical metrics")
         
         # Build filters

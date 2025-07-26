@@ -69,6 +69,13 @@ class AuthorizationException(DiagnoAssistException):
         super().__init__(message, "AUTHORIZATION_ERROR")
 
 
+class PermissionDeniedError(DiagnoAssistException):
+    """Permission denied errors"""
+    
+    def __init__(self, message: str = "Permission denied"):
+        super().__init__(message, "PERMISSION_DENIED")
+
+
 class ConflictException(DiagnoAssistException):
     """Resource conflict errors"""
     

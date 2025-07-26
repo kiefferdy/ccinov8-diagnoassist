@@ -5,10 +5,10 @@ import pytest
 from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime
 
-from app.models.encounter import EncounterModel, EncounterStatusEnum, EncounterTypeEnum, Provider
+from app.models.encounter import EncounterModel, EncounterStatusEnum, EncounterTypeEnum, ProviderInfo
 from app.models.patient import PatientModel
 from app.models.episode import EpisodeModel
-from app.models.soap import SOAPModel, SubjectiveSection, AssessmentSection, PlanSection
+from app.models.soap import SOAPModel, SOAPSubjective, SOAPAssessment, SOAPPlan
 from app.models.auth import UserModel, UserRoleEnum, UserStatusEnum
 from app.services.encounter_service import EncounterService
 from app.services.auth_service import AuthService
@@ -44,7 +44,7 @@ class TestEncounterService:
             patient_id="P001",
             episode_id="E001",
             type=EncounterTypeEnum.ROUTINE_VISIT,
-            provider=Provider(
+            provider=ProviderInfo(
                 id="U001",
                 name="Dr. Test",
                 specialty="Internal Medicine",
@@ -68,7 +68,7 @@ class TestEncounterService:
         encounter = EncounterModel(
             patient_id="NONEXISTENT",
             type=EncounterTypeEnum.ROUTINE_VISIT,
-            provider=Provider(id="U001", name="Dr. Test", specialty="Test", department="Test")
+            provider=ProviderInfo(id="U001", name="Dr. Test", specialty="Test", department="Test")
         )
         
         service = EncounterService()
@@ -96,7 +96,7 @@ class TestEncounterService:
             patient_id="P001",
             episode_id="E001",
             type=EncounterTypeEnum.ROUTINE_VISIT,
-            provider=Provider(id="U001", name="Dr. Test", specialty="Test", department="Test")
+            provider=ProviderInfo(id="U001", name="Dr. Test", specialty="Test", department="Test")
         )
         
         service = EncounterService()
@@ -130,7 +130,7 @@ class TestEncounterService:
         mock_encounter.id = "ENC001"
         mock_encounter.status = EncounterStatusEnum.IN_PROGRESS
         mock_encounter.soap = SOAPModel(
-            subjective=SubjectiveSection(chief_complaint="Test complaint")
+            subjective=SOAPSubjective(chief_complaint="Test complaint")
         )
         mock_encounter_repo.get_by_id.return_value = mock_encounter
         
@@ -193,7 +193,7 @@ class TestEncounterService:
         mock_encounter = Mock()
         mock_encounter.id = "ENC001"
         mock_encounter.status = EncounterStatusEnum.IN_PROGRESS
-        mock_encounter.soap = SOAPModel(plan=PlanSection())
+        mock_encounter.soap = SOAPModel(plan=SOAPPlan())
         mock_encounter_repo.get_by_id.return_value = mock_encounter
         
         mock_cancelled_encounter = Mock()
@@ -213,11 +213,11 @@ class TestEncounterService:
         complete_encounter = Mock()
         complete_encounter.id = "ENC001"
         complete_encounter.soap = SOAPModel(
-            subjective=SubjectiveSection(
+            subjective=SOAPSubjective(
                 chief_complaint="Test complaint",
                 history_of_present_illness="Test HPI"
             ),
-            assessment=AssessmentSection(primary_diagnosis="Test diagnosis")
+            assessment=SOAPAssessment(primary_diagnosis="Test diagnosis")
         )
         mock_encounter_repo.get_by_id.return_value = complete_encounter
         
@@ -455,10 +455,10 @@ class TestServiceIntegration:
         from app.services.encounter_service import encounter_service
         
         # First, update SOAP to make it signable
-        from app.models.soap import SOAPModel, SubjectiveSection, AssessmentSection
+        from app.models.soap import SOAPModel, SOAPSubjective, SOAPAssessment
         complete_soap = SOAPModel(
-            subjective=SubjectiveSection(chief_complaint="Complete chief complaint"),
-            assessment=AssessmentSection(primary_diagnosis="Complete diagnosis")
+            subjective=SOAPSubjective(chief_complaint="Complete chief complaint"),
+            assessment=SOAPAssessment(primary_diagnosis="Complete diagnosis")
         )
         
         await encounter_service.update_soap(encounter.id, complete_soap)

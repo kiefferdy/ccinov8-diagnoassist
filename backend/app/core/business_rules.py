@@ -544,7 +544,7 @@ class EncounterManagementRules:
 class AuthorizationRules:
     """Business rules for authorization and access control"""
     
-    class UserRolePermissionRule(BusinessRule):
+    class UserRoleEnumPermissionRule(BusinessRule):
         """Validate user permissions for actions"""
         
         def __init__(self):
@@ -647,7 +647,7 @@ def register_default_rules():
     
     # Authorization rules
     business_rules_engine.register_rule(
-        AuthorizationRules.UserRolePermissionRule(),
+        AuthorizationRules.UserRoleEnumPermissionRule(),
         contexts=[
             RuleContext.PATIENT_REGISTRATION,
             RuleContext.ENCOUNTER_CREATION,

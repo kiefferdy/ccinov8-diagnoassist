@@ -20,7 +20,7 @@ from app.models.reports import (
     DashboardConfig, ReportTemplate, ReportSchedule, AnalyticsQuery,
     PatientDemographics, ClinicalMetrics, FinancialMetrics, UtilizationMetrics
 )
-from app.models.auth import UserModel, UserRole
+from app.models.auth import UserModel, UserRoleEnum
 from app.repositories.report_repository import ReportRepository
 from app.core.exceptions import ValidationException, NotFoundError, PermissionDeniedError
 from app.core.monitoring import monitoring
@@ -151,7 +151,7 @@ class ReportService:
             report = await self.get_report(report_id, user)
             
             # Check delete permissions
-            if report.requested_by != user.id and user.role != UserRole.ADMIN:
+            if report.requested_by != user.id and user.role != UserRoleEnum.ADMIN:
                 raise PermissionDeniedError("No permission to delete report")
             
             # Delete report
@@ -398,7 +398,7 @@ class ReportService:
             # Get report and check permissions
             report = await self.get_report(report_id, user)
             
-            if report.requested_by != user.id and user.role != UserRole.ADMIN:
+            if report.requested_by != user.id and user.role != UserRoleEnum.ADMIN:
                 raise PermissionDeniedError("No permission to share report")
             
             # Update shared users
@@ -495,7 +495,7 @@ class ReportService:
                 raise ValidationException("Invalid date range")
         
         # Check permissions for scope
-        if request.scope.value in ["organization", "system"] and user.role not in [UserRole.ADMIN, UserRole.DOCTOR]:
+        if request.scope.value in ["organization", "system"] and user.role not in [UserRoleEnum.ADMIN, UserRoleEnum.DOCTOR]:
             raise PermissionDeniedError("Insufficient permissions for report scope")
     
     async def _has_report_access(self, report: ReportModel, user: UserModel) -> bool:
@@ -506,7 +506,7 @@ class ReportService:
         if user.id in report.shared_with:
             return True
         
-        if user.role == UserRole.ADMIN:
+        if user.role == UserRoleEnum.ADMIN:
             return True
         
         if report.is_public:
@@ -522,7 +522,7 @@ class ReportService:
         if user.id in query.allowed_users:
             return True
         
-        if user.role == UserRole.ADMIN:
+        if user.role == UserRoleEnum.ADMIN:
             return True
         
         return False

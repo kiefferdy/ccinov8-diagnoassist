@@ -10,8 +10,8 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from app.config import settings
 from app.models.patient import PatientModel, PatientDemographics, MedicalBackground
 from app.models.episode import EpisodeModel, EpisodeCategoryEnum
-from app.models.encounter import EncounterModel, EncounterTypeEnum, Provider, WorkflowInfo
-from app.models.soap import SOAPModel, SubjectiveSection
+from app.models.encounter import EncounterModel, EncounterTypeEnum, ProviderInfo, WorkflowInfo
+from app.models.soap import SOAPModel, SOAPSubjective
 from app.models.auth import UserModel, UserProfile, UserRoleEnum, UserStatusEnum
 from app.core.security import get_password_hash
 
@@ -69,10 +69,10 @@ def sample_patient_data() -> Dict[str, Any]:
         "demographics": PatientDemographics(
             name="John Doe",
             date_of_birth="1985-01-15",
-            gender="Male",
+            gender="male",
             phone="+1-555-0123",
             email="john.doe@test.com",
-            address="123 Test St, Test City, TC 12345"
+            address={"street": "123 Test St", "city": "Test City", "state": "TC", "zip": "12345"}
         ),
         "medical_background": MedicalBackground()
     }
@@ -109,14 +109,14 @@ def sample_encounter_data() -> Dict[str, Any]:
         "patient_id": "P001",
         "episode_id": "E001",
         "type": EncounterTypeEnum.ROUTINE_VISIT,
-        "provider": Provider(
+        "provider": ProviderInfo(
             id="U001",
             name="Dr. Test Doctor",
             specialty="Internal Medicine",
             department="Internal Medicine"
         ),
         "soap": SOAPModel(
-            subjective=SubjectiveSection(
+            subjective=SOAPSubjective(
                 chief_complaint="Test complaint"
             )
         ),
@@ -155,7 +155,7 @@ def sample_user(sample_user_data: Dict[str, Any]) -> UserModel:
 
 
 @pytest.fixture
-async def patient_repository(test_db: AsyncIOMotorDatabase):
+def patient_repository(test_db: AsyncIOMotorDatabase):
     """Patient repository with test database."""
     from app.repositories.patient_repository import PatientRepository
     
@@ -167,7 +167,7 @@ async def patient_repository(test_db: AsyncIOMotorDatabase):
 
 
 @pytest.fixture
-async def episode_repository(test_db: AsyncIOMotorDatabase):
+def episode_repository(test_db: AsyncIOMotorDatabase):
     """Episode repository with test database."""
     from app.repositories.episode_repository import EpisodeRepository
     
@@ -179,7 +179,7 @@ async def episode_repository(test_db: AsyncIOMotorDatabase):
 
 
 @pytest.fixture
-async def encounter_repository(test_db: AsyncIOMotorDatabase):
+def encounter_repository(test_db: AsyncIOMotorDatabase):
     """Encounter repository with test database."""
     from app.repositories.encounter_repository import EncounterRepository
     
@@ -191,7 +191,7 @@ async def encounter_repository(test_db: AsyncIOMotorDatabase):
 
 
 @pytest.fixture
-async def user_repository(test_db: AsyncIOMotorDatabase):
+def user_repository(test_db: AsyncIOMotorDatabase):
     """User repository with test database."""
     from app.repositories.user_repository import UserRepository
     

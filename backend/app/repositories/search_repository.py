@@ -22,7 +22,7 @@ from app.models.search import (
     SearchHistory, SearchAnalytics, SearchSuggestion, QuickSearch,
     SearchIndex, SortField, SortOrder
 )
-from app.models.auth import UserModel, UserRole
+from app.models.auth import UserModel, UserRoleEnum
 from app.core.exceptions import ValidationException, NotFoundError
 
 logger = logging.getLogger(__name__)
@@ -419,7 +419,7 @@ class SearchRepository:
             Access control query
         """
         # Admin users can see everything
-        if user.role == UserRole.ADMIN:
+        if user.role == UserRoleEnum.ADMIN:
             return {}
         
         # Entity-specific access control

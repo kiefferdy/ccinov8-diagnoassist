@@ -236,7 +236,7 @@ class PerformanceIntegrator:
                 id="perf_test_user",
                 email="perf@test.com",
                 name="Performance Test User",
-                role=UserRole.DOCTOR,
+                role=UserRoleEnum.DOCTOR,
                 is_active=True
             )
             

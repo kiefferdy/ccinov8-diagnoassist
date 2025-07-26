@@ -12,7 +12,7 @@ import asyncio
 from datetime import datetime
 from unittest.mock import Mock, AsyncMock, patch
 
-from app.models.auth import UserModel, UserRole
+from app.models.auth import UserModel, UserRoleEnum
 from app.models.template import (
     TemplateModel, TemplateCreateRequest, TemplateUpdateRequest,
     TemplateSearchRequest, TemplateApplicationRequest, TemplateSection,
@@ -34,7 +34,7 @@ class TestTemplateService:
             id="user123",
             email="test@example.com",
             name="Test User",
-            role=UserRole.DOCTOR,
+            role=UserRoleEnum.DOCTOR,
             is_active=True,
             is_verified=True
         )
@@ -46,7 +46,7 @@ class TestTemplateService:
             id="admin123",
             email="admin@example.com",
             name="Admin User",
-            role=UserRole.ADMIN,
+            role=UserRoleEnum.ADMIN,
             is_active=True,
             is_verified=True
         )
@@ -194,7 +194,7 @@ class TestTemplateService:
             id="student123",
             email="student@example.com",
             name="Student User",
-            role=UserRole.STUDENT,
+            role=UserRoleEnum.STUDENT,
             is_active=True,
             is_verified=True
         )
@@ -650,7 +650,7 @@ class TestTemplateRepository:
             id="user123",
             email="test@example.com",
             name="Test User",
-            role=UserRole.DOCTOR,
+            role=UserRoleEnum.DOCTOR,
             is_active=True,
             is_verified=True
         )

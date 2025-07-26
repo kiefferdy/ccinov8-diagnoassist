@@ -9,10 +9,10 @@ from httpx import AsyncClient
 
 from app.main import app
 from app.models.patient import PatientModel, PatientDemographics, MedicalBackground
-from app.models.encounter import EncounterModel, EncounterStatusEnum, EncounterTypeEnum, Provider
+from app.models.encounter import EncounterModel, EncounterStatusEnum, EncounterTypeEnum, ProviderInfo
 from app.models.episode import EpisodeModel, EpisodeCategoryEnum
 from app.models.auth import UserModel, UserRoleEnum, UserStatusEnum, UserLoginRequest, UserRegistrationRequest, UserProfile
-from app.models.soap import SOAPModel, SubjectiveSection, AssessmentSection, PlanSection
+from app.models.soap import SOAPModel, SOAPSubjective, SOAPAssessment, SOAPPlan
 from app.core.security import create_access_token
 
 
@@ -141,7 +141,7 @@ class TestEncounterAPI:
             with patch('app.api.v1.encounters.encounter_service') as mock_service:
                 updated_encounter = sample_encounter.model_copy()
                 updated_encounter.soap = SOAPModel(
-                    subjective=SubjectiveSection(chief_complaint="Updated complaint")
+                    subjective=SOAPSubjective(chief_complaint="Updated complaint")
                 )
                 mock_service.update_soap.return_value = updated_encounter
                 

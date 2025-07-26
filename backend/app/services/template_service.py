@@ -18,13 +18,13 @@ from app.models.template import (
     TemplateUsageStats, TemplateValidationResult, TemplateType, TemplateScope,
     TemplateCategory, TemplateField, TemplateSection
 )
-from app.models.auth import UserModel, UserRole
+from app.models.auth import UserModel, UserRoleEnum
 from app.models.encounter import EncounterModel
 from app.models.soap import SOAPModel
 from app.repositories.template_repository import TemplateRepository
 from app.services.encounter_service import EncounterService
 from app.core.exceptions import ValidationException, NotFoundError, PermissionDeniedError
-from app.core.business_rules import business_rules
+from app.core.business_rules import business_rules_engine
 from app.core.monitoring import monitoring
 
 logger = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ class TemplateService:
             
             # Check permissions for scope
             if template_data.scope in [TemplateScope.ORGANIZATION, TemplateScope.PUBLIC]:
-                if user.role not in [UserRole.ADMIN, UserRole.DOCTOR]:
+                if user.role not in [UserRoleEnum.ADMIN, UserRoleEnum.DOCTOR]:
                     raise PermissionDeniedError("Insufficient permissions for template scope")
             
             # Generate keywords for search

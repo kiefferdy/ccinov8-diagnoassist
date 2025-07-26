@@ -19,7 +19,7 @@ from app.models.template import (
     TemplateSearchRequest, TemplateUsageStats, TemplateScope,
     TemplateType, TemplateCategory
 )
-from app.models.auth import UserModel, UserRole
+from app.models.auth import UserModel, UserRoleEnum
 from app.core.exceptions import NotFoundError, ValidationException, PermissionDeniedError
 
 logger = logging.getLogger(__name__)
@@ -185,7 +185,7 @@ class TemplateRepository(BaseRepository[TemplateModel]):
                 raise NotFoundError("Template not found")
             
             # Check delete permissions (only owner or admin)
-            if template.owner_id != user.id and user.role != UserRole.ADMIN:
+            if template.owner_id != user.id and user.role != UserRoleEnum.ADMIN:
                 raise PermissionDeniedError("No permission to delete template")
             
             # Soft delete
@@ -519,7 +519,7 @@ class TemplateRepository(BaseRepository[TemplateModel]):
         if template.owner_id == user.id:
             return True
         
-        if user.role == UserRole.ADMIN:
+        if user.role == UserRoleEnum.ADMIN:
             return True
         
         # Add additional edit permission logic as needed

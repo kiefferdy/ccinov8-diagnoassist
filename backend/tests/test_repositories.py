@@ -76,16 +76,18 @@ class TestPatientRepository:
             PatientModel(
                 demographics=PatientDemographics(
                     name="John Smith",
+                    date_of_birth="1980-01-15",
                     email="john.smith@test.com",
-                    gender="Male"
+                    gender="male"
                 ),
                 medical_background=MedicalBackground()
             ),
             PatientModel(
                 demographics=PatientDemographics(
                     name="Jane Doe",
+                    date_of_birth="1990-03-22",
                     email="jane.doe@test.com", 
-                    gender="Female"
+                    gender="female"
                 ),
                 medical_background=MedicalBackground()
             )
@@ -111,6 +113,8 @@ class TestPatientRepository:
             patient = PatientModel(
                 demographics=PatientDemographics(
                     name=f"Patient {i}",
+                    date_of_birth="1980-01-01",
+                    gender="male",
                     email=f"patient{i}@test.com"
                 ),
                 medical_background=MedicalBackground()
@@ -425,6 +429,8 @@ class TestRepositoryErrorHandling:
         duplicate_patient = PatientModel(
             demographics=PatientDemographics(
                 name="Different Name",
+                date_of_birth="1985-01-15",
+                gender="female",
                 email=sample_patient.demographics.email  # Same email
             ),
             medical_background=MedicalBackground()

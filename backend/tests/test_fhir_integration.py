@@ -6,8 +6,8 @@ from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime
 
 from app.models.patient import PatientModel, PatientDemographics, MedicalBackground
-from app.models.encounter import EncounterModel, EncounterTypeEnum, EncounterStatusEnum, Provider
-from app.models.soap import SOAPModel, SubjectiveSection, ObjectiveSection, AssessmentSection, PlanSection, VitalSigns
+from app.models.encounter import EncounterModel, EncounterTypeEnum, EncounterStatusEnum, ProviderInfo
+from app.models.soap import SOAPModel, SOAPSubjective, SOAPObjective, SOAPAssessment, SOAPPlan, VitalSigns
 from app.models.fhir_models import FHIRSyncResponse
 from app.repositories.fhir_repository import FHIRRepository
 from app.services.fhir_sync_service import FHIRSyncService, SyncStrategy
@@ -87,11 +87,11 @@ class TestFHIRMappers:
     def test_soap_to_fhir_observations(self):
         """Test converting SOAP data to FHIR observations"""
         soap = SOAPModel(
-            subjective=SubjectiveSection(
+            subjective=SOAPSubjective(
                 chief_complaint="Chest pain",
                 history_of_present_illness="Patient reports chest pain for 2 hours"
             ),
-            objective=ObjectiveSection(
+            objective=SOAPObjective(
                 vital_signs=VitalSigns(
                     blood_pressure="140/90 mmHg",
                     heart_rate="85 bpm",
@@ -121,7 +121,7 @@ class TestFHIRMappers:
             patient_id="P001",
             type=EncounterTypeEnum.ROUTINE_VISIT,
             status=EncounterStatusEnum.SIGNED,
-            provider=Provider(
+            provider=ProviderInfo(
                 id="U001",
                 name="Dr. Test",
                 specialty="Internal Medicine",
@@ -193,7 +193,7 @@ class TestFHIRRepository:
         mock_get_client.return_value = mock_client
         
         soap = SOAPModel(
-            subjective=SubjectiveSection(chief_complaint="Test complaint")
+            subjective=SOAPSubjective(chief_complaint="Test complaint")
         )
         
         repo = FHIRRepository()

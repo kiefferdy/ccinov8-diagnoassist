@@ -36,7 +36,7 @@ class TemplateInitializer:
                 id="system",
                 email="system@diagnoassist.com",
                 name="System",
-                role=UserRole.ADMIN,
+                role=UserRoleEnum.ADMIN,
                 is_active=True,
                 is_verified=True
             )

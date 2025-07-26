@@ -24,7 +24,7 @@ from app.models.search import (
     SavedSearch, SearchHistory, SearchAnalytics, SearchSuggestion,
     QuickSearch, SearchTemplate, SearchFacet
 )
-from app.models.auth import UserModel, UserRole
+from app.models.auth import UserModel, UserRoleEnum
 from app.models.patient import PatientModel
 from app.models.episode import EpisodeModel
 from app.models.encounter import EncounterModel
@@ -53,7 +53,7 @@ class TestSearchService:
             id="user123",
             email="test@example.com",
             name="Test User",
-            role=UserRole.DOCTOR,
+            role=UserRoleEnum.DOCTOR,
             is_active=True
         )
     
@@ -333,7 +333,7 @@ class TestSearchService:
             id="inactive123",
             email="inactive@example.com", 
             name="Inactive User",
-            role=UserRole.NURSE,
+            role=UserRoleEnum.NURSE,
             is_active=False
         )
         
@@ -379,7 +379,7 @@ class TestSearchRepository:
             id="user123",
             email="test@example.com",
             name="Test User",
-            role=UserRole.DOCTOR,
+            role=UserRoleEnum.DOCTOR,
             is_active=True
         )
     
@@ -515,7 +515,7 @@ class TestSearchAPI:
                 id="user123",
                 email="test@example.com",
                 name="Test User", 
-                role=UserRole.DOCTOR,
+                role=UserRoleEnum.DOCTOR,
                 is_active=True
             )
             
@@ -547,7 +547,7 @@ class TestSearchAPI:
                 id="user123",
                 email="test@example.com",
                 name="Test User",
-                role=UserRole.DOCTOR,
+                role=UserRoleEnum.DOCTOR,
                 is_active=True
             )
             
@@ -576,7 +576,7 @@ class TestSearchAPI:
                 id="user123",
                 email="test@example.com",
                 name="Test User",
-                role=UserRole.DOCTOR,
+                role=UserRoleEnum.DOCTOR,
                 is_active=True
             )
             
@@ -598,7 +598,7 @@ class TestSearchAPI:
                 id="user123",
                 email="test@example.com",
                 name="Test User",
-                role=UserRole.DOCTOR,
+                role=UserRoleEnum.DOCTOR,
                 is_active=True
             )
             
@@ -620,7 +620,7 @@ class TestSearchAPI:
                 id="user123",
                 email="test@example.com",
                 name="Test User",
-                role=UserRole.DOCTOR,
+                role=UserRoleEnum.DOCTOR,
                 is_active=True
             )
             
@@ -653,7 +653,7 @@ class TestSearchAPI:
                 id="user123",
                 email="test@example.com",
                 name="Test User",
-                role=UserRole.DOCTOR,  # Admin access required
+                role=UserRoleEnum.DOCTOR,  # Admin access required
                 is_active=True
             )
             
@@ -702,7 +702,7 @@ class TestSearchPerformance:
         )
         repository.search.return_value = fast_response
         
-        user = UserModel(id="user123", email="test@example.com", name="Test", role=UserRole.DOCTOR, is_active=True)
+        user = UserModel(id="user123", email="test@example.com", name="Test", role=UserRoleEnum.DOCTOR, is_active=True)
         search_request = SearchRequest(query="test", entities=[SearchEntity.PATIENT])
         
         start_time = datetime.utcnow()
@@ -727,7 +727,7 @@ class TestSearchPerformance:
         )
         repository.search.return_value = search_response
         
-        user = UserModel(id="user123", email="test@example.com", name="Test", role=UserRole.DOCTOR, is_active=True)
+        user = UserModel(id="user123", email="test@example.com", name="Test", role=UserRoleEnum.DOCTOR, is_active=True)
         search_request = SearchRequest(query="cached_test", entities=[SearchEntity.PATIENT])
         
         # First search

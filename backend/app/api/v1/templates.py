@@ -12,7 +12,7 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends, Query, Body, Path
 from datetime import datetime
 
-from app.models.auth import UserModel, UserRole
+from app.models.auth import UserModel, UserRoleEnum
 from app.models.template import (
     TemplateModel, TemplateCreateRequest, TemplateUpdateRequest,
     TemplateSearchRequest, TemplateApplicationRequest, TemplateType,

@@ -21,7 +21,7 @@ from app.models.reports import (
     DiagnosticTrend, MedicationTrend, OutcomeMetric, DashboardConfig,
     ReportTemplate, ReportSchedule, AnalyticsQuery
 )
-from app.models.auth import UserModel, UserRole
+from app.models.auth import UserModel, UserRoleEnum
 from app.core.exceptions import NotFoundError, ValidationException
 
 logger = logging.getLogger(__name__)

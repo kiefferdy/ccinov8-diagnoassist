@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Dict, Any
 from fastapi import APIRouter, HTTPException, Depends, Query
 
-from app.models.auth import UserModel, UserRole
+from app.models.auth import UserModel, UserRoleEnum
 from app.middleware.auth_middleware import get_current_user, require_admin
 from app.core.performance_integration import performance_integrator, get_performance_health_check
 from app.core.performance import performance_optimizer
@@ -66,7 +66,7 @@ async def get_performance_stats(
     """
     try:
         # Check permissions
-        if current_user.role not in [UserRole.DOCTOR, UserRole.ADMIN]:
+        if current_user.role not in [UserRoleEnum.DOCTOR, UserRoleEnum.ADMIN]:
             raise HTTPException(
                 status_code=403, 
                 detail="Insufficient permissions for performance statistics"
@@ -139,7 +139,7 @@ async def get_cache_statistics(
     """
     try:
         # Check permissions
-        if current_user.role not in [UserRole.DOCTOR, UserRole.ADMIN]:
+        if current_user.role not in [UserRoleEnum.DOCTOR, UserRoleEnum.ADMIN]:
             raise HTTPException(
                 status_code=403,
                 detail="Insufficient permissions for cache statistics"
@@ -264,7 +264,7 @@ async def get_batch_processing_stats(
     """
     try:
         # Check permissions
-        if current_user.role not in [UserRole.DOCTOR, UserRole.ADMIN]:
+        if current_user.role not in [UserRoleEnum.DOCTOR, UserRoleEnum.ADMIN]:
             raise HTTPException(
                 status_code=403,
                 detail="Insufficient permissions for batch processing statistics"
@@ -356,7 +356,7 @@ async def get_performance_recommendations(
     """
     try:
         # Check permissions
-        if current_user.role not in [UserRole.DOCTOR, UserRole.ADMIN]:
+        if current_user.role not in [UserRoleEnum.DOCTOR, UserRoleEnum.ADMIN]:
             raise HTTPException(
                 status_code=403,
                 detail="Insufficient permissions for performance recommendations"

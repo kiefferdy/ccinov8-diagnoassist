@@ -16,7 +16,7 @@ from app.models.ai_models import (
     ClinicalInsights, ChatResponse, VoiceProcessingResult,
     DocumentationCompletionResponse, ConfidenceLevel
 )
-from app.models.auth import UserModel, UserRole
+from app.models.auth import UserModel, UserRoleEnum
 from app.core.exceptions import AIServiceException
 
 
@@ -35,7 +35,7 @@ class TestAIAPI:
             id="user123",
             email="doctor@example.com",
             name="Dr. Smith",
-            role=UserRole.DOCTOR,
+            role=UserRoleEnum.DOCTOR,
             is_active=True,
             is_verified=True
         )
@@ -279,7 +279,7 @@ class TestAIAPI:
             id="user456",
             email="nurse@example.com", 
             name="Nurse Jane",
-            role=UserRole.NURSE,
+            role=UserRoleEnum.NURSE,
             is_active=True,
             is_verified=True
         )
@@ -293,7 +293,7 @@ class TestAIAPI:
             id="admin123",
             email="admin@example.com",
             name="Admin User", 
-            role=UserRole.ADMIN,
+            role=UserRoleEnum.ADMIN,
             is_active=True,
             is_verified=True
         )

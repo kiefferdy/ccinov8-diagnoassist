@@ -18,7 +18,7 @@ from app.models.search import (
     SavedSearch, SearchHistory, SearchAnalytics, SearchSuggestion,
     QuickSearch, SearchTemplate, SearchConfiguration
 )
-from app.models.auth import UserModel, UserRole
+from app.models.auth import UserModel, UserRoleEnum
 from app.repositories.search_repository import SearchRepository
 from app.core.exceptions import ValidationException, NotFoundError, PermissionDeniedError
 from app.core.monitoring import monitoring
@@ -483,7 +483,7 @@ class SearchService:
             raise ValidationException("Limit too high")
         
         # Check permissions for scope
-        if search_request.scope.value == "organization" and user.role not in [UserRole.ADMIN, UserRole.DOCTOR]:
+        if search_request.scope.value == "organization" and user.role not in [UserRoleEnum.ADMIN, UserRoleEnum.DOCTOR]:
             raise PermissionDeniedError("Insufficient permissions for organization-wide search")
     
     def _generate_cache_key(

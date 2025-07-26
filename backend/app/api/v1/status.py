@@ -13,7 +13,7 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends, Body, Query
 from datetime import datetime
 
-from app.models.auth import UserModel, UserRole
+from app.models.auth import UserModel, UserRoleEnum
 from app.middleware.auth_middleware import get_current_user, require_admin
 from app.services.status_service import (
     status_service, StatusType, StatusLevel, UserStatus
@@ -34,7 +34,7 @@ async def create_notification(
     title: str = Body(..., description="Notification title"),
     message: str = Body(..., description="Notification message"),
     target_users: Optional[List[str]] = Body(None, description="Specific users to notify"),
-    target_roles: Optional[List[UserRole]] = Body(None, description="Specific roles to notify"),
+    target_roles: Optional[List[UserRoleEnum]] = Body(None, description="Specific roles to notify"),
     broadcast_all: bool = Body(False, description="Broadcast to all users"),
     expires_in_minutes: Optional[int] = Body(None, description="Expiration time in minutes"),
     current_user: UserModel = Depends(require_admin)
@@ -340,7 +340,7 @@ async def create_medical_alert(
     severity: StatusLevel = Body(..., description="Alert severity"),
     description: str = Body(..., description="Alert description"),
     encounter_id: Optional[str] = Body(None, description="Encounter ID"),
-    target_roles: Optional[List[UserRole]] = Body(None, description="Roles to notify"),
+    target_roles: Optional[List[UserRoleEnum]] = Body(None, description="Roles to notify"),
     current_user: UserModel = Depends(get_current_user)
 ):
     """

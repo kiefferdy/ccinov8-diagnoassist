@@ -106,9 +106,9 @@ class MonitoringService:
             encounter_metrics = self._get_encounter_metrics(time_window_minutes)
             business_metrics["encounters"] = encounter_metrics
             
-            # Clinical decision support metrics
+            # AI medical assistant metrics
             cds_metrics = self._get_cds_metrics(time_window_minutes)
-            business_metrics["clinical_decision_support"] = cds_metrics
+            business_metrics["ai_medical_assistant"] = cds_metrics
             
             # FHIR integration metrics
             fhir_metrics = self._get_fhir_metrics(time_window_minutes)

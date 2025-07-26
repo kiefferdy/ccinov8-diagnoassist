@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from dataclasses import dataclass
 
-from app.models.auth import UserModel, UserRole
+from app.models.auth import UserModel, UserRoleEnum
 from app.core.websocket_manager import websocket_manager, MessageType, ConnectionType
 from app.core.exceptions import ValidationException
 from app.core.monitoring import monitoring
@@ -67,7 +67,7 @@ class StatusNotification:
     title: str
     message: str
     target_users: Optional[List[str]] = None
-    target_roles: Optional[List[UserRole]] = None
+    target_roles: Optional[List[UserRoleEnum]] = None
     broadcast_all: bool = False
     created_at: datetime = None
     expires_at: Optional[datetime] = None
@@ -147,7 +147,7 @@ class StatusService:
         title: str,
         message: str,
         target_users: Optional[List[str]] = None,
-        target_roles: Optional[List[UserRole]] = None,
+        target_roles: Optional[List[UserRoleEnum]] = None,
         broadcast_all: bool = False,
         expires_in_minutes: Optional[int] = None,
         metadata: Optional[Dict[str, Any]] = None
@@ -333,7 +333,7 @@ class StatusService:
         alert_type: str,
         severity: StatusLevel,
         description: str,
-        target_roles: Optional[List[UserRole]] = None
+        target_roles: Optional[List[UserRoleEnum]] = None
     ) -> StatusNotification:
         """
         Create a medical alert notification
@@ -364,7 +364,7 @@ class StatusService:
                 level=severity,
                 title=title,
                 message=description,
-                target_roles=target_roles or [UserRole.DOCTOR, UserRole.NURSE],
+                target_roles=target_roles or [UserRoleEnum.DOCTOR, UserRoleEnum.NURSE],
                 expires_in_minutes=60,  # Medical alerts expire in 1 hour
                 metadata=metadata
             )
@@ -615,11 +615,15 @@ class StatusService:
     
     def _start_background_tasks(self):
         """Start background maintenance tasks"""
-        # Cleanup expired notifications every 5 minutes
-        asyncio.create_task(self._cleanup_expired_notifications())
-        
-        # Update user presence every minute
-        asyncio.create_task(self._update_offline_users())
+        try:
+            # Cleanup expired notifications every 5 minutes
+            asyncio.create_task(self._cleanup_expired_notifications())
+            
+            # Update user presence every minute
+            asyncio.create_task(self._update_offline_users())
+        except RuntimeError:
+            # No running event loop, defer task creation
+            logger.debug("No running event loop, deferring background task creation")
     
     async def _cleanup_expired_notifications(self):
         """Clean up expired notifications"""

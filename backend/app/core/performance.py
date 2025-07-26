@@ -409,8 +409,16 @@ class AsyncBatchProcessor:
         self._batches[batch_type] = []
         self._last_flush[batch_type] = datetime.utcnow()
     
+    def _ensure_flush_task(self):
+        """Ensure flush task is running if there's an event loop"""
+        if self._flush_task is None:
+            self._start_flush_task()
+    
     async def add_item(self, batch_type: str, item: Any):
         """Add item to batch"""
+        # Ensure flush task is running
+        self._ensure_flush_task()
+        
         async with self._lock:
             if batch_type not in self._batches:
                 raise ValueError(f"Unknown batch type: {batch_type}")
@@ -475,7 +483,13 @@ class AsyncBatchProcessor:
                     logger.error(f"Error in batch flush task: {e}")
         
         if self._flush_task is None:
-            self._flush_task = asyncio.create_task(flush_task())
+            try:
+                # Only create task if there's a running event loop
+                self._flush_task = asyncio.create_task(flush_task())
+            except RuntimeError:
+                # No running event loop, defer task creation
+                logger.debug("No running event loop, deferring flush task creation")
+                self._flush_task = None
     
     async def _flush_all_batches(self):
         """Flush all batches that have pending items"""

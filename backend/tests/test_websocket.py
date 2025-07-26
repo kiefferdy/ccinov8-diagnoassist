@@ -34,7 +34,7 @@ class TestWebSocketManager:
             id="user123",
             email="test@example.com",
             name="Test User",
-            role=UserRole.DOCTOR,
+            role=UserRoleEnum.DOCTOR,
             is_active=True,
             is_verified=True
         )
@@ -178,7 +178,7 @@ class TestRealTimeService:
             id="user123",
             email="test@example.com",
             name="Test User",
-            role=UserRole.DOCTOR,
+            role=UserRoleEnum.DOCTOR,
             is_active=True,
             is_verified=True
         )
@@ -294,7 +294,7 @@ class TestChatService:
             id="user123",
             email="test@example.com",
             name="Test User",
-            role=UserRole.DOCTOR,
+            role=UserRoleEnum.DOCTOR,
             is_active=True,
             is_verified=True
         )
@@ -390,7 +390,7 @@ class TestCollaborationService:
             id="user1",
             email="user1@example.com",
             name="User One",
-            role=UserRole.DOCTOR,
+            role=UserRoleEnum.DOCTOR,
             is_active=True,
             is_verified=True
         )
@@ -402,7 +402,7 @@ class TestCollaborationService:
             id="user2",
             email="user2@example.com",
             name="User Two",
-            role=UserRole.NURSE,
+            role=UserRoleEnum.NURSE,
             is_active=True,
             is_verified=True
         )
@@ -536,7 +536,7 @@ class TestStatusService:
             id="user123",
             email="test@example.com",
             name="Test User",
-            role=UserRole.DOCTOR,
+            role=UserRoleEnum.DOCTOR,
             is_active=True,
             is_verified=True
         )
@@ -637,7 +637,7 @@ class TestWebSocketPerformance:
                 id=f"user_{i}",
                 email=f"user{i}@example.com",
                 name=f"User {i}",
-                role=UserRole.DOCTOR,
+                role=UserRoleEnum.DOCTOR,
                 is_active=True,
                 is_verified=True
             )
@@ -695,7 +695,7 @@ class TestWebSocketPerformance:
             id="test_user",
             email="test@example.com",
             name="Test User",
-            role=UserRole.DOCTOR,
+            role=UserRoleEnum.DOCTOR,
             is_active=True,
             is_verified=True
         )
