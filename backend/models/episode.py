@@ -63,6 +63,7 @@ class Episode(Base):
     
     # Relationships
     patient = relationship("Patient", back_populates="episodes")
+    encounters = relationship("Encounter", back_populates="episode", cascade="all, delete-orphan")
     diagnoses = relationship("Diagnosis", back_populates="episode", cascade="all, delete-orphan")
     treatments = relationship("Treatment", back_populates="episode", cascade="all, delete-orphan")
     

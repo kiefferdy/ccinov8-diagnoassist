@@ -27,6 +27,7 @@ Usage:
 from .base_repository import BaseRepository
 from .patient_repository import PatientRepository
 from .episode_repository import EpisodeRepository
+from .encounter_repository import EncounterRepository
 from .diagnosis_repository import DiagnosisRepository
 from .treatment_repository import TreatmentRepository
 from .fhir_repository import FHIRResourceRepository
@@ -48,7 +49,8 @@ __all__ = [
     
     # Specialized repositories
     "PatientRepository",
-    "EpisodeRepository", 
+    "EpisodeRepository",
+    "EncounterRepository",
     "DiagnosisRepository",
     "TreatmentRepository",
     "FHIRResourceRepository",
@@ -78,6 +80,7 @@ def create_repositories(db_session):
     return {
         'patient': PatientRepository(db_session),
         'episode': EpisodeRepository(db_session),
+        'encounter': EncounterRepository(db_session),
         'diagnosis': DiagnosisRepository(db_session),
         'treatment': TreatmentRepository(db_session),
         'fhir_resource': FHIRResourceRepository(db_session)
@@ -87,6 +90,7 @@ def create_repositories(db_session):
 REPOSITORY_REGISTRY = {
     'patient': PatientRepository,
     'episode': EpisodeRepository,
+    'encounter': EncounterRepository,
     'diagnosis': DiagnosisRepository,
     'treatment': TreatmentRepository,
     'fhir_resource': FHIRResourceRepository
@@ -110,6 +114,7 @@ try:
     from sqlalchemy.exc import SQLAlchemyError
     from models.patient import Patient
     from models.episode import Episode
+    from models.encounter import Encounter
     from models.diagnosis import Diagnosis
     from models.treatment import Treatment
     from models.fhir_resource import FHIRResource

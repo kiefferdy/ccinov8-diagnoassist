@@ -55,6 +55,7 @@ class Patient(Base):
     
     # Relationships
     episodes = relationship("Episode", back_populates="patient", cascade="all, delete-orphan")
+    encounters = relationship("Encounter", back_populates="patient", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Patient(id='{self.id}', mrn='{self.medical_record_number}', name='{self.first_name} {self.last_name}')>"

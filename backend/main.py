@@ -63,6 +63,7 @@ components_status = {
     "api_router": False,
     "patients_router": False,
     "episodes_router": False,
+    "encounters_router": False,
     "treatments_router": False,
     "diagnoses_router": False,
     "fhir_router": False,
@@ -118,6 +119,10 @@ if safe_include_router("api.patients", "router"):
 if safe_include_router("api.episodes", "router"):
     successful_routers += 1
 
+# Include encounters router
+if safe_include_router("api.encounters", "router"):
+    successful_routers += 1
+
 # Include treatments router
 if safe_include_router("api.treatments", "router"):
     successful_routers += 1
@@ -166,6 +171,7 @@ async def root():
         "endpoints": {
             "patients": "/api/v1/patients/",
             "episodes": "/api/v1/episodes/",
+            "encounters": "/api/v1/encounters/",
             "treatments": "/api/v1/treatments/",
             "diagnoses": "/api/v1/diagnoses/",
             "fhir": "/api/v1/fhir/",
@@ -184,7 +190,7 @@ async def health_check():
         "components": components_status,
         "summary": f"{working_components}/{total_components} components working",
         "database": "connected" if components_status["database"] else "disconnected",
-        "routers": f"{successful_routers}/6 routers loaded"
+        "routers": f"{successful_routers}/7 routers loaded"
     }
 
 @app.get("/api/status")
@@ -214,6 +220,21 @@ async def api_status():
                     "DELETE /api/v1/episodes/{id}",
                     "PATCH /api/v1/episodes/{id}/complete"
                 ] if components_status.get("episodes_router", False) else []
+            },
+            "encounters": {
+                "available": components_status.get("encounters_router", False),
+                "endpoints": [
+                    "GET /api/v1/encounters/",
+                    "POST /api/v1/encounters/",
+                    "GET /api/v1/encounters/{id}",
+                    "PUT /api/v1/encounters/{id}",
+                    "DELETE /api/v1/encounters/{id}",
+                    "PATCH /api/v1/encounters/{id}/soap",
+                    "POST /api/v1/encounters/{id}/sign",
+                    "GET /api/v1/encounters/episode/{episode_id}",
+                    "GET /api/v1/encounters/patient/{patient_id}",
+                    "POST /api/v1/encounters/{target_id}/copy-forward/{source_id}"
+                ] if components_status.get("encounters_router", False) else []
             },
             "treatments": {
                 "available": components_status.get("treatments_router", False),
@@ -256,7 +277,7 @@ async def api_status():
 app.include_router(transcription.router)
 app.include_router(chatbot.router)
 
-logger.info(f"Router Summary: {successful_routers}/6 routers loaded")
+logger.info(f"Router Summary: {successful_routers}/7 routers loaded")
 logger.info("DiagnoAssist API startup completed")
 
 # Development server

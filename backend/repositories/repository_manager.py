@@ -10,6 +10,7 @@ import logging
 from repositories.base_repository import BaseRepository
 from repositories.patient_repository import PatientRepository
 from repositories.episode_repository import EpisodeRepository
+from repositories.encounter_repository import EncounterRepository
 from repositories.diagnosis_repository import DiagnosisRepository
 from repositories.treatment_repository import TreatmentRepository
 from repositories.fhir_repository import FHIRResourceRepository
@@ -47,6 +48,13 @@ class RepositoryManager:
         return self._repositories['episode']
     
     @property
+    def encounter(self) -> EncounterRepository:
+        """Get Encounter repository instance"""
+        if 'encounter' not in self._repositories:
+            self._repositories['encounter'] = EncounterRepository(self.db)
+        return self._repositories['encounter']
+    
+    @property
     def diagnosis(self) -> DiagnosisRepository:
         """Get Diagnosis repository instance"""
         if 'diagnosis' not in self._repositories:
@@ -80,6 +88,7 @@ class RepositoryManager:
         repository_map = {
             'patient': self.patient,
             'episode': self.episode,
+            'encounter': self.encounter,
             'diagnosis': self.diagnosis,
             'treatment': self.treatment,
             'fhir_resource': self.fhir_resource

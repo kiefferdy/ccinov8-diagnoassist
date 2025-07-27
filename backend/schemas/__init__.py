@@ -21,6 +21,21 @@ from .episode import (
     PhysicalExamFindings
 )
 
+from .encounter import (
+    EncounterBase,
+    EncounterCreate,
+    EncounterUpdate,
+    EncounterResponse,
+    EncounterListResponse,
+    SOAPSubjective,
+    SOAPObjective, 
+    SOAPAssessment,
+    SOAPPlan,
+    SOAPSectionUpdate,
+    EncounterSignRequest,
+    EncounterStats
+)
+
 from .diagnosis import (
     DiagnosisBase,
     DiagnosisCreate,
@@ -93,6 +108,11 @@ __all__ = [
     # Episode schemas  
     "EpisodeBase", "EpisodeCreate", "EpisodeUpdate", "EpisodeResponse", "EpisodeListResponse",
     "VitalSigns", "PhysicalExamFindings",
+    
+    # Encounter schemas
+    "EncounterBase", "EncounterCreate", "EncounterUpdate", "EncounterResponse", "EncounterListResponse",
+    "SOAPSubjective", "SOAPObjective", "SOAPAssessment", "SOAPPlan", "SOAPSectionUpdate",
+    "EncounterSignRequest", "EncounterStats",
     
     # Diagnosis schemas
     "DiagnosisBase", "DiagnosisCreate", "DiagnosisUpdate", "DiagnosisResponse", 

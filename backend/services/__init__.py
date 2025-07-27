@@ -21,6 +21,7 @@ from .base_service import BaseService
 
 from .patient_service import PatientService
 from .episode_service import EpisodeService
+from .encounter_service import EncounterService
 from .diagnosis_service import DiagnosisService
 from .treatment_service import TreatmentService
 from .fhir_service import FHIRService
@@ -39,6 +40,7 @@ __all__ = [
     # Core domain services
     "PatientService",
     "EpisodeService",
+    "EncounterService",
     "DiagnosisService",
     "TreatmentService",
     
@@ -58,6 +60,7 @@ __all__ = [
 SERVICE_REGISTRY = {
     'patient': PatientService,
     'episode': EpisodeService,
+    'encounter': EncounterService,
     'diagnosis': DiagnosisService,
     'treatment': TreatmentService,
     'fhir': FHIRService,
@@ -81,6 +84,7 @@ try:
     from repositories.repository_manager import RepositoryManager
     from schemas.patient import PatientCreate, PatientUpdate, PatientResponse
     from schemas.episode import EpisodeCreate, EpisodeUpdate, EpisodeResponse
+    from schemas.encounter import EncounterCreate, EncounterUpdate, EncounterResponse
     from schemas.diagnosis import DiagnosisCreate, DiagnosisUpdate, DiagnosisResponse
     from schemas.treatment import TreatmentCreate, TreatmentUpdate, TreatmentResponse
     from schemas.fhir_resource import FHIRResourceCreate, FHIRResourceResponse
@@ -110,6 +114,16 @@ BUSINESS_RULES = {
         "Episode start time cannot be more than 24 hours in future",
         "Can only complete in-progress episodes",
         "Cannot cancel completed episodes"
+    ],
+    "encounter": [
+        "Cannot create encounter for inactive patient",
+        "Cannot create encounter for completed episode",
+        "Cannot modify signed encounters except amendments",
+        "Can only sign draft encounters",
+        "Cannot sign incomplete encounters",
+        "Cannot delete signed encounters",
+        "SOAP sections require minimum data for signing",
+        "Provider information required for signing"
     ],
     "diagnosis": [
         "Final diagnosis requires physician confirmation",

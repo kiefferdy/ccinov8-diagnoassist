@@ -16,6 +16,7 @@ from repositories.repository_manager import RepositoryManager
 # Import individual services
 from services.patient_service import PatientService
 from services.episode_service import EpisodeService
+from services.encounter_service import EncounterService
 from services.diagnosis_service import DiagnosisService
 from services.treatment_service import TreatmentService
 from services.fhir_service import FHIRService
@@ -53,6 +54,10 @@ def get_patient_service(repos: RepositoryManager = Depends(get_repository_manage
 def get_episode_service(repos: RepositoryManager = Depends(get_repository_manager)) -> EpisodeService:
     """FastAPI dependency for episode service"""
     return EpisodeService(repos)
+
+def get_encounter_service(repos: RepositoryManager = Depends(get_repository_manager)) -> EncounterService:
+    """FastAPI dependency for encounter service"""
+    return EncounterService(repos)
 
 def get_diagnosis_service(repos: RepositoryManager = Depends(get_repository_manager)) -> DiagnosisService:
     """FastAPI dependency for diagnosis service"""
@@ -118,6 +123,11 @@ def get_current_user() -> Dict[str, Any]:
             "episode.read": True,
             "episode.update": True,
             "episode.delete": True,
+            "encounter.create": True,
+            "encounter.read": True,
+            "encounter.update": True,
+            "encounter.delete": True,
+            "encounter.sign": True,
             "diagnosis.create": True,
             "diagnosis.read": True,
             "diagnosis.update": True,
@@ -208,6 +218,7 @@ RepositoryDep = Annotated[RepositoryManager, Depends(get_repository_manager)]
 
 PatientServiceDep = Annotated[PatientService, Depends(get_patient_service)]
 EpisodeServiceDep = Annotated[EpisodeService, Depends(get_episode_service)]
+EncounterServiceDep = Annotated[EncounterService, Depends(get_encounter_service)]
 DiagnosisServiceDep = Annotated[DiagnosisService, Depends(get_diagnosis_service)]
 TreatmentServiceDep = Annotated[TreatmentService, Depends(get_treatment_service)]
 FHIRServiceDep = Annotated[FHIRService, Depends(get_fhir_service)]
@@ -235,13 +246,15 @@ __all__ = [
     "RepositoryDep",
     
     "get_patient_service",
-    "get_episode_service", 
+    "get_episode_service",
+    "get_encounter_service",
     "get_diagnosis_service",
     "get_treatment_service",
     "get_fhir_service",
     "get_clinical_service",
     "PatientServiceDep",
     "EpisodeServiceDep",
+    "EncounterServiceDep",
     "DiagnosisServiceDep", 
     "TreatmentServiceDep",
     "FHIRServiceDep",
