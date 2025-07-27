@@ -62,14 +62,35 @@ const EncounterList = ({ encounters, currentEncounter, onSelectEncounter }) => {
   };
   
   const getCompletionPercentage = (encounter) => {
+    // Handle both backend completion_percentage and frontend calculation
+    if (encounter.completionPercentage !== undefined) {
+      return encounter.completionPercentage;
+    }
+
     const { soap } = encounter;
+    if (!soap) return 0;
+    
     let completed = 0;
     const total = 4;
     
-    if (soap.subjective.hpi || soap.subjective.ros) completed += 1;
-    if (Object.values(soap.objective.vitals).some(v => v) || soap.objective.physicalExam.general) completed += 1;
-    if (soap.assessment.clinicalImpression) completed += 1;
-    if (soap.plan.medications.length > 0 || soap.plan.followUp.timeframe) completed += 1;
+    // Check Subjective - more comprehensive check
+    if (soap.subjective?.hpi || soap.subjective?.ros || soap.subjective?.chiefComplaint) completed += 1;
+    
+    // Check Objective - handle different data structures
+    if (Object.values(soap.objective?.vitals || {}).some(v => v) || 
+        soap.objective?.physicalExam?.general ||
+        (soap.objective?.diagnosticTests?.ordered || []).length > 0) completed += 1;
+    
+    // Check Assessment
+    if (soap.assessment?.clinicalImpression || 
+        (soap.assessment?.differentialDiagnosis || []).length > 0 ||
+        soap.assessment?.workingDiagnosis?.diagnosis) completed += 1;
+    
+    // Check Plan
+    if ((soap.plan?.medications || []).length > 0 || 
+        soap.plan?.followUp?.timeframe ||
+        (soap.plan?.procedures || []).length > 0 ||
+        (soap.plan?.patientEducation || []).length > 0) completed += 1;
     
     return Math.round((completed / total) * 100);
   };
@@ -89,8 +110,9 @@ const EncounterList = ({ encounters, currentEncounter, onSelectEncounter }) => {
     <div className="divide-y divide-gray-100">
       {encounters.map((encounter, index) => {
         const isSelected = currentEncounter?.id === encounter.id;
-        const isSigned = encounter.status === 'signed';
+        const isSigned = encounter.status === 'signed' || encounter.isSigned;
         const completionPercentage = getCompletionPercentage(encounter);
+        const encounterDate = encounter.date || encounter.createdAt || new Date().toISOString();
         
         return (
           <button
@@ -132,7 +154,11 @@ const EncounterList = ({ encounters, currentEncounter, onSelectEncounter }) => {
                 {isSigned && (
                   <div className="flex items-center space-x-1 bg-green-100 px-2 py-1 rounded-full">
                     <CheckCircle className="w-3 h-3 text-green-600" />
-                    <span className="text-xs font-medium text-green-700">Signed</span>
+                    <span className="text-xs font-medium text-green-700">
+                      Signed
+                      {encounter.signedBy && ` by ${encounter.signedBy}`}
+                      {encounter.signed_by && !encounter.signedBy && ` by ${encounter.signed_by}`}
+                    </span>
                   </div>
                 )}
               </div>
@@ -141,16 +167,16 @@ const EncounterList = ({ encounters, currentEncounter, onSelectEncounter }) => {
               <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
                 <div className="flex items-center text-gray-600">
                   <Calendar className="w-3 h-3 mr-1.5 text-gray-400" />
-                  {formatDate(encounter.date)}
+                  {formatDate(encounterDate)}
                 </div>
                 <div className="flex items-center text-gray-600">
                   <Clock className="w-3 h-3 mr-1.5 text-gray-400" />
-                  {formatTime(encounter.date)}
+                  {formatTime(encounterDate)}
                 </div>
-                {encounter.provider && (
+                {(encounter.provider?.name || encounter.provider_name) && (
                   <div className="flex items-center text-gray-600 col-span-2">
                     <User className="w-3 h-3 mr-1.5 text-gray-400" />
-                    {encounter.provider.name}
+                    {encounter.provider?.name || encounter.provider_name || 'Unknown Provider'}
                   </div>
                 )}
               </div>              

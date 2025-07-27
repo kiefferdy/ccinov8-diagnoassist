@@ -14,12 +14,28 @@ const SubjectiveSection = ({ data, patient, episode, encounter, onUpdate }) => {
   const { getEpisodeEncounters } = useEncounter();
   const [activeTab, setActiveTab] = useState('hpi');
   const [rosExpanded, setRosExpanded] = useState(false);
-  const [attachedFiles, setAttachedFiles] = useState(data.attachedFiles || []);
+  const [attachedFiles, setAttachedFiles] = useState(data?.attachedFiles || []);
+  const [previousEncounters, setPreviousEncounters] = useState([]);
   
   // Get previous encounters for copy functionality
-  const previousEncounters = episode ? getEpisodeEncounters(episode.id)
-    .filter(e => e.id !== encounter.id && e.status === 'signed')
-    .sort((a, b) => new Date(b.date) - new Date(a.date)) : [];
+  React.useEffect(() => {
+    const loadPreviousEncounters = async () => {
+      if (episode?.id) {
+        try {
+          const encounters = await getEpisodeEncounters(episode.id, true); // Use cache
+          const filtered = encounters
+            .filter(e => e.id !== encounter.id && (e.status === 'signed' || e.isSigned))
+            .sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
+          setPreviousEncounters(filtered);
+        } catch (error) {
+          console.warn('Failed to load previous encounters:', error);
+          setPreviousEncounters([]);
+        }
+      }
+    };
+    
+    loadPreviousEncounters();
+  }, [episode?.id, encounter.id, getEpisodeEncounters]);
   
   const handleFieldUpdate = (field, value) => {
     onUpdate({ [field]: value });

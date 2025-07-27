@@ -215,6 +215,68 @@ class ApiService {
     return this.request('/api/v1/fhir/metadata');
   }
 
+  // Encounter API methods
+  async getEncounters() {
+    return this.request('/api/v1/encounters/');
+  }
+
+  async getEncounter(id) {
+    return this.request(`/api/v1/encounters/${id}`);
+  }
+
+  async createEncounter(encounterData) {
+    return this.request('/api/v1/encounters/', {
+      method: 'POST',
+      body: JSON.stringify(encounterData),
+    });
+  }
+
+  async updateEncounter(id, encounterData) {
+    return this.request(`/api/v1/encounters/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(encounterData),
+    });
+  }
+
+  async deleteEncounter(id) {
+    return this.request(`/api/v1/encounters/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getPatientEncounters(patientId) {
+    return this.request(`/api/v1/encounters/patient/${patientId}`);
+  }
+
+  async getEpisodeEncounters(episodeId) {
+    return this.request(`/api/v1/encounters/episode/${episodeId}`);
+  }
+
+  async getEpisodeEncounterStats(episodeId) {
+    return this.request(`/api/v1/encounters/episode/${episodeId}/stats`);
+  }
+
+  async updateSOAPSection(encounterId, sectionData) {
+    return this.request(`/api/v1/encounters/${encounterId}/soap`, {
+      method: 'PATCH',
+      body: JSON.stringify(sectionData),
+    });
+  }
+
+  async signEncounter(encounterId, providerName) {
+    return this.request(`/api/v1/encounters/${encounterId}/sign`, {
+      method: 'POST',
+      body: JSON.stringify({ provider_name: providerName }),
+    });
+  }
+
+  async copyForwardEncounter(targetEncounterId, sourceEncounterId, sections) {
+    return this.request(`/api/v1/encounters/${targetEncounterId}/copy-forward/${sourceEncounterId}`, {
+      method: 'POST',
+      body: JSON.stringify({ sections }),
+    });
+  }
+
   // Health check methods
   async checkHealth() {
     return this.request('/health');

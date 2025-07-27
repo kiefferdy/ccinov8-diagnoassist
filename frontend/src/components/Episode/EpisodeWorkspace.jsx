@@ -28,7 +28,7 @@ const EpisodeWorkspace = () => {
     if (!episode || !patient) return;
     
     try {
-      const newEncounter = createEncounter(episodeId, patientId, type);
+      const newEncounter = await createEncounter(episodeId, patientId, type);
       
       // Auto-populate chief complaint from episode
       newEncounter.soap.subjective.chiefComplaint = episode.chiefComplaint;
@@ -80,6 +80,11 @@ const EpisodeWorkspace = () => {
     }
   }, [episode, patient, createEncounter, episodeId, patientId, setCurrentEncounter, navigateTo]);
 
+  const handleSelectEncounter = useCallback((encounter) => {
+    setCurrentEncounter(encounter);
+    navigateTo('episode-workspace');
+  }, [setCurrentEncounter, navigateTo]);
+
   // Load data - wait for contexts to finish loading first
   useEffect(() => {
     if (!patientId || !episodeId) return;
@@ -112,15 +117,22 @@ const EpisodeWorkspace = () => {
         setPatient(patientData);
         setEpisode(episodeData);
         
-        const episodeEncounters = getEpisodeEncounters(episodeId);
-        setEncounters(episodeEncounters);
-        
-        // If no encounters exist, mark that we need to create one
-        if (episodeEncounters.length === 0) {
+        // Load encounters asynchronously
+        try {
+          const episodeEncounters = await getEpisodeEncounters(episodeId, true); // Use cache
+          setEncounters(episodeEncounters);
+          
+          // If no encounters exist, mark that we need to create one
+          if (episodeEncounters.length === 0) {
+            setCreatingEncounter(true);
+          } else if (episodeEncounters.length > 0) {
+            // Set the most recent encounter as current
+            setCurrentEncounter(episodeEncounters[0]);
+          }
+        } catch (encounterError) {
+          console.warn('Failed to load encounters, using empty array:', encounterError);
+          setEncounters([]);
           setCreatingEncounter(true);
-        } else if (episodeEncounters.length > 0) {
-          // Set the most recent encounter as current
-          setCurrentEncounter(episodeEncounters[0]);
         }
       } catch (error) {
         console.error('Error loading episode data:', error);
@@ -140,9 +152,6 @@ const EpisodeWorkspace = () => {
       });
     }
   }, [creatingEncounter, episode, patient, handleCreateEncounter]);
-  const handleSelectEncounter = (encounter) => {
-    setCurrentEncounter(encounter);
-  };
 
   if (loading) {
     return (
@@ -189,7 +198,7 @@ const EpisodeWorkspace = () => {
                 Encounters
               </h3>
               <span className="bg-white/20 px-2 py-1 rounded-full text-xs font-medium">
-                {encounters.length} Total
+                {(encounters || []).length} Total
               </span>
             </div>
             <button
@@ -203,7 +212,7 @@ const EpisodeWorkspace = () => {
           
           <div className="flex-1 overflow-y-auto bg-gray-50">
             <EncounterList
-              encounters={encounters}
+              encounters={encounters || []}
               currentEncounter={currentEncounter}
               onSelectEncounter={handleSelectEncounter}
             />
@@ -214,13 +223,13 @@ const EpisodeWorkspace = () => {
             <div className="grid grid-cols-2 gap-4 text-center">
               <div>
                 <p className="text-2xl font-bold text-gray-900">
-                  {encounters.filter(e => e.status === 'signed').length}
+                  {(encounters || []).filter(e => e.status === 'signed' || e.isSigned).length}
                 </p>
                 <p className="text-xs text-gray-600">Signed</p>
               </div>
               <div>
                 <p className="text-2xl font-bold text-blue-600">
-                  {encounters.filter(e => e.status !== 'signed').length}
+                  {(encounters || []).filter(e => e.status !== 'signed' && !e.isSigned).length}
                 </p>
                 <p className="text-xs text-gray-600">In Progress</p>
               </div>

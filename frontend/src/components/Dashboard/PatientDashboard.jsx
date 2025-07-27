@@ -37,6 +37,8 @@ const PatientDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [selectedTimeRange, setSelectedTimeRange] = useState('all'); // all, month, year
   const [quickNotesCount, setQuickNotesCount] = useState(0);
+  const [recentEncounters, setRecentEncounters] = useState([]);
+  const [episodeEncounters, setEpisodeEncounters] = useState({});
 
   // Load patient and episodes - wait for contexts to finish loading first
   useEffect(() => {
@@ -75,6 +77,48 @@ const PatientDashboard = () => {
       setQuickNotesCount(patientNotes.length);
     }
   }, [patient]);
+
+  // Load encounters for all episodes asynchronously
+  useEffect(() => {
+    const loadEncounters = async () => {
+      if (episodes.length === 0) {
+        setRecentEncounters([]);
+        setEpisodeEncounters({});
+        return;
+      }
+
+      try {
+        const allEncounters = [];
+        const encountersByEpisode = {};
+        
+        // Load encounters for each episode
+        for (const episode of episodes) {
+          try {
+            const encounters = await getEpisodeEncounters(episode.id, true); // Use cache
+            encountersByEpisode[episode.id] = encounters;
+            allEncounters.push(...encounters);
+          } catch (error) {
+            console.warn(`Failed to load encounters for episode ${episode.id}:`, error);
+            encountersByEpisode[episode.id] = []; // Set empty array as fallback
+          }
+        }
+
+        // Sort by date and take the 5 most recent for the recent encounters section
+        const sortedEncounters = allEncounters
+          .sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt))
+          .slice(0, 5);
+
+        setRecentEncounters(sortedEncounters);
+        setEpisodeEncounters(encountersByEpisode);
+      } catch (error) {
+        console.error('Error loading encounters:', error);
+        setRecentEncounters([]);
+        setEpisodeEncounters({});
+      }
+    };
+
+    loadEncounters();
+  }, [episodes, getEpisodeEncounters]);
 
   if (loading) {
     return (
@@ -140,12 +184,6 @@ const PatientDashboard = () => {
 
   const stats = getEpisodeStats(patientId);
 
-  // Calculate additional stats
-  const recentEncounters = episodes
-    .flatMap(ep => getEpisodeEncounters(ep.id))
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 5);
-
   const urgentEpisodes = episodes.filter(ep => 
     ep.status === 'active' && ep.tags?.includes('urgent')
   ).length;
@@ -164,15 +202,15 @@ const PatientDashboard = () => {
     // Find the most recent active episode
     const activeEpisodes = episodes.filter(ep => ep.status === 'active');
     if (activeEpisodes.length > 0) {
-      // Sort by most recent activity
+      // Sort by most recent activity using loaded encounter data
       const mostRecentEpisode = activeEpisodes.sort((a, b) => {
-        const aEncounters = getEpisodeEncounters(a.id);
-        const bEncounters = getEpisodeEncounters(b.id);
+        const aEncounters = episodeEncounters[a.id] || [];
+        const bEncounters = episodeEncounters[b.id] || [];
         const aLastDate = aEncounters.length > 0 
-          ? new Date(aEncounters[aEncounters.length - 1].date)
+          ? new Date(aEncounters[aEncounters.length - 1].date || aEncounters[aEncounters.length - 1].createdAt)
           : new Date(a.createdAt);
         const bLastDate = bEncounters.length > 0
-          ? new Date(bEncounters[bEncounters.length - 1].date)
+          ? new Date(bEncounters[bEncounters.length - 1].date || bEncounters[bEncounters.length - 1].createdAt)
           : new Date(b.createdAt);
         return bLastDate - aLastDate;
       })[0];
@@ -375,7 +413,7 @@ const PatientDashboard = () => {
                 <EpisodeCard
                   key={episode.id}
                   episode={episode}
-                  encounters={getEpisodeEncounters(episode.id)}
+                  encounters={episodeEncounters[episode.id] || []}
                   patientId={patientId}
                 />
               ))}
@@ -439,10 +477,13 @@ const PatientDashboard = () => {
                     }`} />
                     <div>
                       <p className="text-sm font-medium text-gray-900">
-                        {encounter.type.charAt(0).toUpperCase() + encounter.type.slice(1)} Visit
+                        {encounter.type ? 
+                          (encounter.type.charAt(0).toUpperCase() + encounter.type.slice(1)) : 
+                          'Unknown'
+                        } Visit
                       </p>
                       <p className="text-xs text-gray-600">
-                        {new Date(encounter.date).toLocaleDateString()} - {encounter.status}
+                        {new Date(encounter.date || encounter.createdAt).toLocaleDateString()} - {encounter.status || 'draft'}
                       </p>
                     </div>
                   </div>

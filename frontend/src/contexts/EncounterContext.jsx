@@ -4,6 +4,60 @@ import apiService from '../services/apiService';
 
 const EncounterContext = createContext(null);
 
+// Data transformation utilities
+const transformBackendToFrontend = (backendEncounter) => {
+  if (!backendEncounter) return null;
+  
+  return {
+    id: backendEncounter.id,
+    episodeId: backendEncounter.episode_id,
+    patientId: backendEncounter.patient_id,
+    type: backendEncounter.type || 'follow-up',
+    date: backendEncounter.date || new Date().toISOString(),
+    status: backendEncounter.status || 'draft',
+    provider: backendEncounter.provider || {
+      id: backendEncounter.provider_id,
+      name: backendEncounter.provider_name,
+      role: backendEncounter.provider_role
+    },
+    soap: {
+      subjective: backendEncounter.soap_subjective || {},
+      objective: backendEncounter.soap_objective || {},
+      assessment: backendEncounter.soap_assessment || {},
+      plan: backendEncounter.soap_plan || {}
+    },
+    documents: backendEncounter.documents || [],
+    amendments: backendEncounter.amendments || [],
+    signedAt: backendEncounter.signed_at,
+    signedBy: backendEncounter.signed_by,
+    createdAt: backendEncounter.created_at,
+    updatedAt: backendEncounter.updated_at,
+    completionPercentage: backendEncounter.completion_percentage || 0,
+    isSigned: backendEncounter.is_signed || false,
+    chiefComplaint: backendEncounter.chief_complaint
+  };
+};
+
+const transformFrontendToBackend = (frontendEncounter) => {
+  if (!frontendEncounter) return null;
+  
+  return {
+    episode_id: frontendEncounter.episodeId,
+    patient_id: frontendEncounter.patientId,
+    type: frontendEncounter.type || 'follow-up',
+    date: frontendEncounter.date,
+    status: frontendEncounter.status || 'draft',
+    provider: frontendEncounter.provider,
+    soap_subjective: frontendEncounter.soap?.subjective || {},
+    soap_objective: frontendEncounter.soap?.objective || {},
+    soap_assessment: frontendEncounter.soap?.assessment || {},
+    soap_plan: frontendEncounter.soap?.plan || {},
+    documents: frontendEncounter.documents || [],
+    amendments: frontendEncounter.amendments || [],
+    chief_complaint: frontendEncounter.chiefComplaint
+  };
+};
+
 // eslint-disable-next-line react-refresh/only-export-components
 export const useEncounter = () => {
   const context = useContext(EncounterContext);
@@ -22,18 +76,33 @@ export const EncounterProvider = ({ children }) => {
   const [lastSaved, setLastSaved] = useState(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Load encounters (stored as SOAP data within episodes) from storage on mount
+  // Load encounters from backend API with localStorage fallback
   useEffect(() => {
     const loadEncounters = async () => {
       try {
         setLoading(true);
         setError(null);
-        // For encounters, we primarily use localStorage since backend stores SOAP data differently
-        const storedEncounters = StorageManager.getEncounters();
-        setEncounters(storedEncounters);
+        
+        // Try to load from API first
+        try {
+          const response = await apiService.getEncounters();
+          const backendEncounters = response?.data || response || [];
+          const transformedEncounters = backendEncounters.map(transformBackendToFrontend);
+          setEncounters(transformedEncounters);
+          
+          // Also cache in localStorage for offline access
+          StorageManager.saveEncounters(transformedEncounters);
+        } catch (apiError) {
+          console.warn('Failed to load encounters from API, using localStorage:', apiError);
+          // Fallback to localStorage
+          const storedEncounters = StorageManager.getEncounters();
+          setEncounters(storedEncounters);
+        }
       } catch (error) {
         console.error('Error loading encounters:', error);
         setError(error.message);
+        // Final fallback
+        setEncounters([]);
       } finally {
         setLoading(false);
       }
@@ -42,40 +111,61 @@ export const EncounterProvider = ({ children }) => {
   }, []);
 
   // Get encounters for a specific episode
-  const getEpisodeEncounters = useCallback((episodeId) => {
-    return encounters
-      .filter(e => e.episodeId === episodeId)
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
+  const getEpisodeEncounters = useCallback(async (episodeId, useCache = true) => {
+    if (useCache) {
+      // Return cached encounters
+      return encounters
+        .filter(e => e.episodeId === episodeId)
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+    }
+
+    // Fetch fresh data from API
+    try {
+      const response = await apiService.getEpisodeEncounters(episodeId);
+      const apiEncounters = response?.data || response || [];
+      const transformedEncounters = apiEncounters.map(transformBackendToFrontend);
+      
+      // Update local state with fresh data
+      const updatedEncounters = [
+        ...encounters.filter(e => e.episodeId !== episodeId),
+        ...transformedEncounters
+      ];
+      setEncounters(updatedEncounters);
+      StorageManager.saveEncounters(updatedEncounters);
+      
+      return transformedEncounters.sort((a, b) => new Date(b.date) - new Date(a.date));
+    } catch (error) {
+      console.warn('Failed to fetch episode encounters from API:', error);
+      // Fallback to cached data
+      return encounters
+        .filter(e => e.episodeId === episodeId)
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+    }
   }, [encounters]);
 
   // Create a new encounter
-  const createEncounter = useCallback((episodeId, patientId, type = 'follow-up') => {
-    const newEncounter = {
-      id: generateId('ENC'),
-      episodeId,
-      patientId,
-      type,
-      date: new Date().toISOString(),
-      status: 'draft',
-      provider: {
-        id: 'DR001', // In real app, this would come from auth context
-        name: 'Dr. Current User',
-        role: 'Primary Care Physician'
-      },
-      soap: {
-        subjective: {
-          chiefComplaint: '', // Will be populated from episode
+  const createEncounter = useCallback(async (episodeId, patientId, type = 'follow-up') => {
+    try {
+      const encounterData = {
+        episode_id: episodeId,
+        patient_id: patientId,
+        type,
+        provider: {
+          id: 'DR001', // In real app, this would come from auth context
+          name: 'Dr. Current User',
+          role: 'Primary Care Physician'
+        },
+        soap_subjective: {
+          chiefComplaint: '',
           hpi: '',
           ros: {},
           pmh: '',
           medications: '',
           allergies: '',
           socialHistory: '',
-          familyHistory: '',
-          lastUpdated: new Date().toISOString(),
-          voiceNotes: []
+          familyHistory: ''
         },
-        objective: {
+        soap_objective: {
           vitals: {
             bloodPressure: '',
             heartRate: '',
@@ -90,59 +180,75 @@ export const EncounterProvider = ({ children }) => {
             general: '',
             systems: {},
             additionalFindings: ''
-          },
-          diagnosticTests: {
-            ordered: [],
-            results: []
-          },
-          lastUpdated: new Date().toISOString(),
-          voiceNotes: []
+          }
         },
-        assessment: {
+        soap_assessment: {
           clinicalImpression: '',
           differentialDiagnosis: [],
           workingDiagnosis: {
             diagnosis: '',
             icd10: '',
-            confidence: 'possible',
-            clinicalReasoning: ''
-          },
-          riskAssessment: '',
-          lastUpdated: new Date().toISOString(),
-          aiConsultation: {
-            queries: [],
-            insights: []
+            confidence: 'possible'
           }
         },
-        plan: {
+        soap_plan: {
           medications: [],
           procedures: [],
-          referrals: [],
           followUp: {
             timeframe: '',
             reason: '',
             instructions: ''
           },
-          patientEducation: [],
-          activityRestrictions: '',
-          dietRecommendations: '',
-          lastUpdated: new Date().toISOString()
+          patientEducation: []
         }
-      },
-      documents: [],
-      amendments: [],
-      signedAt: null,
-      signedBy: null
-    };
+      };
 
-    const updatedEncounters = [...encounters, newEncounter];
-    setEncounters(updatedEncounters);
-    StorageManager.saveEncounters(updatedEncounters);
-    
-    // Update episode's lastEncounterId
-    StorageManager.updateEpisode(episodeId, { lastEncounterId: newEncounter.id });
-    
-    return newEncounter;
+      // Try to create via API
+      try {
+        const response = await apiService.createEncounter(encounterData);
+        const newEncounter = transformBackendToFrontend(response);
+        
+        const updatedEncounters = [...encounters, newEncounter];
+        setEncounters(updatedEncounters);
+        StorageManager.saveEncounters(updatedEncounters);
+        
+        return newEncounter;
+      } catch (apiError) {
+        console.warn('Failed to create encounter via API, creating locally:', apiError);
+        
+        // Fallback to local creation
+        const newEncounter = {
+          id: generateId('ENC'),
+          episodeId,
+          patientId,
+          type,
+          date: new Date().toISOString(),
+          status: 'draft',
+          provider: encounterData.provider,
+          soap: {
+            subjective: encounterData.soap_subjective,
+            objective: encounterData.soap_objective,
+            assessment: encounterData.soap_assessment,
+            plan: encounterData.soap_plan
+          },
+          documents: [],
+          amendments: [],
+          signedAt: null,
+          signedBy: null,
+          completionPercentage: 0
+        };
+
+        const updatedEncounters = [...encounters, newEncounter];
+        setEncounters(updatedEncounters);
+        StorageManager.saveEncounters(updatedEncounters);
+        
+        return newEncounter;
+      }
+    } catch (error) {
+      console.error('Error creating encounter:', error);
+      setError(error.message);
+      throw error;
+    }
   }, [encounters]);
   // Update current encounter
   const updateCurrentEncounter = useCallback((updates) => {
@@ -154,7 +260,7 @@ export const EncounterProvider = ({ children }) => {
   }, [currentEncounter]);
 
   // Update SOAP section
-  const updateSOAPSection = useCallback((section, updates) => {
+  const updateSOAPSection = useCallback(async (section, updates) => {
     if (!currentEncounter) return;
     
     const updatedEncounter = {
@@ -171,6 +277,19 @@ export const EncounterProvider = ({ children }) => {
     
     setCurrentEncounter(updatedEncounter);
     setHasUnsavedChanges(true);
+
+    // If encounter exists in backend, try to update SOAP section via API
+    if (currentEncounter.id && !currentEncounter.id.startsWith('ENC')) {
+      try {
+        await apiService.updateSOAPSection(currentEncounter.id, {
+          section,
+          data: updates
+        });
+      } catch (apiError) {
+        console.warn('Failed to update SOAP section via API:', apiError);
+        // Continue with local update - will sync later
+      }
+    }
   }, [currentEncounter]);
 
   // Save current encounter
@@ -180,18 +299,51 @@ export const EncounterProvider = ({ children }) => {
     try {
       setError(null);
       
-      // Update encounters list
-      const updatedEncounters = encounters.map(e => 
-        e.id === currentEncounter.id ? currentEncounter : e
-      );
-      
-      // If it's a new encounter not yet in the list
-      if (!encounters.find(e => e.id === currentEncounter.id)) {
-        updatedEncounters.push(currentEncounter);
+      // Try to save via API first
+      try {
+        let savedEncounter;
+        
+        // Check if it's a new encounter (starts with 'ENC') or existing encounter
+        if (currentEncounter.id.startsWith('ENC')) {
+          // New local encounter - create via API
+          const backendData = transformFrontendToBackend(currentEncounter);
+          const response = await apiService.createEncounter(backendData);
+          savedEncounter = transformBackendToFrontend(response);
+        } else {
+          // Existing encounter - update via API
+          const backendData = transformFrontendToBackend(currentEncounter);
+          const response = await apiService.updateEncounter(currentEncounter.id, backendData);
+          savedEncounter = transformBackendToFrontend(response);
+        }
+        
+        // Update local state with API response
+        const updatedEncounters = encounters.map(e => 
+          e.id === currentEncounter.id ? savedEncounter : e
+        );
+        
+        if (!encounters.find(e => e.id === currentEncounter.id)) {
+          updatedEncounters.push(savedEncounter);
+        }
+        
+        setEncounters(updatedEncounters);
+        setCurrentEncounter(savedEncounter);
+        StorageManager.saveEncounters(updatedEncounters);
+        
+      } catch (apiError) {
+        console.warn('Failed to save encounter via API, saving locally:', apiError);
+        
+        // Fallback to localStorage only
+        const updatedEncounters = encounters.map(e => 
+          e.id === currentEncounter.id ? currentEncounter : e
+        );
+        
+        if (!encounters.find(e => e.id === currentEncounter.id)) {
+          updatedEncounters.push(currentEncounter);
+        }
+        
+        setEncounters(updatedEncounters);
+        StorageManager.saveEncounters(updatedEncounters);
       }
-      
-      setEncounters(updatedEncounters);
-      StorageManager.saveEncounters(updatedEncounters);
       
       // Also update the related episode with clinical notes
       if (currentEncounter.episodeId) {
@@ -221,21 +373,7 @@ export const EncounterProvider = ({ children }) => {
     } catch (error) {
       console.error('Error saving encounter:', error);
       setError(error.message);
-      // Fallback to localStorage only
-      const updatedEncounters = encounters.map(e => 
-        e.id === currentEncounter.id ? currentEncounter : e
-      );
-      
-      if (!encounters.find(e => e.id === currentEncounter.id)) {
-        updatedEncounters.push(currentEncounter);
-      }
-      
-      setEncounters(updatedEncounters);
-      StorageManager.saveEncounters(updatedEncounters);
-      setLastSaved(new Date().toISOString());
-      setHasUnsavedChanges(false);
-      
-      return true;
+      return false;
     }
   }, [currentEncounter, encounters]);
 
@@ -251,29 +389,60 @@ export const EncounterProvider = ({ children }) => {
   }, [currentEncounter, hasUnsavedChanges, autoSaveEnabled, saveCurrentEncounter]);
 
   // Sign encounter
-  const signEncounter = useCallback((encounterId, providerName) => {
+  const signEncounter = useCallback(async (encounterId, providerName) => {
     const encounter = encounters.find(e => e.id === encounterId);
     if (!encounter || encounter.status === 'signed') return false;
     
-    const signedEncounter = {
-      ...encounter,
-      status: 'signed',
-      signedAt: new Date().toISOString(),
-      signedBy: providerName
-    };
-    
-    const updatedEncounters = encounters.map(e => 
-      e.id === encounterId ? signedEncounter : e
-    );
-    
-    setEncounters(updatedEncounters);
-    StorageManager.saveEncounters(updatedEncounters);
-    
-    if (currentEncounter?.id === encounterId) {
-      setCurrentEncounter(signedEncounter);
+    try {
+      // Try to sign via API first
+      if (!encounterId.startsWith('ENC')) {
+        try {
+          const response = await apiService.signEncounter(encounterId, providerName);
+          const signedEncounter = transformBackendToFrontend(response);
+          
+          const updatedEncounters = encounters.map(e => 
+            e.id === encounterId ? signedEncounter : e
+          );
+          
+          setEncounters(updatedEncounters);
+          StorageManager.saveEncounters(updatedEncounters);
+          
+          if (currentEncounter?.id === encounterId) {
+            setCurrentEncounter(signedEncounter);
+          }
+          
+          return true;
+        } catch (apiError) {
+          console.warn('Failed to sign encounter via API, signing locally:', apiError);
+        }
+      }
+      
+      // Fallback to local signing
+      const signedEncounter = {
+        ...encounter,
+        status: 'signed',
+        signedAt: new Date().toISOString(),
+        signedBy: providerName,
+        isSigned: true
+      };
+      
+      const updatedEncounters = encounters.map(e => 
+        e.id === encounterId ? signedEncounter : e
+      );
+      
+      setEncounters(updatedEncounters);
+      StorageManager.saveEncounters(updatedEncounters);
+      
+      if (currentEncounter?.id === encounterId) {
+        setCurrentEncounter(signedEncounter);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error signing encounter:', error);
+      setError(error.message);
+      return false;
     }
-    
-    return true;
   }, [encounters, currentEncounter]);
 
   // Copy forward from previous encounter
@@ -340,14 +509,35 @@ export const EncounterProvider = ({ children }) => {
   }, [encounters, currentEncounter]);
 
   // Get encounter statistics
-  const getEncounterStats = useCallback((episodeId) => {
-    const episodeEncounters = getEpisodeEncounters(episodeId);
-    return {
-      total: episodeEncounters.length,
-      draft: episodeEncounters.filter(e => e.status === 'draft').length,
-      signed: episodeEncounters.filter(e => e.status === 'signed').length,
-      lastVisit: episodeEncounters[0]?.date || null
-    };
+  const getEncounterStats = useCallback(async (episodeId, useCache = true) => {
+    try {
+      // Try to get stats from API first
+      if (!useCache) {
+        try {
+          const stats = await apiService.getEpisodeEncounterStats(episodeId);
+          return stats;
+        } catch (apiError) {
+          console.warn('Failed to get encounter stats from API:', apiError);
+        }
+      }
+      
+      // Fallback to calculating from local data
+      const episodeEncounters = await getEpisodeEncounters(episodeId, useCache);
+      return {
+        total: episodeEncounters.length,
+        draft: episodeEncounters.filter(e => e.status === 'draft').length,
+        signed: episodeEncounters.filter(e => e.status === 'signed').length,
+        lastVisit: episodeEncounters[0]?.date || null
+      };
+    } catch (error) {
+      console.error('Error getting encounter stats:', error);
+      return {
+        total: 0,
+        draft: 0,
+        signed: 0,
+        lastVisit: null
+      };
+    }
   }, [getEpisodeEncounters]);
 
   // Delete all encounters for a patient

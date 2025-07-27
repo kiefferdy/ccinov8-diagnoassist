@@ -24,31 +24,36 @@ const EncounterWorkspace = ({ encounter, episode, patient }) => {
       const { soap } = encounter;
       
       // Check Subjective
-      const subjectiveHasData = soap.subjective.hpi || soap.subjective.ros;
+      const subjectiveHasData = soap?.subjective?.hpi || soap?.subjective?.ros || 
+        (soap?.subjective?.chiefComplaint && soap.subjective.chiefComplaint.trim());
       updateSectionProgress('subjective', subjectiveHasData ? 'partial' : 'empty');
       
       // Check Objective
       const objectiveHasData = 
-        Object.values(soap.objective.vitals).some(v => v) ||
-        soap.objective.physicalExam.general ||
-        soap.objective.diagnosticTests.ordered.length > 0;
+        Object.values(soap?.objective?.vitals || {}).some(v => v) ||
+        soap?.objective?.physicalExam?.general ||
+        (soap?.objective?.diagnosticTests?.ordered || []).length > 0;
       updateSectionProgress('objective', objectiveHasData ? 'partial' : 'empty');
       
       // Check Assessment
       const assessmentHasData = 
-        soap.assessment.clinicalImpression ||
-        soap.assessment.differentialDiagnosis.length > 0;
+        soap?.assessment?.clinicalImpression ||
+        (soap?.assessment?.differentialDiagnosis || []).length > 0 ||
+        soap?.assessment?.workingDiagnosis?.diagnosis;
       updateSectionProgress('assessment', assessmentHasData ? 'partial' : 'empty');
       
       // Check Plan
       const planHasData = 
-        soap.plan.medications.length > 0 ||
-        soap.plan.procedures.length > 0 ||
-        soap.plan.followUp.timeframe;
+        (soap?.plan?.medications || []).length > 0 ||
+        (soap?.plan?.procedures || []).length > 0 ||
+        soap?.plan?.followUp?.timeframe ||
+        (soap?.plan?.patientEducation || []).length > 0;
       updateSectionProgress('plan', planHasData ? 'partial' : 'empty');
     };
     
-    checkSectionProgress();
+    if (encounter?.soap) {
+      checkSectionProgress();
+    }
   }, [encounter, updateSectionProgress]);
   
   const handleSave = async () => {
@@ -72,10 +77,10 @@ const EncounterWorkspace = ({ encounter, episode, patient }) => {
     const { soap } = encounter;
     
     const missingData = [];
-    if (!soap.subjective.hpi) missingData.push('History of Present Illness');
-    if (!Object.values(soap.objective.vitals).some(v => v)) missingData.push('Vital Signs');
-    if (!soap.assessment.clinicalImpression) missingData.push('Clinical Assessment');
-    if (!soap.plan.followUp.timeframe) missingData.push('Follow-up Plan');
+    if (!soap.subjective?.hpi) missingData.push('History of Present Illness');
+    if (!Object.values(soap.objective?.vitals || {}).some(v => v)) missingData.push('Vital Signs');
+    if (!soap.assessment?.clinicalImpression) missingData.push('Clinical Assessment');
+    if (!soap.plan?.followUp?.timeframe) missingData.push('Follow-up Plan');
     
     if (missingData.length > 0) {
       alert(`Please complete the following sections before signing:\n\n${missingData.join('\n')}`);
@@ -85,11 +90,29 @@ const EncounterWorkspace = ({ encounter, episode, patient }) => {
     setShowSignDialog(true);
   };
   
-  const confirmSign = () => {
-    signEncounter(encounter.id, patient.demographics.name);
-    setShowSignDialog(false);
-    if (window.showNotification) {
-      window.showNotification('Encounter signed successfully', 'success');
+  const confirmSign = async () => {
+    try {
+      setSaving(true);
+      const providerName = encounter.provider?.name || patient.demographics?.name || 'Unknown Provider';
+      const success = await signEncounter(encounter.id, providerName);
+      
+      if (success) {
+        setShowSignDialog(false);
+        if (window.showNotification) {
+          window.showNotification('Encounter signed successfully', 'success');
+        }
+      } else {
+        if (window.showNotification) {
+          window.showNotification('Failed to sign encounter', 'error');
+        }
+      }
+    } catch (error) {
+      console.error('Error signing encounter:', error);
+      if (window.showNotification) {
+        window.showNotification('Failed to sign encounter', 'error');
+      }
+    } finally {
+      setSaving(false);
     }
   };
   
@@ -119,18 +142,38 @@ const EncounterWorkspace = ({ encounter, episode, patient }) => {
               Once signed, this encounter will be locked and cannot be edited. 
               Please ensure all information is accurate and complete.
             </p>
+            
+            {/* Show encounter details */}
+            <div className="bg-gray-50 rounded-lg p-3 mb-4 text-sm">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-gray-600">Provider:</span>
+                <span className="font-medium">{encounter.provider?.name || 'Unknown Provider'}</span>
+              </div>
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-gray-600">Date:</span>
+                <span className="font-medium">{new Date(encounter.date).toLocaleDateString()}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Type:</span>
+                <span className="font-medium capitalize">{encounter.type}</span>
+              </div>
+            </div>
+            
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowSignDialog(false)}
-                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                disabled={saving}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmSign}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                disabled={saving}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center space-x-2"
               >
-                Sign Encounter
+                {saving && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                <span>{saving ? 'Signing...' : 'Sign Encounter'}</span>
               </button>
             </div>
           </div>
