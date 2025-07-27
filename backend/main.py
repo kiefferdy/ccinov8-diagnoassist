@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from sqlalchemy import text
 
+from app.routes import transcription, chatbot
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -252,6 +253,8 @@ async def api_status():
         }
     }
 
+app.include_router(transcription.router)
+app.include_router(chatbot.router)
 
 logger.info(f"Router Summary: {successful_routers}/6 routers loaded")
 logger.info("DiagnoAssist API startup completed")
