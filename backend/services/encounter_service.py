@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from repositories.repository_manager import RepositoryManager
 
 from services.base_service import BaseService
-from schemas.encounter import EncounterResponse
+from schemas.encounter import EncounterResponse, EncounterStats
 
 class EncounterService(BaseService):
     """

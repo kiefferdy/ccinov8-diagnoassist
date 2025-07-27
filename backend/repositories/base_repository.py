@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import and_, or_, desc, asc, func
 from uuid import UUID
+import uuid
 import logging
 
 logger = logging.getLogger(__name__)
@@ -202,3 +203,19 @@ class BaseRepository(Generic[ModelType]):
         except SQLAlchemyError as e:
             logger.error(f"Error filtering {self.model.__name__}: {str(e)}")
             return []
+    
+    def validate_uuid(self, value: str, field_name: str = "UUID") -> None:
+        """
+        Validate UUID format
+        
+        Args:
+            value: UUID string to validate
+            field_name: Field name for error reporting
+            
+        Raises:
+            ValueError: If UUID is invalid
+        """
+        try:
+            uuid.UUID(value)
+        except (TypeError, ValueError):
+            raise ValueError(f"Invalid UUID format for {field_name}: {value}")

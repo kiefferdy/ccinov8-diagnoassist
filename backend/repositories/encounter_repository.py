@@ -16,6 +16,9 @@ from repositories.base_repository import BaseRepository
 from models.encounter import Encounter
 from sqlalchemy.orm import joinedload
 from sqlalchemy import and_, desc, asc
+import logging
+
+logger = logging.getLogger(__name__)
 
 class EncounterRepository(BaseRepository[Encounter]):
     """
@@ -23,7 +26,7 @@ class EncounterRepository(BaseRepository[Encounter]):
     """
     
     def __init__(self, db):
-        super().__init__(db, Encounter)
+        super().__init__(Encounter, db)
     
     def get_by_episode(self, episode_id: str, skip: int = 0, limit: int = 100) -> List[Encounter]:
         """
@@ -47,7 +50,7 @@ class EncounterRepository(BaseRepository[Encounter]):
                     .limit(limit)
                     .all())
         except Exception as e:
-            self.logger.error(f"Error getting encounters by episode {episode_id}: {e}")
+            logger.error(f"Error getting encounters by episode {episode_id}: {e}")
             raise
     
     def get_by_patient(self, patient_id: str, skip: int = 0, limit: int = 100) -> List[Encounter]:
@@ -72,7 +75,7 @@ class EncounterRepository(BaseRepository[Encounter]):
                     .limit(limit)
                     .all())
         except Exception as e:
-            self.logger.error(f"Error getting encounters by patient {patient_id}: {e}")
+            logger.error(f"Error getting encounters by patient {patient_id}: {e}")
             raise
     
     def get_by_status(self, status: str, skip: int = 0, limit: int = 100) -> List[Encounter]:
@@ -96,7 +99,7 @@ class EncounterRepository(BaseRepository[Encounter]):
                     .limit(limit)
                     .all())
         except Exception as e:
-            self.logger.error(f"Error getting encounters by status {status}: {e}")
+            logger.error(f"Error getting encounters by status {status}: {e}")
             raise
     
     def get_by_type(self, encounter_type: str, skip: int = 0, limit: int = 100) -> List[Encounter]:
@@ -120,7 +123,7 @@ class EncounterRepository(BaseRepository[Encounter]):
                     .limit(limit)
                     .all())
         except Exception as e:
-            self.logger.error(f"Error getting encounters by type {encounter_type}: {e}")
+            logger.error(f"Error getting encounters by type {encounter_type}: {e}")
             raise
     
     def get_signed_encounters(self, skip: int = 0, limit: int = 100) -> List[Encounter]:
@@ -163,7 +166,7 @@ class EncounterRepository(BaseRepository[Encounter]):
             self.validate_uuid(episode_id)
             return self.db.query(self.model).filter(self.model.episode_id == episode_id).count()
         except Exception as e:
-            self.logger.error(f"Error counting encounters by episode {episode_id}: {e}")
+            logger.error(f"Error counting encounters by episode {episode_id}: {e}")
             raise
     
     def count_by_patient(self, patient_id: str) -> int:
@@ -180,7 +183,7 @@ class EncounterRepository(BaseRepository[Encounter]):
             self.validate_uuid(patient_id)
             return self.db.query(self.model).filter(self.model.patient_id == patient_id).count()
         except Exception as e:
-            self.logger.error(f"Error counting encounters by patient {patient_id}: {e}")
+            logger.error(f"Error counting encounters by patient {patient_id}: {e}")
             raise
     
     def count_by_status(self, status: str) -> int:
@@ -196,7 +199,7 @@ class EncounterRepository(BaseRepository[Encounter]):
         try:
             return self.db.query(self.model).filter(self.model.status == status).count()
         except Exception as e:
-            self.logger.error(f"Error counting encounters by status {status}: {e}")
+            logger.error(f"Error counting encounters by status {status}: {e}")
             raise
     
     def get_episode_stats(self, episode_id: str) -> Dict[str, Any]:
@@ -225,7 +228,7 @@ class EncounterRepository(BaseRepository[Encounter]):
                 "lastVisit": last_visit
             }
         except Exception as e:
-            self.logger.error(f"Error getting episode stats for {episode_id}: {e}")
+            logger.error(f"Error getting episode stats for {episode_id}: {e}")
             raise
     
     def get_recent_encounters(self, days: int = 30, skip: int = 0, limit: int = 100) -> List[Encounter]:
@@ -250,7 +253,7 @@ class EncounterRepository(BaseRepository[Encounter]):
                     .limit(limit)
                     .all())
         except Exception as e:
-            self.logger.error(f"Error getting recent encounters: {e}")
+            logger.error(f"Error getting recent encounters: {e}")
             raise
     
     def update_soap_section(self, encounter_id: str, section: str, data: Dict[str, Any]) -> Encounter:
@@ -296,7 +299,7 @@ class EncounterRepository(BaseRepository[Encounter]):
             return encounter
             
         except Exception as e:
-            self.logger.error(f"Error updating SOAP section {section} for encounter {encounter_id}: {e}")
+            logger.error(f"Error updating SOAP section {section} for encounter {encounter_id}: {e}")
             self.db.rollback()
             raise
     
@@ -330,7 +333,7 @@ class EncounterRepository(BaseRepository[Encounter]):
             return self.update(encounter_id, update_data)
             
         except Exception as e:
-            self.logger.error(f"Error signing encounter {encounter_id}: {e}")
+            logger.error(f"Error signing encounter {encounter_id}: {e}")
             raise
     
     def get_with_filters(self, episode_id: Optional[str] = None, patient_id: Optional[str] = None,
@@ -377,5 +380,5 @@ class EncounterRepository(BaseRepository[Encounter]):
             return query.all()
             
         except Exception as e:
-            self.logger.error(f"Error getting encounters with filters: {e}")
+            logger.error(f"Error getting encounters with filters: {e}")
             raise
