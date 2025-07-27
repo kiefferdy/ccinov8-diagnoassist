@@ -23,8 +23,7 @@ from app.models.reports import (
 from app.models.auth import UserModel, UserRoleEnum
 from app.repositories.report_repository import ReportRepository
 from app.core.exceptions import ValidationException, NotFoundError, PermissionDeniedError
-from app.core.monitoring import monitoring
-from app.core.performance import performance_optimizer
+# Simplified for core functionality - removed enterprise monitoring/performance systems
 
 logger = logging.getLogger(__name__)
 
@@ -64,14 +63,8 @@ class ReportService:
             # Start background generation
             asyncio.create_task(self._generate_report_background(report.id, report_request, user))
             
-            # Record metrics
-            monitoring.metrics.increment_counter(
-                "reports_requested_total",
-                labels={
-                    "report_type": report_request.report_type.value,
-                    "format": report_request.report_format.value
-                }
-            )
+            # Log report request
+            logger.debug(f"Report requested - type: {report_request.report_type.value}, format: {report_request.report_format.value}")
             
             logger.info(f"Started report generation {report.id} for user {user.id}")
             return report
@@ -467,12 +460,8 @@ class ReportService:
                 {"generation_time_seconds": generation_time}
             )
             
-            # Record metrics
-            monitoring.metrics.record_histogram(
-                "report_generation_duration_seconds",
-                generation_time,
-                labels={"report_type": report_request.report_type.value}
-            )
+            # Log generation metrics
+            logger.debug(f"Report generation complete - type: {report_request.report_type.value}, duration: {generation_time:.2f}s")
             
             logger.info(f"Completed report generation {report_id} in {generation_time:.2f}s")
             

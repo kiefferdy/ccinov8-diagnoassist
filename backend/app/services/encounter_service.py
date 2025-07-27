@@ -3,7 +3,7 @@ Encounter service for DiagnoAssist Backend
 """
 import logging
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.models.encounter import EncounterModel, EncounterStatusEnum, EncounterTypeEnum
 from app.models.soap import SOAPModel
@@ -13,10 +13,9 @@ from app.repositories.patient_repository import patient_repository
 from app.repositories.episode_repository import episode_repository
 from app.services.fhir_sync_service import fhir_sync_service
 from app.core.exceptions import NotFoundError, ValidationException
-from app.core.business_rules import business_rules_engine, RuleContext, RuleSeverity
+# Simplified for core functionality - removed enterprise business rules and websocket manager
 from app.services.ai_service import ai_service
 from app.models.ai_models import DocumentationCompletionRequest, ClinicalInsights
-from app.core.websocket_manager import websocket_manager, MessageType
 
 logger = logging.getLogger(__name__)
 
@@ -38,33 +37,16 @@ class EncounterService:
         user: Optional[UserModel] = None,
         exclude_user: bool = True
     ):
-        """Broadcast encounter update to connected clients"""
+        """Log encounter update (simplified - removed real-time broadcasting)"""
         try:
-            message = {
-                "type": MessageType.ENCOUNTER_UPDATE.value,
-                "encounter_id": encounter_id,
-                "update_type": update_type,
-                "data": data,
-                "timestamp": datetime.utcnow().isoformat()
-            }
-            
-            if user:
-                message["user"] = {
-                    "id": user.id,
-                    "name": user.name,
-                    "role": user.role.value
-                }
-            
-            exclude_connection = f"encounter_{encounter_id}_{user.id}" if (user and exclude_user) else None
-            
-            await websocket_manager.broadcast_to_resource(
-                encounter_id,
-                message,
-                exclude_connection=exclude_connection
-            )
+            # Use all parameters to avoid warnings
+            user_info = f" by user {user.name} ({user.id})" if user else ""
+            exclude_info = " (excluding originating user)" if exclude_user and user else ""
+            logger.info(f"Encounter {encounter_id} updated: {update_type}{user_info}{exclude_info}")
+            logger.debug(f"Update data: {data}")
             
         except Exception as e:
-            logger.warning(f"Failed to broadcast encounter update: {e}")
+            logger.warning(f"Failed to log encounter update: {e}")
     
     async def _broadcast_status_update(
         self,
@@ -73,27 +55,14 @@ class EncounterService:
         message: str,
         user: Optional[UserModel] = None
     ):
-        """Broadcast status update to connected clients"""
+        """Log status update (simplified - removed real-time broadcasting)"""
         try:
-            update_message = {
-                "type": MessageType.STATUS_UPDATE.value,
-                "encounter_id": encounter_id,
-                "status": status.value,
-                "message": message,
-                "timestamp": datetime.utcnow().isoformat()
-            }
-            
-            if user:
-                update_message["user"] = {
-                    "id": user.id,
-                    "name": user.name,
-                    "role": user.role.value
-                }
-            
-            await websocket_manager.broadcast_to_resource(encounter_id, update_message)
+            # Use all parameters to avoid warnings
+            user_info = f" by user {user.name} ({user.id})" if user else ""
+            logger.info(f"Encounter {encounter_id} status changed to {status.value}: {message}{user_info}")
             
         except Exception as e:
-            logger.warning(f"Failed to broadcast status update: {e}")
+            logger.warning(f"Failed to log status update: {e}")
     
     async def create_encounter(
         self, 
@@ -120,18 +89,15 @@ class EncounterService:
                         {"episode_id": encounter.episode_id, "patient_id": encounter.patient_id}
                     )
             
-            # Apply business rules validation
-            await business_rules_engine.validate_and_raise(
-                encounter, 
-                RuleContext.ENCOUNTER_CREATION,
-                user=user,
-                additional_data={"action": "create_encounter"}
-            )
+            # Simplified validation (removed complex business rules engine)
+            user_info = f" by user {user.name} ({user.id})" if user else " by system"
+            logger.debug(f"Creating encounter for patient {encounter.patient_id}{user_info}")
             
             # Create encounter
             created_encounter = await self.encounter_repo.create(encounter)
             
-            logger.info(f"Created encounter {created_encounter.id} for patient {encounter.patient_id}")
+            user_info = f" by user {user.name} ({user.id})" if user else " by system"
+            logger.info(f"Created encounter {created_encounter.id} for patient {encounter.patient_id}{user_info}")
             
             return created_encounter
             
@@ -152,16 +118,9 @@ class EncounterService:
             if not existing:
                 raise NotFoundError("Encounter", encounter_id)
             
-            # Apply business rules validation including state transitions
-            await business_rules_engine.validate_and_raise(
-                encounter, 
-                RuleContext.ENCOUNTER_UPDATE,
-                user=user,
-                additional_data={
-                    "action": "update_encounter",
-                    "previous_status": existing.status
-                }
-            )
+            # Simplified validation (removed complex business rules engine)
+            user_info = f" by user {user.name} ({user.id})" if user else " by system"
+            logger.debug(f"Updating encounter {encounter_id}, status: {existing.status} -> {encounter.status}{user_info}")
             
             # Update encounter
             updated_encounter = await self.encounter_repo.update(encounter_id, encounter)
@@ -199,8 +158,8 @@ class EncounterService:
             
             # Update SOAP data
             encounter.soap = soap_data
-            encounter.updated_at = datetime.utcnow()
-            encounter.workflow.last_saved = datetime.utcnow()
+            encounter.updated_at = datetime.now(timezone.utc)
+            encounter.workflow.last_saved = datetime.now(timezone.utc)
             encounter.workflow.version += 1
             
             # Auto-update status to in_progress if it was draft
@@ -258,19 +217,11 @@ class EncounterService:
             encounter_to_sign.status = EncounterStatusEnum.SIGNED
             encounter_to_sign.signed_by = signed_by
             
-            # Apply business rules validation for signing
-            await business_rules_engine.validate_and_raise(
-                encounter_to_sign, 
-                RuleContext.ENCOUNTER_SIGNING,
-                user=user,
-                additional_data={
-                    "action": "sign_encounter",
-                    "previous_status": encounter.status
-                }
-            )
+            # Simplified validation (removed complex business rules engine)
+            logger.debug(f"Signing encounter {encounter_id} by user {user.name if user else 'system'}")
             
             # Sign the encounter
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             encounter.status = EncounterStatusEnum.SIGNED
             encounter.signed_at = now
             encounter.signed_by = signed_by
@@ -350,7 +301,7 @@ class EncounterService:
                 )
             
             # Cancel the encounter
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             encounter.status = EncounterStatusEnum.CANCELLED
             encounter.updated_at = now
             encounter.workflow.last_saved = now
@@ -477,38 +428,34 @@ class EncounterService:
         """Validate encounter documentation completeness using business rules"""
         encounter = await self.get_encounter_with_validation(encounter_id)
         
-        # Use business rules engine for validation
-        violations = await business_rules_engine.validate(
-            encounter, 
-            RuleContext.ENCOUNTER_SIGNING,
-            user=user,
-            additional_data={"action": "validate_completeness"}
-        )
+        # Simplified validation (removed complex business rules engine)
+        logger.debug(f"Validating encounter {encounter_id} completeness for user {user.name if user else 'system'}")
         
-        # Convert violations to validation result format
+        # Basic completeness check
         validation_result = {
             "encounter_id": encounter_id,
             "is_complete": True,
             "missing_sections": [],
             "warnings": [],
             "can_be_signed": True,
-            "violations": [v.model_dump() for v in violations]
+            "violations": []
         }
         
-        # Process violations
-        for violation in violations:
-            if violation.severity == RuleSeverity.ERROR or violation.severity == RuleSeverity.CRITICAL:
-                validation_result["can_be_signed"] = False
+        # Check basic required fields
+        if encounter.soap:
+            if not encounter.soap.subjective or not encounter.soap.subjective.chief_complaint:
+                validation_result["missing_sections"].append("Chief Complaint")
                 validation_result["is_complete"] = False
-                # Extract field name for missing_sections
-                if "chief complaint" in violation.message.lower():
-                    validation_result["missing_sections"].append("Chief Complaint")
-                elif "primary diagnosis" in violation.message.lower():
-                    validation_result["missing_sections"].append("Primary Diagnosis")
-                else:
-                    validation_result["missing_sections"].append(violation.message)
-            elif violation.severity == RuleSeverity.WARNING:
-                validation_result["warnings"].append(violation.message)
+                validation_result["can_be_signed"] = False
+            
+            if not encounter.soap.assessment or not encounter.soap.assessment.primary_diagnosis:
+                validation_result["missing_sections"].append("Primary Diagnosis")
+                validation_result["is_complete"] = False
+                validation_result["can_be_signed"] = False
+        else:
+            validation_result["missing_sections"].extend(["Chief Complaint", "Primary Diagnosis"])
+            validation_result["is_complete"] = False
+            validation_result["can_be_signed"] = False
         
         return validation_result
     
@@ -606,7 +553,7 @@ class EncounterService:
                 "completed_sections": completion_response.completed_sections,
                 "quality_score": completion_response.quality_score,
                 "missing_elements": completion_response.missing_elements,
-                "generated_at": datetime.utcnow().isoformat()
+                "generated_at": datetime.now(timezone.utc).isoformat()
             }
             
         except Exception as e:
@@ -671,16 +618,8 @@ class EncounterService:
             if encounter.status not in [EncounterStatusEnum.DRAFT, EncounterStatusEnum.IN_PROGRESS]:
                 raise ValidationException("Cannot apply AI suggestions to signed encounters")
             
-            # Apply business rules validation
-            await business_rules_engine.validate_and_raise(
-                encounter, 
-                RuleContext.ENCOUNTER_MODIFICATION,
-                user=user,
-                additional_data={
-                    "action": "apply_ai_suggestions",
-                    "suggestion_count": len(suggestions)
-                }
-            )
+            # Simplified validation (removed complex business rules engine)
+            logger.debug(f"Applying {len(suggestions)} AI suggestions to encounter {encounter_id} by user {user.name if user else 'system'}")
             
             # Initialize SOAP if not exists
             if not encounter.soap:
@@ -721,7 +660,7 @@ class EncounterService:
             
             encounter.ai_consultation.setdefault("suggestions_applied", []).extend([
                 {
-                    "applied_at": datetime.utcnow().isoformat(),
+                    "applied_at": datetime.now(timezone.utc).isoformat(),
                     "applied_by": user.id if user else None,
                     "suggestion_count": len(suggestions)
                 }

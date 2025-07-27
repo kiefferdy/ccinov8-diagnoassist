@@ -78,14 +78,8 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize search service: {e}")
         # Don't raise - allow app to start without search
     
-    # Initialize performance optimization system
-    try:
-        from app.core.performance_integration import initialize_performance_system
-        performance_result = await initialize_performance_system()
-        logger.info(f"Performance optimization system initialized: {performance_result['status']}")
-    except Exception as e:
-        logger.error(f"Failed to initialize performance system: {e}")
-        # Don't raise - allow app to start without performance optimization
+    # Performance optimization system removed - using simplified approach
+    logger.info("Performance optimization system: simplified (removed complex enterprise features)")
     
     yield
     

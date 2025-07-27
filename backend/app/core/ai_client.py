@@ -16,7 +16,6 @@ import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 from app.core.exceptions import AIServiceException
-from app.core.monitoring import monitoring
 
 logger = logging.getLogger(__name__)
 
@@ -93,11 +92,8 @@ class GeminiAIClient:
     async def generate_response(self, request: AIRequest) -> AIResponse:
         """Generate AI response for given request"""
         try:
-            # Record request metrics
-            monitoring.metrics.increment_counter(
-                "ai_requests_total",
-                labels={"task_type": request.task_type.value, "model": request.model.value}
-            )
+            # Log request metrics
+            logger.debug(f"AI request: {request.task_type.value} using {request.model.value}")
             
             start_time = asyncio.get_event_loop().time()
             
@@ -117,24 +113,17 @@ class GeminiAIClient:
             # Process response
             ai_response = self._process_response(response, request.task_type)
             
-            # Record metrics
+            # Log metrics
             duration_ms = (asyncio.get_event_loop().time() - start_time) * 1000
-            monitoring.metrics.record_histogram(
-                "ai_request_duration_ms",
-                duration_ms,
-                labels={"task_type": request.task_type.value, "model": request.model.value}
-            )
+            logger.debug(f"AI request completed in {duration_ms:.2f}ms")
             
             logger.info(f"AI request completed: {request.task_type.value} in {duration_ms:.2f}ms")
             
             return ai_response
             
         except Exception as e:
-            # Record error metrics
-            monitoring.metrics.increment_counter(
-                "ai_request_errors_total",
-                labels={"task_type": request.task_type.value, "error_type": type(e).__name__}
-            )
+            # Log error metrics
+            logger.error(f"AI request error: {request.task_type.value} - {type(e).__name__}: {e}")
             
             logger.error(f"AI request failed: {e}")
             raise AIServiceException(f"AI generation failed: {str(e)}")

@@ -9,23 +9,20 @@ Handles business logic for templates including:
 """
 import logging
 from typing import List, Optional, Dict, Any, Tuple
-from datetime import datetime
-import json
+from datetime import datetime, timezone
 
 from app.models.template import (
     TemplateModel, TemplateCreateRequest, TemplateUpdateRequest,
     TemplateSearchRequest, TemplateApplicationRequest, AppliedTemplateInfo,
-    TemplateUsageStats, TemplateValidationResult, TemplateType, TemplateScope,
+    TemplateUsageStats, TemplateValidationResult, TemplateScope,
     TemplateCategory, TemplateField, TemplateSection
 )
 from app.models.auth import UserModel, UserRoleEnum
 from app.models.encounter import EncounterModel
-from app.models.soap import SOAPModel
 from app.repositories.template_repository import TemplateRepository
 from app.services.encounter_service import EncounterService
 from app.core.exceptions import ValidationException, NotFoundError, PermissionDeniedError
-from app.core.business_rules import business_rules_engine
-from app.core.monitoring import monitoring
+# Simplified for core functionality - removed enterprise business rules and monitoring systems
 
 logger = logging.getLogger(__name__)
 
@@ -76,15 +73,8 @@ class TemplateService:
             # Create template
             template = await self.template_repository.create_template(template_data, user)
             
-            # Record metrics
-            monitoring.metrics.increment_counter(
-                "templates_created_total",
-                labels={
-                    "type": template_data.template_type.value,
-                    "category": template_data.category.value,
-                    "scope": template_data.scope.value
-                }
-            )
+            # Log template creation
+            logger.debug(f"Template created - type: {template_data.template_type.value}, category: {template_data.category.value}, scope: {template_data.scope.value}")
             
             logger.info(f"Created template {template.id} by user {user.id}")
             return template
@@ -260,7 +250,7 @@ class TemplateService:
             # Sort by score and return top results
             scored_templates.sort(key=lambda x: x[1], reverse=True)
             
-            return [template for template, score in scored_templates[:limit]]
+            return [template for template, _ in scored_templates[:limit]]
             
         except Exception as e:
             logger.error(f"Failed to get recommended templates: {e}")
@@ -352,20 +342,14 @@ class TemplateService:
             application_info = AppliedTemplateInfo(
                 template_id=template.id,
                 template_name=template.name,
-                applied_at=datetime.utcnow(),
+                applied_at=datetime.now(timezone.utc),
                 applied_by=user.id,
                 applied_sections=applied_sections,
                 field_modifications=application_request.field_overrides
             )
             
-            # Record metrics
-            monitoring.metrics.increment_counter(
-                "templates_applied_total",
-                labels={
-                    "template_type": template.template_type.value,
-                    "merge_strategy": application_request.merge_strategy
-                }
-            )
+            # Log template application
+            logger.debug(f"Template applied - template_id: {template.id}, encounter_id: {encounter.id}")
             
             logger.info(f"Applied template {template.id} to encounter {encounter.id}")
             return final_encounter, application_info
@@ -611,7 +595,7 @@ class TemplateService:
         
         # Recent usage bonus
         if template.metadata.last_used:
-            days_since_use = (datetime.utcnow() - template.metadata.last_used).days
+            days_since_use = (datetime.now(timezone.utc) - template.metadata.last_used).days
             if days_since_use < 7:
                 score += 10
             elif days_since_use < 30:
@@ -667,7 +651,7 @@ class TemplateService:
         applied_info = AppliedTemplateInfo(
             template_id=template.id,
             template_name=template.name,
-            applied_at=datetime.utcnow(),
+            applied_at=datetime.now(timezone.utc),
             applied_by=user.id,
             applied_sections=sections_to_apply,
             field_modifications=application_request.field_overrides

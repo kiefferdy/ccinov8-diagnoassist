@@ -22,9 +22,7 @@ from app.models.ai_models import (
 from app.models.patient import PatientModel
 from app.models.encounter import EncounterModel
 from app.core.exceptions import AIServiceException, ValidationException
-from app.core.monitoring import monitoring
-from app.core.performance import performance_optimizer
-from app.core.resilience import resilient
+# Simplified for core functionality - removed enterprise monitoring/performance/resilience systems
 
 logger = logging.getLogger(__name__)
 
@@ -36,12 +34,6 @@ class AIService:
         self._chat_histories: Dict[str, ChatHistory] = {}
         self._processing_cache = {}
         
-    @resilient(
-        circuit_breaker="ai_voice_processing",
-        retry_attempts=2,
-        retry_delay_ms=1000,
-        timeout_seconds=30
-    )
     async def process_voice_to_soap(
         self, 
         request: VoiceProcessingRequest,
@@ -95,7 +87,7 @@ class AIService:
                 transcription=ai_response.content.split("SOAP_EXTRACTION:")[0].strip() if "SOAP_EXTRACTION:" in ai_response.content else ai_response.content,
                 soap_extraction=soap_extraction,
                 confidence=confidence,
-                processing_time_ms=0,  # Will be filled by monitoring
+                processing_time_ms=0,  # Simplified - removed complex monitoring
                 metadata={
                     "language": request.language,
                     "target_section": request.target_section.value if request.target_section else None,
@@ -104,37 +96,20 @@ class AIService:
                 }
             )
             
-            # Record successful processing
-            monitoring.metrics.increment_counter(
-                "voice_processing_success_total",
-                labels={"target_section": request.target_section.value if request.target_section else "all"}
-            )
+            # Log successful processing
+            logger.debug(f"Voice processing success: {request.target_section.value if request.target_section else 'all'}")
             
             logger.info(f"Voice processing completed successfully for encounter {request.encounter_id}")
             
             return result
             
         except Exception as e:
-            # Record processing error
-            monitoring.metrics.increment_counter(
-                "voice_processing_errors_total",
-                labels={"error_type": type(e).__name__}
-            )
+            # Log processing error
+            logger.error(f"Voice processing error: {type(e).__name__}")
             
             logger.error(f"Voice processing failed for encounter {request.encounter_id}: {e}")
             raise AIServiceException(f"Voice processing failed: {str(e)}")
     
-    @performance_optimizer.cache_decorator(
-        ttl=1800,  # 30 minutes cache
-        key_func=lambda self, patient, encounter, additional_context=None: 
-            f"clinical_insights_{patient.id}_{encounter.id}_{hash(str(additional_context))}"
-    )
-    @resilient(
-        circuit_breaker="ai_clinical_insights",
-        retry_attempts=2,
-        retry_delay_ms=1500,
-        timeout_seconds=45
-    )
     async def generate_clinical_insights(
         self,
         patient: PatientModel,
@@ -178,33 +153,20 @@ class AIService:
             # Parse clinical insights
             insights = await self._parse_clinical_insights(ai_response.content)
             
-            # Record successful analysis
-            monitoring.metrics.increment_counter(
-                "clinical_insights_generated_total",
-                labels={"patient_age_group": self._get_age_group(patient)}
-            )
+            # Log successful analysis
+            logger.debug(f"Clinical insights generated for patient age group: {self._get_age_group(patient)}")
             
             logger.info(f"Clinical insights generated successfully for patient {patient.id}")
             
             return insights
             
         except Exception as e:
-            monitoring.metrics.increment_counter(
-                "clinical_insights_errors_total",
-                labels={"error_type": type(e).__name__}
-            )
+            # Log insight generation error
+            logger.error(f"Clinical insights error: {type(e).__name__}")
             
             logger.error(f"Clinical insights generation failed: {e}")
             raise AIServiceException(f"Clinical insights generation failed: {str(e)}")
     
-    @resilient(
-        circuit_breaker="ai_chat",
-        retry_attempts=1,
-        retry_delay_ms=500,
-        timeout_seconds=20,
-        bulkhead="ai_chat_requests",
-        bulkhead_size=5
-    )
     async def chat_with_ai(
         self,
         request: ChatRequest,
@@ -284,36 +246,20 @@ class AIService:
                 }
             )
             
-            # Record chat interaction
-            monitoring.metrics.increment_counter(
-                "ai_chat_interactions_total",
-                labels={"has_patient_context": str(patient is not None)}
-            )
+            # Log chat interaction
+            logger.debug(f"AI chat interaction - has patient context: {patient is not None}")
             
             logger.info(f"AI chat response generated for conversation {conversation_id}")
             
             return response
             
         except Exception as e:
-            monitoring.metrics.increment_counter(
-                "ai_chat_errors_total",
-                labels={"error_type": type(e).__name__}
-            )
+            # Log chat error
+            logger.error(f"AI chat error: {type(e).__name__}")
             
             logger.error(f"AI chat failed: {e}")
             raise AIServiceException(f"AI chat failed: {str(e)}")
     
-    @performance_optimizer.cache_decorator(
-        ttl=900,  # 15 minutes cache
-        key_func=lambda self, request, patient=None: 
-            f"doc_completion_{request.encounter_id}_{hash(str(request.current_content))}"
-    )
-    @resilient(
-        circuit_breaker="ai_documentation",
-        retry_attempts=2,
-        retry_delay_ms=1000,
-        timeout_seconds=30
-    )
     async def complete_documentation(
         self,
         request: DocumentationCompletionRequest,
@@ -370,21 +316,16 @@ class AIService:
                 missing_elements=missing_elements
             )
             
-            # Record completion
-            monitoring.metrics.increment_counter(
-                "documentation_completion_total",
-                labels={"sections_completed": str(len(completed_sections))}
-            )
+            # Log completion
+            logger.debug(f"Documentation completion - sections completed: {len(completed_sections)}")
             
             logger.info(f"Documentation completion generated for encounter {request.encounter_id}")
             
             return response
             
         except Exception as e:
-            monitoring.metrics.increment_counter(
-                "documentation_completion_errors_total",
-                labels={"error_type": type(e).__name__}
-            )
+            # Log documentation error
+            logger.error(f"Documentation completion error: {type(e).__name__}")
             
             logger.error(f"Documentation completion failed: {e}")
             raise AIServiceException(f"Documentation completion failed: {str(e)}")

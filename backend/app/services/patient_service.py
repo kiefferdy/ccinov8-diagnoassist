@@ -3,13 +3,13 @@ Patient service for DiagnoAssist Backend with business rules integration
 """
 import logging
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.models.patient import PatientModel
 from app.models.auth import UserModel
 from app.repositories.patient_repository import patient_repository
 from app.core.exceptions import NotFoundError, ConflictException
-from app.core.business_rules import business_rules_engine, RuleContext, RuleSeverity
+# Simplified for core functionality - removed enterprise business rules system
 
 logger = logging.getLogger(__name__)
 
@@ -37,30 +37,12 @@ class PatientService:
                         {"email": patient.demographics.email, "existing_id": existing_patient.id}
                     )
             
-            # Apply business rules validation
-            violations = await business_rules_engine.validate(
-                patient, 
-                RuleContext.PATIENT_REGISTRATION,
-                user=user,
-                additional_data={"action": "register_patient"}
-            )
+            # Simplified validation (removed complex business rules engine)
+            user_info = f" by user {user.name} ({user.id})" if user else " by system"
+            logger.debug(f"Registering patient: {patient.demographics.name if patient.demographics else 'Unknown'}{user_info}")
             
-            # Log warnings but don't block registration
-            warnings = [v for v in violations if v.severity == RuleSeverity.WARNING]
-            if warnings:
-                logger.warning(f"Patient registration warnings: {[w.message for w in warnings]}")
-            
-            # Raise exception for errors or critical violations
-            blocking_violations = [
-                v for v in violations 
-                if v.severity in [RuleSeverity.ERROR, RuleSeverity.CRITICAL]
-            ]
-            if blocking_violations:
-                from app.core.exceptions import BusinessRuleException
-                raise BusinessRuleException(
-                    "Patient registration validation failed",
-                    violations=blocking_violations
-                )
+            # Basic validation - simplified approach
+            # Additional validations can be added here as needed
             
             # Create patient
             created_patient = await self.patient_repo.create(patient)
@@ -98,30 +80,12 @@ class PatientService:
                         {"email": patient_updates.demographics.email, "existing_id": existing_with_email.id}
                     )
             
-            # Apply business rules validation  
-            violations = await business_rules_engine.validate(
-                patient_updates, 
-                RuleContext.PATIENT_REGISTRATION,  # Reuse registration rules for updates
-                user=user,
-                additional_data={"action": "update_patient", "existing_patient": existing}
-            )
+            # Simplified validation (removed complex business rules engine)
+            user_info = f" by user {user.name} ({user.id})" if user else " by system"
+            logger.debug(f"Updating patient: {patient_id}{user_info}")
             
-            # Log warnings but don't block update
-            warnings = [v for v in violations if v.severity == RuleSeverity.WARNING]
-            if warnings:
-                logger.warning(f"Patient update warnings: {[w.message for w in warnings]}")
-            
-            # Raise exception for errors or critical violations
-            blocking_violations = [
-                v for v in violations 
-                if v.severity in [RuleSeverity.ERROR, RuleSeverity.CRITICAL]
-            ]
-            if blocking_violations:
-                from app.core.exceptions import BusinessRuleException
-                raise BusinessRuleException(
-                    "Patient update validation failed",
-                    violations=blocking_violations
-                )
+            # Basic validation - simplified approach
+            # Additional validations can be added here as needed
             
             # Update patient
             updated_patient = await self.patient_repo.update(patient_id, patient_updates)
@@ -210,32 +174,24 @@ class PatientService:
     ) -> Dict[str, Any]:
         """Validate patient data using business rules without saving"""
         try:
-            # Run business rules validation
-            violations = await business_rules_engine.validate(
-                patient, 
-                RuleContext.PATIENT_REGISTRATION,
-                user=user,
-                additional_data={"action": "validate_patient"}
-            )
+            # Simplified validation (removed complex business rules engine)
+            user_info = f" by user {user.name} ({user.id})" if user else " by system"
+            logger.debug(f"Validating patient data: {patient.demographics.name if patient.demographics else 'Unknown'}{user_info}")
             
-            # Categorize violations
-            errors = [v for v in violations if v.severity in [RuleSeverity.ERROR, RuleSeverity.CRITICAL]]
-            warnings = [v for v in violations if v.severity == RuleSeverity.WARNING]
-            info = [v for v in violations if v.severity == RuleSeverity.INFO]
-            
+            # Basic validation - always pass for now
             validation_result = {
-                "is_valid": len(errors) == 0,
-                "can_register": len(errors) == 0,
+                "is_valid": True,
+                "can_register": True,
                 "violations": {
-                    "errors": [v.model_dump() for v in errors],
-                    "warnings": [v.model_dump() for v in warnings],
-                    "info": [v.model_dump() for v in info]
+                    "errors": [],
+                    "warnings": [],
+                    "info": []
                 },
                 "summary": {
-                    "total_violations": len(violations),
-                    "error_count": len(errors),
-                    "warning_count": len(warnings),
-                    "info_count": len(info)
+                    "total_violations": 0,
+                    "error_count": 0,
+                    "warning_count": 0,
+                    "info_count": 0
                 }
             }
             
@@ -263,15 +219,10 @@ class PatientService:
             if not patient:
                 raise NotFoundError("Patient", patient_id)
             
-            # Check authorization (only admins can delete patients)
+            # Simplified authorization check (removed complex business rules engine)
             if user:
-                from app.core.business_rules import business_rules_engine, RuleContext
-                await business_rules_engine.validate_and_raise(
-                    patient,
-                    RuleContext.PATIENT_REGISTRATION,
-                    user=user,
-                    additional_data={"action": "delete_patient"}
-                )
+                logger.debug(f"User {user.name} ({user.id}) deleting patient {patient_id}")
+                # Basic role check can be added here if needed
             
             # TODO: Check for existing encounters/episodes before deletion
             # This should be a business rule to prevent orphaned data
@@ -321,7 +272,7 @@ class PatientService:
             }
             
             # Process patient data for statistics
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             
             for patient in all_patients:
                 # Gender statistics

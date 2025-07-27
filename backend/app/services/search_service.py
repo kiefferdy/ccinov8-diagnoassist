@@ -21,8 +21,7 @@ from app.models.search import (
 from app.models.auth import UserModel, UserRoleEnum
 from app.repositories.search_repository import SearchRepository
 from app.core.exceptions import ValidationException, NotFoundError, PermissionDeniedError
-from app.core.monitoring import monitoring
-from app.core.performance import performance_optimizer
+# Simplified for core functionality - removed enterprise monitoring/performance systems
 
 logger = logging.getLogger(__name__)
 
@@ -81,20 +80,8 @@ class SearchService:
             search_time = (datetime.utcnow() - start_time).total_seconds()
             await self._record_search_analytics(search_request, response, search_time, user)
             
-            # Record metrics
-            monitoring.metrics.increment_counter(
-                "searches_executed_total",
-                labels={
-                    "search_type": search_request.search_type.value,
-                    "entity_count": len(search_request.entities)
-                }
-            )
-            
-            monitoring.metrics.record_histogram(
-                "search_duration_seconds",
-                search_time,
-                labels={"search_type": search_request.search_type.value}
-            )
+            # Log search metrics
+            logger.debug(f"Search executed - type: {search_request.search_type.value}, entities: {len(search_request.entities)}, duration: {search_time:.3f}s")
             
             logger.info(f"Search executed for user {user.id} in {search_time:.3f}s")
             return response
@@ -456,7 +443,8 @@ class SearchService:
             
             # Save template (would use a repository method)
             # For now, just return the template
-            template.id = str(ObjectId())
+            import uuid
+            template.id = str(uuid.uuid4())
             
             logger.info(f"Created search template '{template.name}' for user {user.id}")
             return template
