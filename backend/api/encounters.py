@@ -19,6 +19,7 @@ from schemas.encounter import (
     EncounterStats
 )
 from schemas.common import StatusResponse, PaginationParams
+from api.dependencies import get_pagination
 
 router = APIRouter(prefix="/encounters", tags=["encounters"])
 
@@ -246,7 +247,7 @@ async def delete_encounter(
 @router.get("/episode/{episode_id}", response_model=EncounterListResponse)
 async def get_encounters_by_episode(
     episode_id: UUID,
-    pagination: PaginationParams = Depends(),
+    pagination: PaginationParams = Depends(get_pagination),
     service: EncounterService = Depends(get_encounter_service)
 ) -> EncounterListResponse:
     """
@@ -266,8 +267,8 @@ async def get_encounters_by_episode(
     try:
         encounters = service.get_encounters_by_episode(
             str(episode_id), 
-            skip=pagination.skip, 
-            limit=pagination.limit
+            skip=pagination.offset, 
+            limit=pagination.size
         )
         
         # For simplicity, return total as length of encounters
@@ -277,8 +278,8 @@ async def get_encounters_by_episode(
         return EncounterListResponse(
             data=encounters,
             total=total,
-            page=pagination.skip // pagination.limit + 1 if pagination.limit > 0 else 1,
-            size=pagination.limit
+            page=pagination.page,
+            size=pagination.size
         )
     except ValueError as e:
         raise HTTPException(
@@ -294,7 +295,7 @@ async def get_encounters_by_episode(
 @router.get("/patient/{patient_id}", response_model=EncounterListResponse)
 async def get_encounters_by_patient(
     patient_id: UUID,
-    pagination: PaginationParams = Depends(),
+    pagination: PaginationParams = Depends(get_pagination),
     service: EncounterService = Depends(get_encounter_service)
 ) -> EncounterListResponse:
     """
@@ -314,8 +315,8 @@ async def get_encounters_by_patient(
     try:
         encounters = service.get_encounters_by_patient(
             str(patient_id), 
-            skip=pagination.skip, 
-            limit=pagination.limit
+            skip=pagination.offset, 
+            limit=pagination.size
         )
         
         # For simplicity, return total as length of encounters
@@ -325,8 +326,8 @@ async def get_encounters_by_patient(
         return EncounterListResponse(
             data=encounters,
             total=total,
-            page=pagination.skip // pagination.limit + 1 if pagination.limit > 0 else 1,
-            size=pagination.limit
+            page=pagination.page,
+            size=pagination.size
         )
     except ValueError as e:
         raise HTTPException(
@@ -420,7 +421,7 @@ async def get_encounters(
     patient_id: Optional[UUID] = Query(None, description="Filter by patient"),
     status: Optional[str] = Query(None, description="Filter by status"),
     encounter_type: Optional[str] = Query(None, description="Filter by type"),
-    pagination: PaginationParams = Depends(),
+    pagination: PaginationParams = Depends(get_pagination),
     service: EncounterService = Depends(get_encounter_service)
 ) -> EncounterListResponse:
     """
@@ -444,11 +445,11 @@ async def get_encounters(
         # Route to appropriate service method based on filters
         if episode_id:
             encounters = service.get_encounters_by_episode(
-                str(episode_id), pagination.skip, pagination.limit
+                str(episode_id), pagination.offset, pagination.size
             )
         elif patient_id:
             encounters = service.get_encounters_by_patient(
-                str(patient_id), pagination.skip, pagination.limit
+                str(patient_id), pagination.offset, pagination.size
             )
         else:
             # For now, return empty list if no specific filter
@@ -460,8 +461,8 @@ async def get_encounters(
         return EncounterListResponse(
             data=encounters,
             total=total,
-            page=pagination.skip // pagination.limit + 1 if pagination.limit > 0 else 1,
-            size=pagination.limit
+            page=pagination.page,
+            size=pagination.size
         )
     except ValueError as e:
         raise HTTPException(
