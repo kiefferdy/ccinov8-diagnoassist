@@ -233,31 +233,9 @@ const EpisodeWorkspace = () => {
     loadData();
   }, [patientId, episodeId, getPatientById, getEpisodeById, getEpisodeEncounters, setCurrentEncounterWithLoading, patientsLoading, episodesLoading]);
 
-  // Note: Auto-creation is now DISABLED
+  // Note: Auto-creation is now COMPLETELY DISABLED
   // Episodes start empty and users must manually create encounters
-  // This useEffect is kept for backwards compatibility but should not trigger
-  useEffect(() => {
-    if (creatingEncounter && episode && patient && encounters.length === 0 && !loading) {
-      console.log(`⚠️ Auto-creation triggered (this should not happen anymore) for episode ${episode.id}`);
-      
-      let isMounted = true;
-      
-      handleCreateEncounter('initial').then(() => {
-        if (isMounted) {
-          setCreatingEncounter(false);
-        }
-      }).catch(error => {
-        console.error('Failed to create initial encounter:', error);
-        if (isMounted) {
-          setCreatingEncounter(false);
-        }
-      });
-      
-      return () => {
-        isMounted = false;
-      };
-    }
-  }, [creatingEncounter, episode?.id, patient?.id, encounters.length, loading, handleCreateEncounter]);
+  // The useEffect has been removed to prevent duplicate encounter creation
 
   if (loading) {
     return (
