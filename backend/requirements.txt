@@ -29,7 +29,6 @@ python-multipart==0.0.20
 
 # AI Integration
 openai==1.97.1
-google-genai==1.27.0
 cohere==5.16.1
 groq==0.30.0
 mistralai==1.9.3
