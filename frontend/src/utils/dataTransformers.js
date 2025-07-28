@@ -23,11 +23,13 @@ export const transformPatientToBackend = (frontendPatient) => {
     email: demographics.email || frontendPatient.email || null,
     phone: demographics.phone || frontendPatient.phone || null,
     address: demographics.address || frontendPatient.address || null,
-    emergency_contact_name: demographics.emergencyContact ? 
-      demographics.emergencyContact.split(' - ')[0] : null,
-    emergency_contact_phone: demographics.emergencyContact ? 
-      demographics.emergencyContact.split(' - ')[1] : null,
-    emergency_contact_relationship: 'Emergency Contact', // Default
+    // Handle emergency contact fields properly
+    emergency_contact_name: demographics.emergencyContact || frontendPatient.emergencyContact || null,
+    emergency_contact_phone: demographics.emergencyContactPhone || frontendPatient.emergencyContactPhone || null,
+    emergency_contact_relationship: demographics.emergencyContactRelation || frontendPatient.emergencyContactRelation || null,
+    // Add missing fields for SQLite storage
+    marital_status: demographics.maritalStatus || frontendPatient.maritalStatus || null,
+    occupation: demographics.occupation || frontendPatient.occupation || null,
     medical_history: [
       medicalBackground.pastMedicalHistory,
       medicalBackground.pastSurgicalHistory,
@@ -52,8 +54,13 @@ export const transformPatientFromBackend = (backendPatient) => {
       phone: backendPatient.phone || '',
       email: backendPatient.email || '',
       address: backendPatient.address || '',
-      emergencyContact: backendPatient.emergency_contact_name && backendPatient.emergency_contact_phone ? 
-        `${backendPatient.emergency_contact_name} - ${backendPatient.emergency_contact_phone}` : '',
+      // Handle emergency contact fields separately
+      emergencyContact: backendPatient.emergency_contact_name || '',
+      emergencyContactPhone: backendPatient.emergency_contact_phone || '',
+      emergencyContactRelation: backendPatient.emergency_contact_relationship || '',
+      // Add missing fields
+      maritalStatus: backendPatient.marital_status || '',
+      occupation: backendPatient.occupation || '',
       insuranceInfo: {} // Not in backend schema
     },
     medicalBackground: {

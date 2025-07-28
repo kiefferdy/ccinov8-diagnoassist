@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { StorageManager, generateId } from '../utils/storage';
 import apiService from '../services/apiService';
 import { transformPatientToBackend, transformPatientFromBackend } from '../utils/dataTransformers';
+import patientExtensionsStorage from '../utils/patientExtensions';
 
 const PatientContext = createContext(null);
 
@@ -28,7 +29,11 @@ export const PatientProvider = ({ children }) => {
         setError(null);
         const response = await apiService.getPatients();
         const backendPatients = response.data || response;
-        const transformedPatients = backendPatients.map(transformPatientFromBackend);
+        const transformedPatients = backendPatients.map(patient => {
+          const transformed = transformPatientFromBackend(patient);
+          // Enrich with SQLite extensions
+          return patientExtensionsStorage.enrichPatient(transformed);
+        });
         setPatients(transformedPatients);
         // Also save to localStorage as backup
         StorageManager.savePatients(transformedPatients);
@@ -65,11 +70,18 @@ export const PatientProvider = ({ children }) => {
       const backendPatient = await apiService.createPatient(backendPatientData);
       const transformedPatient = transformPatientFromBackend(backendPatient);
       
-      const updatedPatients = [...patients, transformedPatient];
+      // Store extensions in SQLite-like storage
+      const extensions = patientExtensionsStorage.extractExtensions({ demographics: patientData });
+      patientExtensionsStorage.setPatientExtensions(transformedPatient.id, extensions);
+      
+      // Enrich with extensions
+      const enrichedPatient = patientExtensionsStorage.enrichPatient(transformedPatient);
+      
+      const updatedPatients = [...patients, enrichedPatient];
       setPatients(updatedPatients);
       // Also save to localStorage as backup
       StorageManager.savePatients(updatedPatients);
-      return transformedPatient;
+      return enrichedPatient;
     } catch (error) {
       console.error('Error creating patient:', error);
       setError(error.message);
@@ -83,7 +95,11 @@ export const PatientProvider = ({ children }) => {
           phone: patientData.phone || '',
           email: patientData.email || '',
           address: patientData.address || '',
+          maritalStatus: patientData.maritalStatus || '',
+          occupation: patientData.occupation || '',
           emergencyContact: patientData.emergencyContact || '',
+          emergencyContactPhone: patientData.emergencyContactPhone || '',
+          emergencyContactRelation: patientData.emergencyContactRelation || '',
           insuranceInfo: patientData.insuranceInfo || {}
         },
         medicalBackground: {
@@ -98,6 +114,10 @@ export const PatientProvider = ({ children }) => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
+      // Also store extensions for fallback creation
+      const extensions = patientExtensionsStorage.extractExtensions(newPatient);
+      patientExtensionsStorage.setPatientExtensions(newPatient.id, extensions);
+      
       const updatedPatients = [...patients, newPatient];
       setPatients(updatedPatients);
       StorageManager.savePatients(updatedPatients);
@@ -118,12 +138,19 @@ export const PatientProvider = ({ children }) => {
         updatedAt: new Date().toISOString()
       };
       
+      // Update extensions in SQLite-like storage
+      const extensions = patientExtensionsStorage.extractExtensions(updatedPatientData);
+      patientExtensionsStorage.setPatientExtensions(patientId, extensions);
+      
       const backendPatientData = transformPatientToBackend(updatedPatientData);
       const backendPatient = await apiService.updatePatient(patient.id, backendPatientData);
       const transformedPatient = transformPatientFromBackend(backendPatient);
       
+      // Enrich with extensions
+      const enrichedPatient = patientExtensionsStorage.enrichPatient(transformedPatient);
+      
       const updatedPatients = patients.map(p => 
-        p.id === patientId ? transformedPatient : p
+        p.id === patientId ? enrichedPatient : p
       );
       
       setPatients(updatedPatients);
@@ -131,7 +158,7 @@ export const PatientProvider = ({ children }) => {
       
       // Update current patient if it's the one being updated
       if (currentPatient?.id === patientId) {
-        setCurrentPatient(transformedPatient);
+        setCurrentPatient(enrichedPatient);
       }
     } catch (error) {
       console.error('Error updating patient demographics:', error);
@@ -147,15 +174,22 @@ export const PatientProvider = ({ children }) => {
           : p
       );
       
+      // Update extensions in fallback too
+      const extensions = patientExtensionsStorage.extractExtensions({
+        demographics: { ...patients.find(p => p.id === patientId)?.demographics, ...updates }
+      });
+      patientExtensionsStorage.setPatientExtensions(patientId, extensions);
+      
       setPatients(updatedPatients);
       StorageManager.savePatients(updatedPatients);
       
       if (currentPatient?.id === patientId) {
-        setCurrentPatient(prev => ({
-          ...prev,
-          demographics: { ...prev.demographics, ...updates },
+        const updatedCurrent = {
+          ...currentPatient,
+          demographics: { ...currentPatient.demographics, ...updates },
           updatedAt: new Date().toISOString()
-        }));
+        };
+        setCurrentPatient(updatedCurrent);
       }
     }
   }, [patients, currentPatient]);
@@ -268,6 +302,9 @@ export const PatientProvider = ({ children }) => {
       setError(null);
       await apiService.deletePatient(patientId);
       
+      // Clean up extensions in SQLite-like storage
+      patientExtensionsStorage.deletePatientExtensions(patientId);
+      
       const updatedPatients = patients.filter(p => p.id !== patientId);
       setPatients(updatedPatients);
       StorageManager.savePatients(updatedPatients);
@@ -280,6 +317,8 @@ export const PatientProvider = ({ children }) => {
       console.error('Error deleting patient:', error);
       setError(error.message);
       // Fallback to localStorage deletion
+      patientExtensionsStorage.deletePatientExtensions(patientId);
+      
       const updatedPatients = patients.filter(p => p.id !== patientId);
       setPatients(updatedPatients);
       StorageManager.savePatients(updatedPatients);
