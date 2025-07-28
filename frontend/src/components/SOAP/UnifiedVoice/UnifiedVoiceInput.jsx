@@ -82,7 +82,7 @@ const UnifiedVoiceInput = ({
           setIsProcessing(true)
 
           try {
-            const response = await fetch('http://localhost:8000/transcribe', {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000'}/transcribe`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

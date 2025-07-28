@@ -1,7 +1,7 @@
 // hooks/useICD10Search.js
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export const useICD10Search = (initialQuery = '', options = {}) => {
   const {
