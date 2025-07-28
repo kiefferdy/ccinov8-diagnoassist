@@ -5,7 +5,7 @@ import {
   X, AlertCircle, ChevronDown, Search, Sparkles, 
   Clock, TrendingUp, Heart, Brain, Stethoscope, 
   Tag, Plus, AlertTriangle, Activity, Calendar,
-  Shield, Zap, Info, CheckCircle, ChevronRight, Cloud
+  Shield, Zap, Info, CheckCircle, ChevronRight, Cloud, Loader2
 } from 'lucide-react';
 
 const NewEpisodeModal = ({ patientId, onClose, onSuccess }) => {
@@ -147,12 +147,19 @@ const NewEpisodeModal = ({ patientId, onClose, onSuccess }) => {
         tags: [...formData.tags, formData.urgency !== 'normal' ? formData.urgency : null].filter(Boolean)
       });
       
-      if (formData.createEncounter) {
-        navigate(`/patient/${patientId}/episode/${newEpisode.id}`);
-      } else {
+      // Always call onSuccess first to refresh the episode list
+      if (onSuccess) {
         onSuccess(newEpisode);
       }
-    } catch {
+      
+      if (formData.createEncounter) {
+        // Add a small delay to ensure episode is fully synced before navigation
+        setTimeout(() => {
+          navigate(`/patient/${patientId}/episode/${newEpisode.id}`);
+        }, 100);
+      }
+    } catch (error) {
+      console.error('Failed to create episode:', error);
       setError('Failed to create episode. Please try again.');
       setLoading(false);
     }

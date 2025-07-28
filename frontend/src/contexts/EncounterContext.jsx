@@ -10,8 +10,8 @@ const transformBackendToFrontend = (backendEncounter) => {
   
   return {
     id: backendEncounter.id,
-    episodeId: backendEncounter.episode_id,
-    patientId: backendEncounter.patient_id,
+    episodeId: backendEncounter.episode_id || null,
+    patientId: backendEncounter.patient_id || null,
     type: backendEncounter.type || 'follow-up',
     date: backendEncounter.date || new Date().toISOString(),
     status: backendEncounter.status || 'draft',
@@ -168,7 +168,12 @@ export const EncounterProvider = ({ children }) => {
           const response = await apiService.getEncounters();
           const backendEncounters = response?.data || response || [];
           const transformedEncounters = backendEncounters.map(transformBackendToFrontend);
-          console.log('EncounterContext loaded encounters:', transformedEncounters.length, transformedEncounters);
+          
+          // Log encounters with episode IDs for debugging
+          console.log('EncounterContext loaded encounters:', transformedEncounters.length);
+          transformedEncounters.forEach(enc => {
+            console.log(`Encounter ${enc.id}: episodeId="${enc.episodeId}", patientId="${enc.patientId}"`);
+          });
           setEncounters(transformedEncounters);
           
           // Also cache in localStorage for offline access
@@ -194,12 +199,18 @@ export const EncounterProvider = ({ children }) => {
   // Get encounters for a specific episode
   const getEpisodeEncounters = useCallback(async (episodeId, useCache = true) => {
     if (useCache) {
-      // Return cached encounters
+      // Return cached encounters with strict comparison
       const cachedEncounters = encounters
         .filter(e => {
-          const match = e.episodeId === episodeId;
-          if (!match && encounters.length > 0) {
-            console.log(`Episode ID mismatch: looking for ${episodeId} (${typeof episodeId}), found ${e.episodeId} (${typeof e.episodeId})`);
+          // Ensure both IDs are strings for comparison
+          const encounterEpisodeId = String(e.episodeId || '');
+          const searchEpisodeId = String(episodeId || '');
+          const match = encounterEpisodeId === searchEpisodeId && encounterEpisodeId !== '';
+          
+          if (match) {
+            console.log(`✅ MATCHED encounter ${e.id} for episode ${searchEpisodeId} - created: ${e.createdAt}, type: ${e.type}`);
+          } else if (encounters.length > 0 && e.episodeId) {
+            console.log(`❌ Episode ID mismatch: looking for "${searchEpisodeId}", found "${encounterEpisodeId}" in encounter ${e.id}`);
           }
           return match;
         })
@@ -210,14 +221,17 @@ export const EncounterProvider = ({ children }) => {
 
     // Fetch fresh data from API
     try {
+      console.log(`🔍 Fetching encounters from API for episode: ${episodeId}`);
       const response = await apiService.getEpisodeEncounters(episodeId);
       const apiEncounters = response?.data || response || [];
+      console.log(`📥 API returned ${apiEncounters.length} encounters:`, apiEncounters.map(e => ({ id: e.id, episode_id: e.episode_id })));
       const transformedEncounters = apiEncounters.map(transformBackendToFrontend);
+      console.log(`🔄 Transformed encounters:`, transformedEncounters.map(e => ({ id: e.id, episodeId: e.episodeId })));
       
       // Update local state with fresh data - avoid duplicates
-      const nonEpisodeEncounters = encounters.filter(e => e.episodeId !== episodeId);
+      const nonEpisodeEncounters = encounters.filter(e => String(e.episodeId || '') !== String(episodeId || ''));
       const deduplicatedEncounters = transformedEncounters.filter(newEnc => 
-        !nonEpisodeEncounters.some(existingEnc => existingEnc.id === newEnc.id)
+        !encounters.some(existingEnc => existingEnc.id === newEnc.id)
       );
       const updatedEncounters = [...nonEpisodeEncounters, ...deduplicatedEncounters];
       setEncounters(updatedEncounters);
@@ -228,7 +242,11 @@ export const EncounterProvider = ({ children }) => {
       console.warn('Failed to fetch episode encounters from API:', error);
       // Fallback to cached data
       return encounters
-        .filter(e => e.episodeId === episodeId)
+        .filter(e => {
+          const encounterEpisodeId = String(e.episodeId || '');
+          const searchEpisodeId = String(episodeId || '');
+          return encounterEpisodeId === searchEpisodeId && encounterEpisodeId !== '';
+        })
         .sort((a, b) => new Date(b.date) - new Date(a.date));
     }
   }, [encounters]);
@@ -236,18 +254,23 @@ export const EncounterProvider = ({ children }) => {
   // Create a new encounter
   const createEncounter = useCallback(async (episodeId, patientId, type = 'follow-up') => {
     try {
+      console.log(`🚀 createEncounter called for episode: ${episodeId}, patient: ${patientId}, type: ${type}`);
+      console.log(`📊 Current encounters in context: ${encounters.length}`);
+      encounters.forEach(e => console.log(`  - ${e.id}: episode=${e.episodeId}, type=${e.type}`));
+      
       // Check if we already have an encounter being created to avoid duplicates
       const existingDraftEncounter = encounters.find(e => 
-        e.episodeId === episodeId && 
-        e.patientId === patientId && 
-        e.status === 'draft' &&
-        e.type === type
+        String(e.episodeId) === String(episodeId) && 
+        String(e.patientId) === String(patientId) && 
+        e.status === 'draft'
       );
       
       if (existingDraftEncounter) {
-        console.log('Draft encounter already exists, returning existing:', existingDraftEncounter.id);
+        console.log('✅ Draft encounter already exists, returning existing:', existingDraftEncounter.id);
         return existingDraftEncounter;
       }
+      
+      console.log(`📝 No existing draft found, creating new encounter...`);
       const encounterData = {
         episode_id: episodeId,
         patient_id: patientId,
@@ -307,8 +330,11 @@ export const EncounterProvider = ({ children }) => {
 
       // Try to create via API
       try {
+        console.log('Creating encounter with data:', { episode_id: episodeId, patient_id: patientId, type });
         const response = await apiService.createEncounter(encounterData);
+        console.log('API response for createEncounter:', response);
         const newEncounter = transformBackendToFrontend(response);
+        console.log('Transformed new encounter:', { id: newEncounter.id, episodeId: newEncounter.episodeId, patientId: newEncounter.patientId });
         
         // Check if encounter already exists to prevent duplicates
         const encounterExists = encounters.some(e => e.id === newEncounter.id);
@@ -359,7 +385,7 @@ export const EncounterProvider = ({ children }) => {
       setError(error.message);
       throw error;
     }
-  }, [encounters]);
+  }, [encounters, getEpisodeEncounters]);
   // Update current encounter
   const updateCurrentEncounter = useCallback((updates) => {
     if (!currentEncounter) return;

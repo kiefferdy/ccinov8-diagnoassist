@@ -144,11 +144,10 @@ const EncounterList = ({ encounters, currentEncounter, onSelectEncounter, onEnco
         const encounterDate = encounter.date || encounter.createdAt || new Date().toISOString();
         
         return (
-          <button
+          <div
             key={encounter.id}
-            onClick={() => onSelectEncounter(encounter)}
             className={`
-              w-full text-left p-4 transition-all duration-300 relative overflow-hidden group
+              relative transition-all duration-300 overflow-hidden group
               ${isSelected 
                 ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-600 shadow-md' 
                 : 'hover:bg-gray-50 hover:shadow-sm'
@@ -161,8 +160,12 @@ const EncounterList = ({ encounters, currentEncounter, onSelectEncounter, onEnco
               opacity-0 group-hover:opacity-5 transition-opacity duration-300
             `} />
             
-            {/* Encounter Header */}
-            <div className="relative z-10">
+            {/* Main clickable area */}
+            <button
+              onClick={() => onSelectEncounter(encounter)}
+              className="w-full text-left p-4 relative z-10"
+            >
+              {/* Encounter Header */}
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center space-x-3">
                   <div className={`
@@ -191,13 +194,6 @@ const EncounterList = ({ encounters, currentEncounter, onSelectEncounter, onEnco
                       </span>
                     </div>
                   )}
-                  <button
-                    onClick={(e) => handleDeleteEncounter(e, encounter.id, encounters.length - index)}
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors duration-200 opacity-0 group-hover:opacity-100"
-                    title="Delete encounter"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
               
@@ -250,8 +246,17 @@ const EncounterList = ({ encounters, currentEncounter, onSelectEncounter, onEnco
               `}>
                 <ChevronRight className="w-5 h-5 text-blue-600" />
               </div>
-            </div>
-          </button>
+            </button>
+            
+            {/* Delete button - positioned outside the main button */}
+            <button
+              onClick={(e) => handleDeleteEncounter(e, encounter.id, encounters.length - index)}
+              className="absolute top-2 right-2 p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors duration-200 opacity-0 group-hover:opacity-100 z-20"
+              title="Delete encounter"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
         );
       })}
     </div>

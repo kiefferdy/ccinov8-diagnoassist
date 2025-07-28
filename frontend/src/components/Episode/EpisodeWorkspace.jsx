@@ -29,6 +29,7 @@ const EpisodeWorkspace = () => {
     if (!episode || !patient) return;
     
     try {
+      console.log(`🏥 EpisodeWorkspace.handleCreateEncounter called for episode: ${episodeId}, type: ${type}`);
       const newEncounter = await createEncounter(episodeId, patientId, type);
       
       // Auto-populate chief complaint from episode
@@ -107,8 +108,10 @@ const EpisodeWorkspace = () => {
       if (episodeEncounters.length > 0) {
         await setCurrentEncounterWithLoading(episodeEncounters[0]);
       } else {
+        // When all encounters are deleted, don't auto-create a new one
+        // Show empty state and let user decide
         await setCurrentEncounterWithLoading(null);
-        setCreatingEncounter(true);
+        setCreatingEncounter(false);
       }
     } catch (error) {
       console.error('Error refreshing encounters after deletion:', error);
@@ -146,8 +149,40 @@ const EpisodeWorkspace = () => {
         }
         
         if (!episodeData) {
-          console.error(`Episode not found: ${episodeId}`);
-          setLoading(false);
+          console.warn(`Episode not found: ${episodeId}, retrying in 1 second...`);
+          // Retry after a short delay in case the episode was just created
+          setTimeout(async () => {
+            const retryEpisodeData = getEpisodeById(episodeId);
+            if (retryEpisodeData) {
+              setEpisode(retryEpisodeData);
+              
+              // Continue with loading encounters
+              setEncountersLoading(true);
+              try {
+                const episodeEncounters = await getEpisodeEncounters(episodeId, false);
+                setEncounters(episodeEncounters);
+                
+                if (episodeEncounters.length > 0) {
+                  await setCurrentEncounterWithLoading(episodeEncounters[0]);
+                  setCreatingEncounter(false);
+                } else {
+                  await setCurrentEncounterWithLoading(null);
+                  setCreatingEncounter(false); // Don't auto-create for retried episodes either
+                }
+              } catch (encounterError) {
+                console.warn('Failed to load encounters on retry:', encounterError);
+                setEncounters([]);
+                await setCurrentEncounterWithLoading(null);
+                setCreatingEncounter(false); // Don't auto-create on retry error either
+              } finally {
+                setEncountersLoading(false);
+                setLoading(false);
+              }
+            } else {
+              console.error(`Episode still not found after retry: ${episodeId}`);
+              setLoading(false);
+            }
+          }, 1000);
           return;
         }
         
@@ -165,13 +200,17 @@ const EpisodeWorkspace = () => {
             await setCurrentEncounterWithLoading(episodeEncounters[0]);
             setCreatingEncounter(false); // Ensure we don't auto-create if encounters exist
           } else {
-            // Only mark for creation if we definitively have no encounters
-            setCreatingEncounter(true);
+            // For empty episodes, DON'T auto-create encounters
+            // Let the user decide when to create the first encounter
+            console.log(`📭 Episode ${episodeId} has no encounters - leaving empty for user to decide`);
+            await setCurrentEncounterWithLoading(null);
+            setCreatingEncounter(false); // Changed from true to false
           }
         } catch (encounterError) {
           console.warn('Failed to load encounters, using empty array:', encounterError);
           setEncounters([]);
-          setCreatingEncounter(true);
+          await setCurrentEncounterWithLoading(null);
+          setCreatingEncounter(false); // Don't auto-create on error either
         } finally {
           setEncountersLoading(false);
         }
@@ -185,9 +224,13 @@ const EpisodeWorkspace = () => {
     loadData();
   }, [patientId, episodeId, getPatientById, getEpisodeById, getEpisodeEncounters, setCurrentEncounterWithLoading, patientsLoading, episodesLoading]);
 
-  // Create initial encounter when needed
+  // Note: Auto-creation is now DISABLED
+  // Episodes start empty and users must manually create encounters
+  // This useEffect is kept for backwards compatibility but should not trigger
   useEffect(() => {
     if (creatingEncounter && episode && patient && encounters.length === 0 && !loading) {
+      console.log(`⚠️ Auto-creation triggered (this should not happen anymore) for episode ${episode.id}`);
+      
       let isMounted = true;
       
       handleCreateEncounter('initial').then(() => {
