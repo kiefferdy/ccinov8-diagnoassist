@@ -31,6 +31,11 @@ export const NavigationProvider = ({ children }) => {
 
   // Navigate to a view
   const navigateTo = useCallback((view) => {
+    // Don't navigate if we're already on the same view
+    if (currentView === view) {
+      return;
+    }
+    
     setNavigationHistory(prev => [...prev, { view: currentView, timestamp: new Date().toISOString() }]);
     setCurrentView(view);
     

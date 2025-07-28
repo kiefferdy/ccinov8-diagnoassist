@@ -205,11 +205,12 @@ export const EncounterProvider = ({ children }) => {
       const apiEncounters = response?.data || response || [];
       const transformedEncounters = apiEncounters.map(transformBackendToFrontend);
       
-      // Update local state with fresh data
-      const updatedEncounters = [
-        ...encounters.filter(e => e.episodeId !== episodeId),
-        ...transformedEncounters
-      ];
+      // Update local state with fresh data - avoid duplicates
+      const nonEpisodeEncounters = encounters.filter(e => e.episodeId !== episodeId);
+      const deduplicatedEncounters = transformedEncounters.filter(newEnc => 
+        !nonEpisodeEncounters.some(existingEnc => existingEnc.id === newEnc.id)
+      );
+      const updatedEncounters = [...nonEpisodeEncounters, ...deduplicatedEncounters];
       setEncounters(updatedEncounters);
       StorageManager.saveEncounters(updatedEncounters);
       
@@ -226,6 +227,18 @@ export const EncounterProvider = ({ children }) => {
   // Create a new encounter
   const createEncounter = useCallback(async (episodeId, patientId, type = 'follow-up') => {
     try {
+      // Check if we already have an encounter being created to avoid duplicates
+      const existingDraftEncounter = encounters.find(e => 
+        e.episodeId === episodeId && 
+        e.patientId === patientId && 
+        e.status === 'draft' &&
+        e.type === type
+      );
+      
+      if (existingDraftEncounter) {
+        console.log('Draft encounter already exists, returning existing:', existingDraftEncounter.id);
+        return existingDraftEncounter;
+      }
       const encounterData = {
         episode_id: episodeId,
         patient_id: patientId,
@@ -288,9 +301,13 @@ export const EncounterProvider = ({ children }) => {
         const response = await apiService.createEncounter(encounterData);
         const newEncounter = transformBackendToFrontend(response);
         
-        const updatedEncounters = [...encounters, newEncounter];
-        setEncounters(updatedEncounters);
-        StorageManager.saveEncounters(updatedEncounters);
+        // Check if encounter already exists to prevent duplicates
+        const encounterExists = encounters.some(e => e.id === newEncounter.id);
+        if (!encounterExists) {
+          const updatedEncounters = [...encounters, newEncounter];
+          setEncounters(updatedEncounters);
+          StorageManager.saveEncounters(updatedEncounters);
+        }
         
         return newEncounter;
       } catch (apiError) {
@@ -318,9 +335,13 @@ export const EncounterProvider = ({ children }) => {
           completionPercentage: 0
         };
 
-        const updatedEncounters = [...encounters, newEncounter];
-        setEncounters(updatedEncounters);
-        StorageManager.saveEncounters(updatedEncounters);
+        // Check if encounter already exists to prevent duplicates
+        const encounterExists = encounters.some(e => e.id === newEncounter.id);
+        if (!encounterExists) {
+          const updatedEncounters = [...encounters, newEncounter];
+          setEncounters(updatedEncounters);
+          StorageManager.saveEncounters(updatedEncounters);
+        }
         
         return newEncounter;
       }

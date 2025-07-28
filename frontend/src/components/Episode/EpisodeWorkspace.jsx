@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { usePatient } from '../../contexts/PatientContext';
 import { useEpisode } from '../../contexts/EpisodeContext';
 import { useEncounter } from '../../contexts/EncounterContext';
-import { useNavigation } from '../../contexts/NavigationContext';
+// Removed useNavigation import since we don't navigate within episode workspace
 import EncounterList from '../Encounter/EncounterList';
 import EncounterWorkspace from '../Encounter/EncounterWorkspace';
 import EpisodeHeader from './EpisodeHeader';
@@ -16,7 +16,7 @@ const EpisodeWorkspace = () => {
   const { getPatientById, loading: patientsLoading } = usePatient();
   const { getEpisodeById, loading: episodesLoading } = useEpisode();
   const { getEpisodeEncounters, currentEncounter, createEncounter, setCurrentEncounterWithLoading, switchingEncounter } = useEncounter();
-  const { navigateTo } = useNavigation();
+  // Removed navigateTo since we don't navigate within episode workspace
   
   const [patient, setPatient] = useState(null);
   const [episode, setEpisode] = useState(null);
@@ -74,17 +74,17 @@ const EpisodeWorkspace = () => {
       }
       
       await setCurrentEncounterWithLoading(newEncounter);
-      setEncounters(prevEncounters => [newEncounter, ...prevEncounters]);
-      navigateTo('episode-workspace');
+      // Don't manually add to encounters - createEncounter already updates the context state
+      // Don't navigate - we're already on episode-workspace
     } catch (error) {
       console.error('Failed to create encounter:', error);
     }
-  }, [episode, patient, createEncounter, episodeId, patientId, setCurrentEncounterWithLoading, navigateTo]);
+  }, [episode, patient, createEncounter, episodeId, patientId, setCurrentEncounterWithLoading]);
 
   const handleSelectEncounter = useCallback(async (encounter) => {
     await setCurrentEncounterWithLoading(encounter);
-    navigateTo('episode-workspace');
-  }, [setCurrentEncounterWithLoading, navigateTo]);
+    // Don't navigate - we're already on episode-workspace
+  }, [setCurrentEncounterWithLoading]);
 
   // Load data - wait for contexts to finish loading first
   useEffect(() => {
@@ -93,6 +93,11 @@ const EpisodeWorkspace = () => {
     // Don't try to load data while contexts are still loading
     if (patientsLoading || episodesLoading) {
       setLoading(true);
+      return;
+    }
+    
+    // Skip if we already have the correct patient and episode loaded
+    if (patient?.id === patientId && episode?.id === episodeId && !loading) {
       return;
     }
     
@@ -121,15 +126,16 @@ const EpisodeWorkspace = () => {
         // Load encounters asynchronously
         setEncountersLoading(true);
         try {
-          const episodeEncounters = await getEpisodeEncounters(episodeId, true); // Use cache
+          const episodeEncounters = await getEpisodeEncounters(episodeId, false); // Always fetch fresh data to avoid duplicates
           setEncounters(episodeEncounters);
           
-          // If no encounters exist, mark that we need to create one
-          if (episodeEncounters.length === 0) {
-            setCreatingEncounter(true);
-          } else if (episodeEncounters.length > 0) {
+          if (episodeEncounters.length > 0) {
             // Set the most recent encounter as current
             await setCurrentEncounterWithLoading(episodeEncounters[0]);
+            setCreatingEncounter(false); // Ensure we don't auto-create if encounters exist
+          } else {
+            // Only mark for creation if we definitively have no encounters
+            setCreatingEncounter(true);
           }
         } catch (encounterError) {
           console.warn('Failed to load encounters, using empty array:', encounterError);
@@ -150,12 +156,25 @@ const EpisodeWorkspace = () => {
 
   // Create initial encounter when needed
   useEffect(() => {
-    if (creatingEncounter && episode && patient) {
+    if (creatingEncounter && episode && patient && encounters.length === 0 && !loading) {
+      let isMounted = true;
+      
       handleCreateEncounter('initial').then(() => {
-        setCreatingEncounter(false);
+        if (isMounted) {
+          setCreatingEncounter(false);
+        }
+      }).catch(error => {
+        console.error('Failed to create initial encounter:', error);
+        if (isMounted) {
+          setCreatingEncounter(false);
+        }
       });
+      
+      return () => {
+        isMounted = false;
+      };
     }
-  }, [creatingEncounter, episode, patient, handleCreateEncounter]);
+  }, [creatingEncounter, episode?.id, patient?.id, encounters.length, loading, handleCreateEncounter]);
 
   if (loading) {
     return (
