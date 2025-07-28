@@ -168,6 +168,7 @@ export const EncounterProvider = ({ children }) => {
           const response = await apiService.getEncounters();
           const backendEncounters = response?.data || response || [];
           const transformedEncounters = backendEncounters.map(transformBackendToFrontend);
+          console.log('EncounterContext loaded encounters:', transformedEncounters.length, transformedEncounters);
           setEncounters(transformedEncounters);
           
           // Also cache in localStorage for offline access
@@ -194,9 +195,17 @@ export const EncounterProvider = ({ children }) => {
   const getEpisodeEncounters = useCallback(async (episodeId, useCache = true) => {
     if (useCache) {
       // Return cached encounters
-      return encounters
-        .filter(e => e.episodeId === episodeId)
+      const cachedEncounters = encounters
+        .filter(e => {
+          const match = e.episodeId === episodeId;
+          if (!match && encounters.length > 0) {
+            console.log(`Episode ID mismatch: looking for ${episodeId} (${typeof episodeId}), found ${e.episodeId} (${typeof e.episodeId})`);
+          }
+          return match;
+        })
         .sort((a, b) => new Date(b.date) - new Date(a.date));
+      console.log(`getEpisodeEncounters(${episodeId}, cache): found ${cachedEncounters.length} encounters from ${encounters.length} total`);
+      return cachedEncounters;
     }
 
     // Fetch fresh data from API

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { usePatient } from '../../contexts/PatientContext';
 import { useEpisode } from '../../contexts/EpisodeContext';
@@ -23,7 +23,7 @@ const PatientDashboard = () => {
   const navigate = useNavigate();
   const { getPatientById, patients, loading: patientsLoading } = usePatient();
   const { getPatientEpisodes, getEpisodeStats, loading: episodesLoading } = useEpisode();
-  const { getEpisodeEncounters } = useEncounter();
+  const { getEpisodeEncounters, loading: encounterContextLoading } = useEncounter();
   
   const [patient, setPatient] = useState(null);
   const [episodes, setEpisodes] = useState([]);
@@ -39,7 +39,8 @@ const PatientDashboard = () => {
   const [quickNotesCount, setQuickNotesCount] = useState(0);
   const [recentEncounters, setRecentEncounters] = useState([]);
   const [episodeEncounters, setEpisodeEncounters] = useState({});
-  const [encountersLoading, setEncountersLoading] = useState(true);
+  const [encountersLoading, setEncountersLoading] = useState({}); // Track loading per episode
+  const lastEpisodeIdsRef = useRef(''); // Track last processed episode IDs
 
   // Load patient and episodes - wait for contexts to finish loading first
   useEffect(() => {
@@ -85,40 +86,68 @@ const PatientDashboard = () => {
       if (episodes.length === 0) {
         setRecentEncounters([]);
         setEpisodeEncounters({});
-        setEncountersLoading(false);
+        setEncountersLoading({});
+        lastEpisodeIdsRef.current = '';
         return;
       }
 
-      setEncountersLoading(true);
+      // Create episode IDs string for comparison to prevent unnecessary re-runs
+      const episodeIds = episodes.map(e => e.id).sort().join(',');
+      
+      // Skip if we're already processing the same episodes
+      if (lastEpisodeIdsRef.current === episodeIds) {
+        return;
+      }
+      
+      lastEpisodeIdsRef.current = episodeIds;
+      
+      // Set loading state for all episodes
+      const loadingStates = {};
+      episodes.forEach(episode => {
+        loadingStates[episode.id] = true;
+      });
+      console.log('Loading encounters for episodes:', episodes.map(e => e.id));
+      setEncountersLoading(loadingStates);
+
       try {
         const allEncounters = [];
         const encountersByEpisode = {};
+        const finalLoadingStates = {};
         
         // Load encounters for each episode
-        for (const episode of episodes) {
+        await Promise.all(episodes.map(async (episode) => {
           try {
-            const encounters = await getEpisodeEncounters(episode.id, true); // Use cache
+            const encounters = await getEpisodeEncounters(episode.id, false); // Force fresh data to ensure accuracy
+            console.log(`Episode ${episode.id} encounters:`, encounters.length, encounters);
             encountersByEpisode[episode.id] = encounters;
             allEncounters.push(...encounters);
+            finalLoadingStates[episode.id] = false;
           } catch (error) {
             console.warn(`Failed to load encounters for episode ${episode.id}:`, error);
             encountersByEpisode[episode.id] = []; // Set empty array as fallback
+            finalLoadingStates[episode.id] = false;
           }
-        }
+        }));
 
         // Sort by date and take the 5 most recent for the recent encounters section
         const sortedEncounters = allEncounters
           .sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt))
           .slice(0, 5);
 
+        console.log('Final episode encounters:', encountersByEpisode);
         setRecentEncounters(sortedEncounters);
         setEpisodeEncounters(encountersByEpisode);
+        setEncountersLoading(finalLoadingStates);
       } catch (error) {
         console.error('Error loading encounters:', error);
         setRecentEncounters([]);
         setEpisodeEncounters({});
-      } finally {
-        setEncountersLoading(false);
+        // Set all episodes as not loading
+        const errorLoadingStates = {};
+        episodes.forEach(episode => {
+          errorLoadingStates[episode.id] = false;
+        });
+        setEncountersLoading(errorLoadingStates);
       }
     };
 
@@ -452,7 +481,7 @@ const PatientDashboard = () => {
                   episode={episode}
                   encounters={episodeEncounters[episode.id] || []}
                   patientId={patientId}
-                  encountersLoading={encountersLoading}
+                  encountersLoading={encountersLoading[episode.id] !== false} // Show loading if not explicitly set to false
                 />
               ))}
             </div>
