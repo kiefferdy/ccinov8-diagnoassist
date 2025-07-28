@@ -166,9 +166,17 @@ class EncounterService(BaseService):
                 update_dict["provider_name"] = provider.get("name")
                 update_dict["provider_role"] = provider.get("role")
             
+            # Fix datetime serialization issues in JSON fields
+            self._serialize_datetime_fields(update_dict)
+            
             # Update encounter
             updated_encounter = self.repos.encounter.update(encounter_id, update_dict)
             self.safe_commit("encounter update")
+            
+            # Check if update actually succeeded
+            if updated_encounter is None:
+                self.safe_rollback("encounter update")
+                raise RuntimeError("Failed to update encounter - database operation returned None")
             
             # Audit log
             self.audit_log("update", "Encounter", encounter_id, {
@@ -397,6 +405,19 @@ class EncounterService(BaseService):
             self.safe_rollback("copy forward")
             raise
     
+    def _serialize_datetime_fields(self, data: Dict[str, Any]) -> None:
+        """
+        Recursively serialize datetime objects in dictionary to ISO format
+        
+        Args:
+            data: Dictionary to process for datetime serialization
+        """
+        for key, value in data.items():
+            if isinstance(value, dict):
+                self._serialize_datetime_fields(value)
+            elif isinstance(value, datetime):
+                data[key] = value.isoformat()
+    
     def _build_encounter_response(self, encounter: Encounter) -> EncounterResponse:
         """
         Build EncounterResponse with additional computed fields
@@ -407,6 +428,9 @@ class EncounterService(BaseService):
         Returns:
             EncounterResponse with computed fields
         """
+        if encounter is None:
+            raise ValueError("Cannot build response for None encounter")
+            
         # Rebuild provider information
         provider = None
         if encounter.provider_id:

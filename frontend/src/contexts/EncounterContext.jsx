@@ -38,15 +38,94 @@ const transformBackendToFrontend = (backendEncounter) => {
   };
 };
 
-const transformFrontendToBackend = (frontendEncounter) => {
+const transformFrontendToBackend = (frontendEncounter, isUpdate = false) => {
   if (!frontendEncounter) return null;
   
+  // Helper function to clean datetime strings and objects
+  const cleanObject = (obj) => {
+    if (!obj || typeof obj !== 'object') return obj;
+    
+    const cleaned = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value === null || value === undefined) {
+        continue; // Skip null/undefined values
+      }
+      
+      if (Array.isArray(value)) {
+        // Only include arrays that have content
+        if (value.length > 0) {
+          cleaned[key] = value;
+        }
+      } else if (typeof value === 'object') {
+        const cleanedValue = cleanObject(value);
+        if (Object.keys(cleanedValue).length > 0) {
+          cleaned[key] = cleanedValue;
+        }
+      } else if (typeof value === 'string' && value.trim() === '') {
+        continue; // Skip empty strings
+      } else {
+        cleaned[key] = value;
+      }
+    }
+    return cleaned;
+  };
+  
+  if (isUpdate) {
+    // For updates, only send fields that can be updated
+    const updateData = {};
+    
+    if (frontendEncounter.type) updateData.type = frontendEncounter.type;
+    if (frontendEncounter.status) updateData.status = frontendEncounter.status;
+    if (frontendEncounter.provider) updateData.provider = frontendEncounter.provider;
+    
+    // SOAP sections - check both nested and top-level formats
+    const soapSubjective = frontendEncounter.soap?.subjective || frontendEncounter.soap_subjective;
+    if (soapSubjective) {
+      const cleanedSubjective = cleanObject(soapSubjective);
+      if (Object.keys(cleanedSubjective).length > 0) {
+        updateData.soap_subjective = cleanedSubjective;
+      }
+    }
+    
+    const soapObjective = frontendEncounter.soap?.objective || frontendEncounter.soap_objective;
+    if (soapObjective) {
+      const cleanedObjective = cleanObject(soapObjective);
+      if (Object.keys(cleanedObjective).length > 0) {
+        updateData.soap_objective = cleanedObjective;
+      }
+    }
+    
+    const soapAssessment = frontendEncounter.soap?.assessment || frontendEncounter.soap_assessment;
+    if (soapAssessment) {
+      const cleanedAssessment = cleanObject(soapAssessment);
+      if (Object.keys(cleanedAssessment).length > 0) {
+        updateData.soap_assessment = cleanedAssessment;
+      }
+    }
+    
+    const soapPlan = frontendEncounter.soap?.plan || frontendEncounter.soap_plan;
+    if (soapPlan) {
+      const cleanedPlan = cleanObject(soapPlan);
+      if (Object.keys(cleanedPlan).length > 0) {
+        updateData.soap_plan = cleanedPlan;
+      }
+    }
+    
+    if (frontendEncounter.documents && frontendEncounter.documents.length > 0) {
+      updateData.documents = frontendEncounter.documents;
+    }
+    if (frontendEncounter.amendments && frontendEncounter.amendments.length > 0) {
+      updateData.amendments = frontendEncounter.amendments;
+    }
+    
+    return updateData;
+  }
+  
+  // For creation, include all fields
   return {
     episode_id: frontendEncounter.episodeId,
     patient_id: frontendEncounter.patientId,
     type: frontendEncounter.type || 'follow-up',
-    date: frontendEncounter.date,
-    status: frontendEncounter.status || 'draft',
     provider: frontendEncounter.provider,
     soap_subjective: frontendEncounter.soap?.subjective || {},
     soap_objective: frontendEncounter.soap?.objective || {},
@@ -306,12 +385,12 @@ export const EncounterProvider = ({ children }) => {
         // Check if it's a new encounter (starts with 'ENC') or existing encounter
         if (currentEncounter.id.startsWith('ENC')) {
           // New local encounter - create via API
-          const backendData = transformFrontendToBackend(currentEncounter);
+          const backendData = transformFrontendToBackend(currentEncounter, false);
           const response = await apiService.createEncounter(backendData);
           savedEncounter = transformBackendToFrontend(response);
         } else {
           // Existing encounter - update via API
-          const backendData = transformFrontendToBackend(currentEncounter);
+          const backendData = transformFrontendToBackend(currentEncounter, true);
           const response = await apiService.updateEncounter(currentEncounter.id, backendData);
           savedEncounter = transformBackendToFrontend(response);
         }

@@ -123,7 +123,7 @@ class BaseRepository(Generic[ModelType]):
         except SQLAlchemyError as e:
             self.db.rollback()
             logger.error(f"Error updating {self.model.__name__} with ID {obj_id}: {str(e)}")
-            return None
+            raise
     
     def delete(self, obj_id: Union[UUID, str, int]) -> bool:
         """
