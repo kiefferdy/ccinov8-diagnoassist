@@ -1,5 +1,5 @@
-# Use Python 3.12 slim image for smaller size and fewer vulnerabilities
-FROM python:3.12-slim
+# Use Python 3.11 slim image for compatibility with existing dependencies
+FROM python:3.11-slim
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
