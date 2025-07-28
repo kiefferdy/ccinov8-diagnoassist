@@ -57,7 +57,7 @@ seaborn==0.13.2
 plotly==6.1.2
 
 # HTTP Clients (compatible with supabase 2.3.0)
-httpx==0.28.1
+httpx==0.24.1
 requests==2.32.3
 aiohttp==3.11.12
 
