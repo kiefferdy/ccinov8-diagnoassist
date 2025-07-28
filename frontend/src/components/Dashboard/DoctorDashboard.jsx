@@ -17,9 +17,9 @@ import './dashboard-animations.css';
 
 const DoctorDashboard = () => {
   const navigate = useNavigate();
-  const { patients } = usePatient();
-  const { episodes } = useEpisode();
-  const { encounters } = useEncounter();
+  const { patients, loading: patientsLoading } = usePatient();
+  const { episodes, loading: episodesLoading } = useEpisode();
+  const { encounters, loading: encountersLoading } = useEncounter();
   const { leftRef, rightRef } = useMatchHeight(); // Synchronizes right column height with left column
   
   const [timeOfDay, setTimeOfDay] = useState('');
@@ -194,7 +194,11 @@ const DoctorDashboard = () => {
                 <div className="flex items-center gap-4">
                   <div className="hidden lg:flex items-center gap-6 mr-6">
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-gray-900">{doctor.totalPatients.toLocaleString()}</p>
+                      {patientsLoading ? (
+                        <div className="w-12 h-8 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse mb-1"></div>
+                      ) : (
+                        <p className="text-2xl font-bold text-gray-900">{doctor.totalPatients.toLocaleString()}</p>
+                      )}
                       <p className="text-xs text-gray-600">Total Patients</p>
                     </div>
                   </div>
@@ -245,9 +249,13 @@ const DoctorDashboard = () => {
                     <Zap className="w-4 h-4" />
                     Active Episodes
                   </p>
-                  <p className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mt-3">
-                    {activeEpisodes}
-                  </p>
+                  {episodesLoading ? (
+                    <div className="w-16 h-10 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse mt-3"></div>
+                  ) : (
+                    <p className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mt-3">
+                      {activeEpisodes}
+                    </p>
+                  )}
                   <p className="text-xs text-gray-500 mt-2">Ongoing care</p>
                 </div>
                 <div className="p-4 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl group-hover:scale-110 transition-transform duration-300">
@@ -263,9 +271,13 @@ const DoctorDashboard = () => {
                     <AlertCircle className="w-4 h-4" />
                     Pending Encounters
                   </p>
-                  <p className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mt-3">
-                    {pendingDocumentation}
-                  </p>
+                  {encountersLoading ? (
+                    <div className="w-16 h-10 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse mt-3"></div>
+                  ) : (
+                    <p className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mt-3">
+                      {pendingDocumentation}
+                    </p>
+                  )}
                   <p className="text-xs text-gray-500 mt-2">Requires attention</p>
                 </div>
                 <div className="p-4 bg-gradient-to-br from-orange-100 to-red-100 rounded-2xl group-hover:scale-110 transition-transform duration-300">
@@ -282,9 +294,13 @@ const DoctorDashboard = () => {
                     Completed Encounters
                   </p>
                   <div className="flex items-baseline gap-1 mt-3">
-                    <p className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                      {completedEncountersThisWeek}
-                    </p>
+                    {encountersLoading ? (
+                      <div className="w-16 h-10 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse"></div>
+                    ) : (
+                      <p className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                        {completedEncountersThisWeek}
+                      </p>
+                    )}
                   </div>
                   <p className="text-xs text-gray-500 mt-2">Since Sunday</p>
                 </div>
@@ -452,10 +468,14 @@ const DoctorDashboard = () => {
                   <h2 className="text-xl font-bold text-gray-900 flex items-center">
                     <Users className="w-6 h-6 mr-2 text-blue-600" />
                     Recent Patients
-                    {recentPatients.length > 0 && (
-                      <span className="ml-3 px-3 py-1 text-sm font-normal bg-blue-100 text-blue-700 rounded-full">
-                        {recentPatients.length} visits
-                      </span>
+                    {(patientsLoading || episodesLoading || encountersLoading) ? (
+                      <div className="ml-3 w-16 h-6 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-full animate-pulse"></div>
+                    ) : (
+                      recentPatients.length > 0 && (
+                        <span className="ml-3 px-3 py-1 text-sm font-normal bg-blue-100 text-blue-700 rounded-full">
+                          {recentPatients.length} visits
+                        </span>
+                      )
                     )}
                   </h2>
                   <select
@@ -474,7 +494,23 @@ const DoctorDashboard = () => {
               
               <div className="flex-1 overflow-y-auto custom-scrollbar-light">
                 <div className="divide-y divide-gray-100">
-                  {recentPatients.length > 0 ? (
+                  {(patientsLoading || episodesLoading || encountersLoading) ? (
+                    // Loading state for recent patients  
+                    <div className="space-y-0">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <div key={i} className="p-6 animate-pulse">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-14 h-14 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-2xl"></div>
+                            <div className="flex-1 space-y-2">
+                              <div className="h-5 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-3/4"></div>
+                              <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-1/2"></div>
+                            </div>
+                            <div className="w-20 h-6 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-full"></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : recentPatients.length > 0 ? (
                     recentPatients.map(({ patient, episode, encounter }, index) => (
                       <div
                         key={encounter.id}

@@ -6,7 +6,7 @@ import {
   TrendingUp, Heart, Brain, Pill
 } from 'lucide-react';
 
-const EpisodeCard = ({ episode, encounters = [], patientId }) => {
+const EpisodeCard = ({ episode, encounters = [], patientId, encountersLoading = false }) => {
   const navigate = useNavigate();
   
   const handleClick = () => {
@@ -157,26 +157,41 @@ const EpisodeCard = ({ episode, encounters = [], patientId }) => {
                 <FileText className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">
-                  {totalEncounters} Encounter{totalEncounters !== 1 ? 's' : ''}
-                </p>
-                {lastEncounter && (
-                  <p className="text-xs text-gray-600">
-                    Last: {new Date(lastEncounter.date).toLocaleDateString()} - {lastEncounter.type}
-                  </p>
+                {encountersLoading ? (
+                  <>
+                    <div className="w-24 h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse mb-1"></div>
+                    <div className="w-32 h-3 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse"></div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {totalEncounters} Encounter{totalEncounters !== 1 ? 's' : ''}
+                    </p>
+                    {lastEncounter ? (
+                      <p className="text-xs text-gray-600">
+                        Last: {new Date(lastEncounter.date).toLocaleDateString()} - {lastEncounter.type}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500">No encounters yet</p>
+                    )}
+                  </>
                 )}
               </div>
             </div>
             
-            {lastEncounter && (
-              <div className={`
-                px-2 py-1 rounded-full text-xs font-medium
-                ${lastEncounter.status === 'signed' 
-                  ? 'bg-green-100 text-green-700' 
-                  : 'bg-yellow-100 text-yellow-700'}
-              `}>
-                {lastEncounter.status === 'signed' ? 'Signed' : 'Draft'}
-              </div>
+            {encountersLoading ? (
+              <div className="w-12 h-5 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-full animate-pulse"></div>
+            ) : (
+              lastEncounter && (
+                <div className={`
+                  px-2 py-1 rounded-full text-xs font-medium
+                  ${lastEncounter.status === 'signed' 
+                    ? 'bg-green-100 text-green-700' 
+                    : 'bg-yellow-100 text-yellow-700'}
+                `}>
+                  {lastEncounter.status === 'signed' ? 'Signed' : 'Draft'}
+                </div>
+              )
             )}
           </div>
         </div>

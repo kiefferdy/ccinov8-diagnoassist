@@ -39,6 +39,7 @@ const PatientDashboard = () => {
   const [quickNotesCount, setQuickNotesCount] = useState(0);
   const [recentEncounters, setRecentEncounters] = useState([]);
   const [episodeEncounters, setEpisodeEncounters] = useState({});
+  const [encountersLoading, setEncountersLoading] = useState(true);
 
   // Load patient and episodes - wait for contexts to finish loading first
   useEffect(() => {
@@ -84,9 +85,11 @@ const PatientDashboard = () => {
       if (episodes.length === 0) {
         setRecentEncounters([]);
         setEpisodeEncounters({});
+        setEncountersLoading(false);
         return;
       }
 
+      setEncountersLoading(true);
       try {
         const allEncounters = [];
         const encountersByEpisode = {};
@@ -114,6 +117,8 @@ const PatientDashboard = () => {
         console.error('Error loading encounters:', error);
         setRecentEncounters([]);
         setEpisodeEncounters({});
+      } finally {
+        setEncountersLoading(false);
       }
     };
 
@@ -271,10 +276,18 @@ const PatientDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Active Episodes</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.active}</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {urgentEpisodes > 0 && `${urgentEpisodes} urgent`}
-                </p>
+                {episodesLoading ? (
+                  <div className="mt-2">
+                    <div className="w-16 h-8 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse"></div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-3xl font-bold text-gray-900 mt-2">{stats.active}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {urgentEpisodes > 0 && `${urgentEpisodes} urgent`}
+                    </p>
+                  </>
+                )}
               </div>
               <div className="p-3 bg-blue-100 rounded-xl">
                 <Zap className="w-8 h-8 text-blue-600" />
@@ -286,10 +299,18 @@ const PatientDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Episodes</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.total}</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {stats.resolved} resolved
-                </p>
+                {episodesLoading ? (
+                  <div className="mt-2">
+                    <div className="w-16 h-8 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse"></div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-3xl font-bold text-gray-900 mt-2">{stats.total}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {stats.resolved} resolved
+                    </p>
+                  </>
+                )}
               </div>
               <div className="p-3 bg-green-100 rounded-xl">
                 <BarChart3 className="w-8 h-8 text-green-600" />
@@ -301,8 +322,16 @@ const PatientDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Chronic Conditions</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{chronicConditions}</p>
-                <p className="text-xs text-gray-500 mt-1">Active management</p>
+                {patientsLoading ? (
+                  <div className="mt-2">
+                    <div className="w-16 h-8 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse"></div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-3xl font-bold text-gray-900 mt-2">{chronicConditions}</p>
+                    <p className="text-xs text-gray-500 mt-1">Active management</p>
+                  </>
+                )}
               </div>
               <div className="p-3 bg-purple-100 rounded-xl">
                 <Heart className="w-8 h-8 text-purple-600" />
@@ -314,14 +343,22 @@ const PatientDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Last Visit</p>
-                <p className="text-lg font-bold text-gray-900 mt-2">
-                  {patient.lastVisit ? new Date(patient.lastVisit).toLocaleDateString() : 'N/A'}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {patient.lastVisit && 
-                    `${Math.floor((new Date() - new Date(patient.lastVisit)) / (1000 * 60 * 60 * 24))} days ago`
-                  }
-                </p>
+                {patientsLoading ? (
+                  <div className="mt-2">
+                    <div className="w-20 h-6 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse"></div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-lg font-bold text-gray-900 mt-2">
+                      {patient.lastVisit ? new Date(patient.lastVisit).toLocaleDateString() : 'N/A'}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {patient.lastVisit && 
+                        `${Math.floor((new Date() - new Date(patient.lastVisit)) / (1000 * 60 * 60 * 24))} days ago`
+                      }
+                    </p>
+                  </>
+                )}
               </div>
               <div className="p-3 bg-indigo-100 rounded-xl">
                 <Calendar className="w-8 h-8 text-indigo-600" />
@@ -415,6 +452,7 @@ const PatientDashboard = () => {
                   episode={episode}
                   encounters={episodeEncounters[episode.id] || []}
                   patientId={patientId}
+                  encountersLoading={encountersLoading}
                 />
               ))}
             </div>

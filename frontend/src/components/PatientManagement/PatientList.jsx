@@ -14,8 +14,8 @@ import './patient-animations.css';
 
 const PatientList = () => {
   const navigate = useNavigate();
-  const { patients, searchPatients, calculateAge } = usePatient();
-  const { getPatientEpisodes, getActiveEpisodeCount } = useEpisode();
+  const { patients, searchPatients, calculateAge, loading: patientsLoading } = usePatient();
+  const { getPatientEpisodes, getActiveEpisodeCount, loading: episodesLoading } = useEpisode();
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [filterOption, setFilterOption] = useState('all'); // 'all', 'active', 'recent'
@@ -199,7 +199,11 @@ const PatientList = () => {
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-sm border border-blue-200 p-6 transition-all hover:shadow-md stat-card">
               <div className="flex items-center justify-between mb-2">
                 <Users className="w-10 h-10 text-blue-600" />
-                <span className="text-3xl font-bold text-gray-900">{stats.totalPatients}</span>
+                {patientsLoading ? (
+                  <div className="w-12 h-8 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse"></div>
+                ) : (
+                  <span className="text-3xl font-bold text-gray-900">{stats.totalPatients}</span>
+                )}
               </div>
               <p className="text-sm font-medium text-gray-700">Total Patients</p>
               <p className="text-xs text-gray-600 mt-1">Registered in system</p>
@@ -208,7 +212,11 @@ const PatientList = () => {
             <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl shadow-sm border border-green-200 p-6 transition-all hover:shadow-md stat-card">
               <div className="flex items-center justify-between mb-2">
                 <Activity className="w-10 h-10 text-green-600" />
-                <span className="text-3xl font-bold text-gray-900">{stats.activePatients}</span>
+                {patientsLoading || episodesLoading ? (
+                  <div className="w-12 h-8 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse"></div>
+                ) : (
+                  <span className="text-3xl font-bold text-gray-900">{stats.activePatients}</span>
+                )}
               </div>
               <p className="text-sm font-medium text-gray-700">Active Patients</p>
               <p className="text-xs text-gray-600 mt-1">With ongoing episodes</p>
@@ -217,7 +225,11 @@ const PatientList = () => {
             <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl shadow-sm border border-purple-200 p-6 transition-all hover:shadow-md stat-card">
               <div className="flex items-center justify-between mb-2">
                 <TrendingUp className="w-10 h-10 text-purple-600" />
-                <span className="text-3xl font-bold text-gray-900">{stats.newThisMonth}</span>
+                {patientsLoading ? (
+                  <div className="w-12 h-8 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse"></div>
+                ) : (
+                  <span className="text-3xl font-bold text-gray-900">{stats.newThisMonth}</span>
+                )}
               </div>
               <p className="text-sm font-medium text-gray-700">New This Month</p>
               <p className="text-xs text-gray-600 mt-1">Recently registered</p>
@@ -226,7 +238,11 @@ const PatientList = () => {
             <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl shadow-sm border border-orange-200 p-6 transition-all hover:shadow-md stat-card">
               <div className="flex items-center justify-between mb-2">
                 <AlertCircle className="w-10 h-10 text-orange-600" />
-                <span className="text-3xl font-bold text-gray-900">{stats.withAllergies}</span>
+                {patientsLoading ? (
+                  <div className="w-12 h-8 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse"></div>
+                ) : (
+                  <span className="text-3xl font-bold text-gray-900">{stats.withAllergies}</span>
+                )}
               </div>
               <p className="text-sm font-medium text-gray-700">With Allergies</p>
               <p className="text-xs text-gray-600 mt-1">Require special attention</p>
@@ -284,13 +300,107 @@ const PatientList = () => {
             
             {/* Patient Count */}
             <div className="mt-4 text-sm text-gray-600">
-              Showing <span className="font-medium text-gray-900">{displayPatients.length}</span> of{' '}
-              <span className="font-medium text-gray-900">{patients.length}</span> patients
+              Showing {patientsLoading ? (
+                <span className="inline-block w-6 h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse"></span> 
+              ) : (
+                <span className="font-medium text-gray-900">{displayPatients.length}</span>
+              )} of{' '}
+              {patientsLoading ? (
+                <span className="inline-block w-8 h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse"></span>
+              ) : (
+                <span className="font-medium text-gray-900">{patients.length}</span>
+              )} patients
             </div>
           </div>
           
           {/* Patients Display */}
-          {displayPatients.length === 0 ? (
+          {patientsLoading || episodesLoading ? (
+            // Loading State
+            viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 animate-pulse">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center">
+                        <div className="w-12 h-12 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-full"></div>
+                        <div className="ml-4 space-y-2">
+                          <div className="h-5 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-32"></div>
+                          <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-24"></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-3/4"></div>
+                      <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-2/3"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-200">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                        Patient
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                        Age / Gender
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                        Phone
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                        Episodes
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                        Alerts
+                      </th>
+                      <th className="relative px-6 py-4">
+                        <span className="sr-only">Actions</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <tr key={i} className="animate-pulse">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-full"></div>
+                            <div className="ml-4 space-y-2">
+                              <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-32"></div>
+                              <div className="h-3 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-20"></div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-20"></div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-24"></div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-32"></div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="h-5 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-full w-16"></div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="h-5 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded-full w-20"></div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-4"></div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          ) : displayPatients.length === 0 ? (
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-12 text-center">
               <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No patients found</h3>

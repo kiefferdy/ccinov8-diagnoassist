@@ -150,6 +150,7 @@ export const EncounterProvider = ({ children }) => {
   const [encounters, setEncounters] = useState([]);
   const [currentEncounter, setCurrentEncounter] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [switchingEncounter, setSwitchingEncounter] = useState(false);
   const [error, setError] = useState(null);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
   const [lastSaved, setLastSaved] = useState(null);
@@ -619,6 +620,22 @@ export const EncounterProvider = ({ children }) => {
     }
   }, [getEpisodeEncounters]);
 
+  // Set current encounter with loading state
+  const setCurrentEncounterWithLoading = useCallback(async (encounter) => {
+    if (!encounter) {
+      setCurrentEncounter(null);
+      return;
+    }
+    
+    setSwitchingEncounter(true);
+    
+    // Add a small delay to show loading state
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    setCurrentEncounter(encounter);
+    setSwitchingEncounter(false);
+  }, []);
+
   // Delete all encounters for a patient
   const deletePatientEncounters = useCallback((patientId) => {
     const updatedEncounters = encounters.filter(e => e.patientId !== patientId);
@@ -630,6 +647,8 @@ export const EncounterProvider = ({ children }) => {
     encounters,
     currentEncounter,
     setCurrentEncounter,
+    setCurrentEncounterWithLoading,
+    switchingEncounter,
     loading,
     error,
     autoSaveEnabled,

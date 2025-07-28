@@ -25,7 +25,7 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, 
     sectionProgress 
   } = useNavigation();
   
-  const { getEpisodeEncounters } = useEncounter();
+  const { getEpisodeEncounters, switchingEncounter } = useEncounter();
   const [showShortcuts, setShowShortcuts] = useState(false);
   
   // Define sections array first
@@ -195,6 +195,23 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, 
     return null;
   };
 
+  // SOAP Section Loading Skeleton
+  const SOAPSectionSkeleton = () => (
+    <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 animate-pulse">
+      <div className="space-y-4">
+        <div className="h-6 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-1/3"></div>
+        <div className="space-y-3">
+          <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded"></div>
+          <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-3/4"></div>
+          <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-1/2"></div>
+        </div>
+        <div className="pt-4 space-y-2">
+          <div className="h-20 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded"></div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="h-full flex flex-col bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
       {/* Modern Header with Voice Input */}
@@ -230,7 +247,7 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, 
               
               <button
                 onClick={onSave}
-                disabled={!hasUnsavedChanges || saving}
+                disabled={!hasUnsavedChanges || saving || switchingEncounter}
                 className="inline-flex items-center px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <Save className="w-4 h-4 mr-1.5" />
@@ -240,7 +257,8 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, 
               {encounter.status !== 'signed' && (
                 <button
                   onClick={onSign}
-                  className="inline-flex items-center px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  disabled={switchingEncounter}
+                  className="inline-flex items-center px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <CheckCircle className="w-4 h-4 mr-1.5" />
                   Sign Encounter
@@ -266,10 +284,13 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, 
               return (
                 <button
                   key={section.id}
-                  onClick={() => navigateToSection(section.id)}
+                  onClick={() => !switchingEncounter && navigateToSection(section.id)}
+                  disabled={switchingEncounter}
                   className={`
                     relative group flex items-center px-4 rounded-t-xl transition-all duration-300
-                    ${isActive
+                    ${switchingEncounter
+                      ? 'py-3 bg-gray-50 text-gray-400 cursor-not-allowed'
+                      : isActive
                       ? 'py-3 bg-gradient-to-r ' + section.bgGradient +
                         ' text-white shadow-lg transform -translate-y-1 -mb-1'
                       : 'py-3 bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800'
@@ -322,17 +343,29 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, 
       {/* Section Content with Animation */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-5xl mx-auto p-6">
-          <div className="animate-fadeIn">
-            {CurrentComponent && (
-              <CurrentComponent
-                data={encounter.soap[currentSection]}
-                patient={patient}
-                episode={episode}
-                encounter={encounter}
-                onUpdate={handleSectionUpdate}
-              />
-            )}
-          </div>
+          {switchingEncounter ? (
+            <div className="space-y-4">
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center space-x-2 text-gray-600">
+                  <div className="w-4 h-4 bg-blue-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm font-medium">Loading SOAP documentation...</span>
+                </div>
+              </div>
+              <SOAPSectionSkeleton />
+            </div>
+          ) : (
+            <div className="animate-fadeIn">
+              {CurrentComponent && (
+                <CurrentComponent
+                  data={encounter.soap[currentSection]}
+                  patient={patient}
+                  episode={episode}
+                  encounter={encounter}
+                  onUpdate={handleSectionUpdate}
+                />
+              )}
+            </div>
+          )}
         </div>
       </div>
       
@@ -342,11 +375,11 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, 
           <div className="flex justify-between items-center">
             <button
               onClick={navigateToPreviousSection}
-              disabled={currentSectionIndex === 0}
+              disabled={currentSectionIndex === 0 || switchingEncounter}
               className={`
                 inline-flex items-center px-6 py-3 text-sm font-medium rounded-xl
                 transition-all duration-300 transform hover:scale-105
-                ${currentSectionIndex === 0
+                ${currentSectionIndex === 0 || switchingEncounter
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   : 'bg-gradient-to-r from-gray-200 to-gray-300 text-gray-700 hover:from-gray-300 hover:to-gray-400 hover:shadow-md'
                 }
@@ -377,11 +410,11 @@ const SOAPContainer = ({ encounter, episode, patient, onUpdate, onSave, onSign, 
             
             <button
               onClick={navigateToNextSection}
-              disabled={currentSectionIndex === sections.length - 1}
+              disabled={currentSectionIndex === sections.length - 1 || switchingEncounter}
               className={`
                 inline-flex items-center px-6 py-3 text-sm font-medium rounded-xl
                 transition-all duration-300 transform hover:scale-105
-                ${currentSectionIndex === sections.length - 1
+                ${currentSectionIndex === sections.length - 1 || switchingEncounter
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-xl'
                 }

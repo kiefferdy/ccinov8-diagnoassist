@@ -15,7 +15,7 @@ const EpisodeWorkspace = () => {
   const navigate = useNavigate();
   const { getPatientById, loading: patientsLoading } = usePatient();
   const { getEpisodeById, loading: episodesLoading } = useEpisode();
-  const { getEpisodeEncounters, currentEncounter, createEncounter, setCurrentEncounter } = useEncounter();
+  const { getEpisodeEncounters, currentEncounter, createEncounter, setCurrentEncounterWithLoading, switchingEncounter } = useEncounter();
   const { navigateTo } = useNavigation();
   
   const [patient, setPatient] = useState(null);
@@ -23,6 +23,7 @@ const EpisodeWorkspace = () => {
   const [encounters, setEncounters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creatingEncounter, setCreatingEncounter] = useState(false);
+  const [encountersLoading, setEncountersLoading] = useState(false);
 
   const handleCreateEncounter = useCallback(async (type = 'follow-up') => {
     if (!episode || !patient) return;
@@ -72,18 +73,18 @@ const EpisodeWorkspace = () => {
         newEncounter.soap.subjective.familyHistory = familyHistory || '';
       }
       
-      setCurrentEncounter(newEncounter);
+      await setCurrentEncounterWithLoading(newEncounter);
       setEncounters(prevEncounters => [newEncounter, ...prevEncounters]);
       navigateTo('episode-workspace');
     } catch (error) {
       console.error('Failed to create encounter:', error);
     }
-  }, [episode, patient, createEncounter, episodeId, patientId, setCurrentEncounter, navigateTo]);
+  }, [episode, patient, createEncounter, episodeId, patientId, setCurrentEncounterWithLoading, navigateTo]);
 
-  const handleSelectEncounter = useCallback((encounter) => {
-    setCurrentEncounter(encounter);
+  const handleSelectEncounter = useCallback(async (encounter) => {
+    await setCurrentEncounterWithLoading(encounter);
     navigateTo('episode-workspace');
-  }, [setCurrentEncounter, navigateTo]);
+  }, [setCurrentEncounterWithLoading, navigateTo]);
 
   // Load data - wait for contexts to finish loading first
   useEffect(() => {
@@ -118,6 +119,7 @@ const EpisodeWorkspace = () => {
         setEpisode(episodeData);
         
         // Load encounters asynchronously
+        setEncountersLoading(true);
         try {
           const episodeEncounters = await getEpisodeEncounters(episodeId, true); // Use cache
           setEncounters(episodeEncounters);
@@ -127,12 +129,14 @@ const EpisodeWorkspace = () => {
             setCreatingEncounter(true);
           } else if (episodeEncounters.length > 0) {
             // Set the most recent encounter as current
-            setCurrentEncounter(episodeEncounters[0]);
+            await setCurrentEncounterWithLoading(episodeEncounters[0]);
           }
         } catch (encounterError) {
           console.warn('Failed to load encounters, using empty array:', encounterError);
           setEncounters([]);
           setCreatingEncounter(true);
+        } finally {
+          setEncountersLoading(false);
         }
       } catch (error) {
         console.error('Error loading episode data:', error);
@@ -142,7 +146,7 @@ const EpisodeWorkspace = () => {
     };
     
     loadData();
-  }, [patientId, episodeId, getPatientById, getEpisodeById, getEpisodeEncounters, setCurrentEncounter, patientsLoading, episodesLoading]);
+  }, [patientId, episodeId, getPatientById, getEpisodeById, getEpisodeEncounters, setCurrentEncounterWithLoading, patientsLoading, episodesLoading]);
 
   // Create initial encounter when needed
   useEffect(() => {
@@ -198,7 +202,11 @@ const EpisodeWorkspace = () => {
                 Encounters
               </h3>
               <span className="bg-white/20 px-2 py-1 rounded-full text-xs font-medium">
-                {(encounters || []).length} Total
+                {encountersLoading ? (
+                  <div className="w-8 h-3 bg-white/30 rounded animate-pulse"></div>
+                ) : (
+                  `${(encounters || []).length} Total`
+                )}
               </span>
             </div>
             <button
@@ -211,26 +219,48 @@ const EpisodeWorkspace = () => {
           </div>
           
           <div className="flex-1 overflow-y-auto bg-gray-50">
-            <EncounterList
-              encounters={encounters || []}
-              currentEncounter={currentEncounter}
-              onSelectEncounter={handleSelectEncounter}
-            />
+            {encountersLoading ? (
+              <div className="p-4 space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="bg-white rounded-lg p-4 border border-gray-200">
+                    <div className="animate-pulse">
+                      <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded mb-2"></div>
+                      <div className="h-3 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-3/4 mb-2"></div>
+                      <div className="h-3 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-1/2"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EncounterList
+                encounters={encounters || []}
+                currentEncounter={currentEncounter}
+                onSelectEncounter={handleSelectEncounter}
+              />
+            )}
           </div>
           
           {/* Quick Stats Footer */}
           <div className="bg-white border-t border-gray-200 p-4">
             <div className="grid grid-cols-2 gap-4 text-center">
               <div>
-                <p className="text-2xl font-bold text-gray-900">
-                  {(encounters || []).filter(e => e.status === 'signed' || e.isSigned).length}
-                </p>
+                {encountersLoading ? (
+                  <div className="w-8 h-8 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse mx-auto mb-1"></div>
+                ) : (
+                  <p className="text-2xl font-bold text-gray-900">
+                    {(encounters || []).filter(e => e.status === 'signed' || e.isSigned).length}
+                  </p>
+                )}
                 <p className="text-xs text-gray-600">Signed</p>
               </div>
               <div>
-                <p className="text-2xl font-bold text-blue-600">
-                  {(encounters || []).filter(e => e.status !== 'signed' && !e.isSigned).length}
-                </p>
+                {encountersLoading ? (
+                  <div className="w-8 h-8 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded animate-pulse mx-auto mb-1"></div>
+                ) : (
+                  <p className="text-2xl font-bold text-blue-600">
+                    {(encounters || []).filter(e => e.status !== 'signed' && !e.isSigned).length}
+                  </p>
+                )}
                 <p className="text-xs text-gray-600">In Progress</p>
               </div>
             </div>
@@ -239,7 +269,29 @@ const EpisodeWorkspace = () => {
         
         {/* Main Area - SOAP Documentation */}
         <div className="flex-1">
-          {currentEncounter ? (
+          {encountersLoading ? (
+            <div className="flex items-center justify-center h-full bg-white">
+              <div className="text-center max-w-md">
+                <div className="relative">
+                  <Activity className="w-16 h-16 text-blue-500 animate-pulse mx-auto mb-4" />
+                  <div className="absolute inset-0 w-16 h-16 bg-blue-200 rounded-full animate-ping opacity-20" />
+                </div>
+                <p className="text-gray-700 font-medium text-lg mb-2">Loading encounters...</p>
+                <p className="text-gray-500 text-sm">Please wait while we fetch the encounter data for this episode.</p>
+              </div>
+            </div>
+          ) : switchingEncounter ? (
+            <div className="flex items-center justify-center h-full bg-white">
+              <div className="text-center max-w-md">
+                <div className="relative">
+                  <Activity className="w-12 h-12 text-blue-500 animate-spin mx-auto mb-4" />
+                  <div className="absolute inset-0 w-12 h-12 bg-blue-200 rounded-full animate-pulse opacity-30" />
+                </div>
+                <p className="text-gray-700 font-medium mb-2">Loading encounter...</p>
+                <p className="text-gray-500 text-sm">Preparing SOAP documentation interface...</p>
+              </div>  
+            </div>
+          ) : currentEncounter ? (
             <EncounterWorkspace
               encounter={currentEncounter}
               episode={episode}
