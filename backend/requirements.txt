@@ -32,11 +32,6 @@ python-multipart==0.0.20
 # AI Libraries
 pydantic-ai
 pydantic-ai-slim
-transformers==4.30.2
-torch==2.2.2
-torchvision==0.17.2
-tokenizers==0.21.2
-huggingface-hub==0.22.2
 
 # Medical/Healthcare
 fhir.resources==7.1.0
