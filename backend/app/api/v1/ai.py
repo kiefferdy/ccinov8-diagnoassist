@@ -20,7 +20,7 @@ from app.models.ai_models import (
 )
 from app.models.auth import UserModel
 from app.core.exceptions import AIServiceException, NotFoundError, ValidationException
-from app.core.monitoring import monitoring
+# Simplified for core functionality - removed enterprise monitoring system
 from app.middleware.auth_middleware import get_current_user
 from app.core.ai_client import get_ai_client
 
@@ -93,11 +93,8 @@ async def process_voice_to_soap(
         # Process voice
         result = await ai_service.process_voice_to_soap(request, patient, encounter)
         
-        # Record API usage
-        monitoring.metrics.increment_counter(
-            "api_voice_processing_requests_total",
-            labels={"user_role": current_user.role.value, "target_section": target_section or "all"}
-        )
+        # Log API usage (simplified - monitoring removed)
+        logger.debug(f"Voice processing API usage - user role: {current_user.role.value}, target section: {target_section or 'all'}")
         
         logger.info(f"Voice processing completed for encounter {encounter_id} by user {current_user.id}")
         
@@ -138,11 +135,8 @@ async def get_clinical_insights(
         # Generate insights
         insights = await ai_service.generate_clinical_insights(patient, encounter)
         
-        # Record API usage
-        monitoring.metrics.increment_counter(
-            "api_clinical_insights_requests_total",
-            labels={"user_role": current_user.role.value}
-        )
+        # Log API usage (simplified - monitoring removed)
+        logger.debug(f"Clinical insights API usage - user role: {current_user.role.value}")
         
         logger.info(f"Clinical insights generated for encounter {encounter_id} by user {current_user.id}")
         
@@ -189,14 +183,8 @@ async def chat_with_ai(
         # Chat with AI
         response = await ai_service.chat_with_ai(request, patient, encounter)
         
-        # Record API usage
-        monitoring.metrics.increment_counter(
-            "api_ai_chat_requests_total",
-            labels={
-                "user_role": current_user.role.value,
-                "has_encounter_context": str(request.encounter_id is not None)
-            }
-        )
+        # Log API usage (simplified - monitoring removed)
+        logger.debug(f"AI chat API usage - user role: {current_user.role.value}, has encounter context: {request.encounter_id is not None}")
         
         logger.info(f"AI chat request processed for user {current_user.id}")
         
@@ -300,14 +288,8 @@ async def complete_documentation(
         # Complete documentation
         response = await ai_service.complete_documentation(request, patient)
         
-        # Record API usage
-        monitoring.metrics.increment_counter(
-            "api_documentation_completion_requests_total",
-            labels={
-                "user_role": current_user.role.value,
-                "sections_requested": str(len(request.target_sections) if request.target_sections else 0)
-            }
-        )
+        # Log API usage (simplified - monitoring removed)
+        logger.debug(f"Documentation completion API usage - user role: {current_user.role.value}, sections requested: {len(request.target_sections) if request.target_sections else 0}")
         
         logger.info(f"Documentation completion generated for encounter {request.encounter_id} by user {current_user.id}")
         
@@ -420,14 +402,14 @@ async def get_ai_usage_stats(
         if current_user.role.value not in ["admin"]:
             raise HTTPException(status_code=403, detail="Admin privileges required")
         
-        # Get metrics from monitoring system
+        # Simplified metrics (monitoring system removed)
         stats = {
-            "voice_processing": monitoring.metrics.get_metric_summary("api_voice_processing_requests_total"),
-            "clinical_insights": monitoring.metrics.get_metric_summary("api_clinical_insights_requests_total"),
-            "ai_chat": monitoring.metrics.get_metric_summary("api_ai_chat_requests_total"),
-            "documentation_completion": monitoring.metrics.get_metric_summary("api_documentation_completion_requests_total"),
-            "ai_request_duration": monitoring.metrics.get_metric_summary("ai_request_duration_ms"),
-            "ai_request_errors": monitoring.metrics.get_metric_summary("ai_request_errors_total")
+            "voice_processing": "metrics simplified - monitoring removed",
+            "clinical_insights": "metrics simplified - monitoring removed", 
+            "ai_chat": "metrics simplified - monitoring removed",
+            "documentation_completion": "metrics simplified - monitoring removed",
+            "ai_request_duration": "metrics simplified - monitoring removed",
+            "ai_request_errors": "metrics simplified - monitoring removed"
         }
         
         return JSONResponse(content={"usage_stats": stats})

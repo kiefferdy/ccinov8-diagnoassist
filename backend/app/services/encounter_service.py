@@ -118,6 +118,10 @@ class EncounterService:
             if not existing:
                 raise NotFoundError("Encounter", encounter_id)
             
+            # Critical medical safety validation - signed encounters cannot be modified
+            if existing.status == EncounterStatusEnum.SIGNED:
+                raise ValidationException("Cannot modify a signed encounter")
+            
             # Simplified validation (removed complex business rules engine)
             user_info = f" by user {user.name} ({user.id})" if user else " by system"
             logger.debug(f"Updating encounter {encounter_id}, status: {existing.status} -> {encounter.status}{user_info}")
@@ -212,6 +216,17 @@ class EncounterService:
             if not encounter:
                 raise NotFoundError("Encounter", encounter_id)
             
+            # Critical medical validations for encounter signing
+            if encounter.status == EncounterStatusEnum.SIGNED:
+                raise ValidationException("Encounter is already signed")
+            
+            if encounter.status == EncounterStatusEnum.CANCELLED:
+                raise ValidationException("Cannot sign a cancelled encounter")
+            
+            # Check for required documentation (chief complaint)
+            if not encounter.soap or not encounter.soap.subjective or not encounter.soap.subjective.chief_complaint:
+                raise ValidationException("Cannot sign encounter without chief complaint")
+            
             # Create encounter copy for signing validation
             encounter_to_sign = encounter.model_copy()
             encounter_to_sign.status = EncounterStatusEnum.SIGNED
@@ -231,6 +246,11 @@ class EncounterService:
             
             # Add signing notes if provided
             if notes:
+                # Ensure plan section exists
+                if not encounter.soap.plan:
+                    from app.models.soap import SOAPPlan
+                    encounter.soap.plan = SOAPPlan()
+                
                 if not encounter.soap.plan.notes:
                     encounter.soap.plan.notes = notes
                 else:
@@ -307,6 +327,11 @@ class EncounterService:
             encounter.workflow.last_saved = now
             
             # Add cancellation notes
+            # Ensure plan section exists
+            if not encounter.soap.plan:
+                from app.models.soap import SOAPPlan
+                encounter.soap.plan = SOAPPlan()
+            
             if not encounter.soap.plan.notes:
                 encounter.soap.plan.notes = f"Encounter cancelled by {cancelled_by}: {reason}"
             else:

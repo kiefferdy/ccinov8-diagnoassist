@@ -227,6 +227,7 @@ class SOAPPlan(BaseModel):
     lifestyle_modifications: List[str] = Field(default_factory=list)
     referrals: List[str] = Field(default_factory=list)
     other_interventions: Optional[str] = None
+    notes: Optional[str] = None  # Added for provider notes and comments
     last_updated: Optional[datetime] = None
     completion_percentage: int = Field(default=0, ge=0, le=100)
 

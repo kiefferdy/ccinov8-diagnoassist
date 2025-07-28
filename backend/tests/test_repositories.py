@@ -7,7 +7,7 @@ from typing import List
 
 from app.models.patient import PatientModel, PatientDemographics, MedicalBackground
 from app.models.episode import EpisodeModel, EpisodeCategoryEnum, EpisodeStatusEnum
-from app.models.encounter import EncounterModel, EncounterStatusEnum, EncounterTypeEnum
+from app.models.encounter import EncounterModel, EncounterStatusEnum, EncounterTypeEnum, ProviderInfo
 from app.models.auth import UserModel, UserRoleEnum, UserStatusEnum
 from app.core.exceptions import NotFoundError, DatabaseException
 
@@ -162,7 +162,7 @@ class TestEpisodeRepository:
             episode = EpisodeModel(
                 patient_id=patient_id,
                 chief_complaint=f"Complaint {i}",
-                category=EpisodeCategoryEnum.ROUTINE_CARE
+                category=EpisodeCategoryEnum.ROUTINE
             )
             await episode_repository.create(episode)
         
@@ -170,12 +170,12 @@ class TestEpisodeRepository:
         other_episode = EpisodeModel(
             patient_id="P002",
             chief_complaint="Other complaint",
-            category=EpisodeCategoryEnum.ACUTE_CARE
+            category=EpisodeCategoryEnum.ACUTE
         )
         await episode_repository.create(other_episode)
         
         # Get episodes for specific patient
-        patient_episodes = await episode_repository.get_by_patient(patient_id)
+        patient_episodes = await episode_repository.get_by_patient_id(patient_id)
         assert len(patient_episodes) == 3
         assert all(e.patient_id == patient_id for e in patient_episodes)
     
@@ -192,7 +192,7 @@ class TestEpisodeRepository:
             episode = EpisodeModel(
                 patient_id="P001",
                 chief_complaint=complaint,
-                category=EpisodeCategoryEnum.ROUTINE_CARE,
+                category=EpisodeCategoryEnum.ROUTINE,
                 status=status
             )
             await episode_repository.create(episode)
@@ -245,13 +245,19 @@ class TestEncounterRepository:
         for i in range(3):
             encounter = EncounterModel(
                 patient_id=patient_id,
-                type=EncounterTypeEnum.ROUTINE_VISIT,
-                provider=sample_encounter.provider
+                episode_id="E001",
+                type=EncounterTypeEnum.ROUTINE,
+                provider=ProviderInfo(
+                    id="U001",
+                    name="Dr. Test",
+                    role="Doctor",
+                    specialty="Test"
+                )
             )
             await encounter_repository.create(encounter)
         
         # Get encounters for patient
-        patient_encounters = await encounter_repository.get_by_patient(patient_id)
+        patient_encounters = await encounter_repository.get_by_patient_id(patient_id)
         assert len(patient_encounters) == 3
         assert all(e.patient_id == patient_id for e in patient_encounters)
     
@@ -264,13 +270,18 @@ class TestEncounterRepository:
             encounter = EncounterModel(
                 patient_id="P001",
                 episode_id=episode_id,
-                type=EncounterTypeEnum.ROUTINE_VISIT,
-                provider=sample_encounter.provider
+                type=EncounterTypeEnum.ROUTINE,
+                provider=ProviderInfo(
+                    id="U001",
+                    name="Dr. Test",
+                    role="Doctor",
+                    specialty="Test"
+                )
             )
             await encounter_repository.create(encounter)
         
         # Get encounters for episode
-        episode_encounters = await encounter_repository.get_by_episode(episode_id)
+        episode_encounters = await encounter_repository.get_by_episode_id(episode_id)
         assert len(episode_encounters) == 2
         assert all(e.episode_id == episode_id for e in episode_encounters)
     
@@ -282,9 +293,15 @@ class TestEncounterRepository:
         for status in statuses:
             encounter = EncounterModel(
                 patient_id="P001",
-                type=EncounterTypeEnum.ROUTINE_VISIT,
+                episode_id="E001",
+                type=EncounterTypeEnum.ROUTINE,
                 status=status,
-                provider=sample_encounter.provider
+                provider=ProviderInfo(
+                    id="U001",
+                    name="Dr. Test",
+                    role="Doctor",
+                    specialty="Test"
+                )
             )
             await encounter_repository.create(encounter)
         
@@ -345,12 +362,16 @@ class TestUserRepository:
         ]
         
         for email, role in users_data:
+            from app.models.auth import UserProfile
             user = UserModel(
                 email=email,
                 hashed_password="hashed_password",
                 role=role,
                 status=UserStatusEnum.ACTIVE,
-                profile=sample_user.profile,
+                profile=UserProfile(
+                    first_name="Test",
+                    last_name="User"
+                ),
                 is_verified=True
             )
             await user_repository.create(user)

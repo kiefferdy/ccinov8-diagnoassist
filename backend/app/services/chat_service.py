@@ -31,6 +31,14 @@ class ChatType(str, Enum):
     GENERAL = "general"
 
 
+class MessagePriority(str, Enum):
+    """Message priority levels"""
+    LOW = "low"
+    NORMAL = "normal"
+    HIGH = "high"
+    URGENT = "urgent"
+
+
 class ChatService:
     """Service for managing AI chat conversations"""
     

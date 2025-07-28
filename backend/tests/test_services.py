@@ -25,30 +25,30 @@ class TestEncounterService:
     @patch('app.services.encounter_service.encounter_repository')
     async def test_create_encounter_with_validation(self, mock_encounter_repo, mock_episode_repo, mock_patient_repo):
         """Test encounter creation with proper validation"""
-        # Mock repositories
+        # Mock repositories with AsyncMock
         mock_patient = Mock()
         mock_patient.id = "P001"
-        mock_patient_repo.get_by_id.return_value = mock_patient
+        mock_patient_repo.get_by_id = AsyncMock(return_value=mock_patient)
         
         mock_episode = Mock()
         mock_episode.id = "E001"
         mock_episode.patient_id = "P001"
-        mock_episode_repo.get_by_id.return_value = mock_episode
+        mock_episode_repo.get_by_id = AsyncMock(return_value=mock_episode)
         
         mock_created_encounter = Mock()
         mock_created_encounter.id = "ENC001"
-        mock_encounter_repo.create.return_value = mock_created_encounter
+        mock_encounter_repo.create = AsyncMock(return_value=mock_created_encounter)
         
         # Create encounter
         encounter = EncounterModel(
             patient_id="P001",
             episode_id="E001",
-            type=EncounterTypeEnum.ROUTINE_VISIT,
+            type=EncounterTypeEnum.ROUTINE,
             provider=ProviderInfo(
                 id="U001",
                 name="Dr. Test",
-                specialty="Internal Medicine",
-                department="Internal Medicine"
+                role="Doctor",
+                specialty="Internal Medicine"
             )
         )
         
@@ -63,12 +63,13 @@ class TestEncounterService:
     @patch('app.services.encounter_service.patient_repository')
     async def test_create_encounter_patient_not_found(self, mock_patient_repo):
         """Test encounter creation fails when patient not found"""
-        mock_patient_repo.get_by_id.return_value = None
+        mock_patient_repo.get_by_id = AsyncMock(return_value=None)
         
         encounter = EncounterModel(
             patient_id="NONEXISTENT",
-            type=EncounterTypeEnum.ROUTINE_VISIT,
-            provider=ProviderInfo(id="U001", name="Dr. Test", specialty="Test", department="Test")
+            episode_id="E001", 
+            type=EncounterTypeEnum.ROUTINE,
+            provider=ProviderInfo(id="U001", name="Dr. Test", role="Doctor", specialty="Test")
         )
         
         service = EncounterService()
@@ -85,18 +86,18 @@ class TestEncounterService:
         """Test encounter creation fails when episode doesn't belong to patient"""
         mock_patient = Mock()
         mock_patient.id = "P001"
-        mock_patient_repo.get_by_id.return_value = mock_patient
+        mock_patient_repo.get_by_id = AsyncMock(return_value=mock_patient)
         
         mock_episode = Mock()
         mock_episode.id = "E001"
         mock_episode.patient_id = "P002"  # Different patient
-        mock_episode_repo.get_by_id.return_value = mock_episode
+        mock_episode_repo.get_by_id = AsyncMock(return_value=mock_episode)
         
         encounter = EncounterModel(
             patient_id="P001",
             episode_id="E001",
-            type=EncounterTypeEnum.ROUTINE_VISIT,
-            provider=ProviderInfo(id="U001", name="Dr. Test", specialty="Test", department="Test")
+            type=EncounterTypeEnum.ROUTINE,
+            provider=ProviderInfo(id="U001", name="Dr. Test", role="Doctor", specialty="Test")
         )
         
         service = EncounterService()
@@ -112,7 +113,10 @@ class TestEncounterService:
         mock_encounter = Mock()
         mock_encounter.id = "ENC001"
         mock_encounter.status = EncounterStatusEnum.SIGNED
-        mock_encounter_repo.get_by_id.return_value = mock_encounter
+        
+        # Configure async mocks properly
+        mock_encounter_repo.get_by_id = AsyncMock(return_value=mock_encounter)
+        mock_encounter_repo.update = AsyncMock()
         
         service = EncounterService()
         
@@ -122,8 +126,8 @@ class TestEncounterService:
         assert "Cannot modify a signed encounter" in str(exc_info.value)
     
     @patch('app.services.encounter_service.encounter_repository')
-    @patch('app.services.encounter_service.fhir_sync')
-    async def test_sign_encounter_triggers_fhir_sync(self, mock_fhir_sync, mock_encounter_repo):
+    @patch('app.services.encounter_service.fhir_sync_service')
+    async def test_sign_encounter_triggers_fhir_sync(self, mock_fhir_sync_service, mock_encounter_repo):
         """Test that signing an encounter triggers FHIR synchronization"""
         # Mock encounter
         mock_encounter = Mock()
@@ -132,24 +136,24 @@ class TestEncounterService:
         mock_encounter.soap = SOAPModel(
             subjective=SOAPSubjective(chief_complaint="Test complaint")
         )
-        mock_encounter_repo.get_by_id.return_value = mock_encounter
+        mock_encounter_repo.get_by_id = AsyncMock(return_value=mock_encounter)
         
         # Mock updated encounter
         mock_signed_encounter = Mock()
         mock_signed_encounter.id = "ENC001"
         mock_signed_encounter.status = EncounterStatusEnum.SIGNED
-        mock_encounter_repo.update.return_value = mock_signed_encounter
+        mock_encounter_repo.update = AsyncMock(return_value=mock_signed_encounter)
         
         # Mock FHIR sync
         mock_sync_response = Mock()
         mock_sync_response.success = True
-        mock_fhir_sync.auto_sync_on_encounter_sign.return_value = mock_sync_response
+        mock_fhir_sync_service.auto_sync_on_encounter_sign.return_value = mock_sync_response
         
         service = EncounterService()
         signed_encounter = await service.sign_encounter("ENC001", "U001", "Signing notes")
         
         assert signed_encounter.status == EncounterStatusEnum.SIGNED
-        mock_fhir_sync.auto_sync_on_encounter_sign.assert_called_once_with("ENC001")
+        mock_fhir_sync_service.auto_sync_on_encounter_sign.assert_called_once_with("ENC001")
     
     @patch('app.services.encounter_service.encounter_repository')
     async def test_sign_encounter_validation(self, mock_encounter_repo):
@@ -157,7 +161,7 @@ class TestEncounterService:
         # Test signing already signed encounter
         mock_signed_encounter = Mock()
         mock_signed_encounter.status = EncounterStatusEnum.SIGNED
-        mock_encounter_repo.get_by_id.return_value = mock_signed_encounter
+        mock_encounter_repo.get_by_id = AsyncMock(return_value=mock_signed_encounter)
         
         service = EncounterService()
         
@@ -169,7 +173,7 @@ class TestEncounterService:
         # Test signing cancelled encounter
         mock_cancelled_encounter = Mock()
         mock_cancelled_encounter.status = EncounterStatusEnum.CANCELLED
-        mock_encounter_repo.get_by_id.return_value = mock_cancelled_encounter
+        mock_encounter_repo.get_by_id = AsyncMock(return_value=mock_cancelled_encounter)
         
         with pytest.raises(ValidationException) as exc_info:
             await service.sign_encounter("ENC001", "U001")
@@ -180,7 +184,7 @@ class TestEncounterService:
         mock_incomplete_encounter = Mock()
         mock_incomplete_encounter.status = EncounterStatusEnum.IN_PROGRESS
         mock_incomplete_encounter.soap = SOAPModel()  # Empty SOAP
-        mock_encounter_repo.get_by_id.return_value = mock_incomplete_encounter
+        mock_encounter_repo.get_by_id = AsyncMock(return_value=mock_incomplete_encounter)
         
         with pytest.raises(ValidationException) as exc_info:
             await service.sign_encounter("ENC001", "U001")
@@ -194,11 +198,11 @@ class TestEncounterService:
         mock_encounter.id = "ENC001"
         mock_encounter.status = EncounterStatusEnum.IN_PROGRESS
         mock_encounter.soap = SOAPModel(plan=SOAPPlan())
-        mock_encounter_repo.get_by_id.return_value = mock_encounter
+        mock_encounter_repo.get_by_id = AsyncMock(return_value=mock_encounter)
         
         mock_cancelled_encounter = Mock()
         mock_cancelled_encounter.status = EncounterStatusEnum.CANCELLED
-        mock_encounter_repo.update.return_value = mock_cancelled_encounter
+        mock_encounter_repo.update = AsyncMock(return_value=mock_cancelled_encounter)
         
         service = EncounterService()
         cancelled_encounter = await service.cancel_encounter("ENC001", "Patient no-show", "U001")
@@ -219,7 +223,7 @@ class TestEncounterService:
             ),
             assessment=SOAPAssessment(primary_diagnosis="Test diagnosis")
         )
-        mock_encounter_repo.get_by_id.return_value = complete_encounter
+        mock_encounter_repo.get_by_id = AsyncMock(return_value=complete_encounter)
         
         service = EncounterService()
         validation = await service.validate_encounter_completeness("ENC001")
@@ -231,7 +235,7 @@ class TestEncounterService:
         # Incomplete encounter
         incomplete_encounter = Mock()
         incomplete_encounter.soap = SOAPModel()  # Empty SOAP
-        mock_encounter_repo.get_by_id.return_value = incomplete_encounter
+        mock_encounter_repo.get_by_id = AsyncMock(return_value=incomplete_encounter)
         
         validation = await service.validate_encounter_completeness("ENC001")
         
@@ -245,22 +249,23 @@ class TestEncounterService:
 class TestAuthService:
     """Test authentication service"""
     
-    @patch('app.services.auth_service.user_repository')
+    @patch('app.repositories.user_repository.user_repository')
     async def test_register_user(self, mock_user_repo):
         """Test user registration"""
         # Mock no existing user
-        mock_user_repo.get_by_email.return_value = None
+        mock_user_repo.get_by_email = AsyncMock(return_value=None)
         
         # Mock created user
         mock_created_user = Mock()
         mock_created_user.id = "U001"
         mock_created_user.email = "test@example.com"
-        mock_user_repo.create.return_value = mock_created_user
+        mock_user_repo.create = AsyncMock(return_value=mock_created_user)
         
         from app.models.auth import UserRegistrationRequest, UserProfile
         registration_data = UserRegistrationRequest(
             email="test@example.com",
-            password="testpassword",
+            password="TestPassword123",
+            confirm_password="TestPassword123",
             role=UserRoleEnum.DOCTOR,
             profile=UserProfile(
                 first_name="Test",
@@ -275,17 +280,18 @@ class TestAuthService:
         assert created_user.email == "test@example.com"
         mock_user_repo.create.assert_called_once()
     
-    @patch('app.services.auth_service.user_repository')
+    @patch('app.repositories.user_repository.user_repository')
     async def test_register_duplicate_user(self, mock_user_repo):
         """Test registration with duplicate email"""
         # Mock existing user
         mock_existing_user = Mock()
-        mock_user_repo.get_by_email.return_value = mock_existing_user
+        mock_user_repo.get_by_email = AsyncMock(return_value=mock_existing_user)
         
         from app.models.auth import UserRegistrationRequest, UserProfile
         registration_data = UserRegistrationRequest(
             email="existing@example.com",
-            password="testpassword",
+            password="TestPassword123",
+            confirm_password="TestPassword123",
             role=UserRoleEnum.DOCTOR,
             profile=UserProfile(first_name="Test", last_name="User")
         )
@@ -295,7 +301,7 @@ class TestAuthService:
         with pytest.raises(Exception):  # Should raise ConflictException
             await service.register_user(registration_data)
     
-    @patch('app.services.auth_service.user_repository')
+    @patch('app.repositories.user_repository.user_repository')
     @patch('app.services.auth_service.verify_password')
     async def test_authenticate_user_success(self, mock_verify_password, mock_user_repo):
         """Test successful user authentication"""
@@ -305,9 +311,9 @@ class TestAuthService:
         mock_user.email = "test@example.com"
         mock_user.status = UserStatusEnum.ACTIVE
         mock_user.hashed_password = "hashed_password"
-        mock_user_repo.get_by_email.return_value = mock_user
-        mock_user_repo.update_last_login.return_value = mock_user
-        mock_user_repo.get_by_id.return_value = mock_user
+        mock_user_repo.get_by_email = AsyncMock(return_value=mock_user)
+        mock_user_repo.update_last_login = AsyncMock(return_value=mock_user)
+        mock_user_repo.get_by_id = AsyncMock(return_value=mock_user)
         
         # Mock password verification
         mock_verify_password.return_value = True
@@ -325,13 +331,13 @@ class TestAuthService:
         assert authenticated_user.id == "U001"
         mock_user_repo.update_last_login.assert_called_once_with("U001")
     
-    @patch('app.services.auth_service.user_repository')
+    @patch('app.repositories.user_repository.user_repository')
     @patch('app.services.auth_service.verify_password')
     async def test_authenticate_user_wrong_password(self, mock_verify_password, mock_user_repo):
         """Test authentication with wrong password"""
         mock_user = Mock()
         mock_user.hashed_password = "hashed_password"
-        mock_user_repo.get_by_email.return_value = mock_user
+        mock_user_repo.get_by_email = AsyncMock(return_value=mock_user)
         
         # Mock password verification failure
         mock_verify_password.return_value = False
@@ -347,14 +353,14 @@ class TestAuthService:
         
         assert authenticated_user is None
     
-    @patch('app.services.auth_service.user_repository')
+    @patch('app.repositories.user_repository.user_repository')
     @patch('app.services.auth_service.verify_password')
     async def test_authenticate_suspended_user(self, mock_verify_password, mock_user_repo):
         """Test authentication with suspended user"""
         mock_user = Mock()
         mock_user.status = UserStatusEnum.SUSPENDED
         mock_user.hashed_password = "hashed_password"
-        mock_user_repo.get_by_email.return_value = mock_user
+        mock_user_repo.get_by_email = AsyncMock(return_value=mock_user)
         mock_verify_password.return_value = True
         
         from app.models.auth import UserLoginRequest
@@ -370,7 +376,7 @@ class TestAuthService:
         
         assert "suspended" in str(exc_info.value).lower()
     
-    @patch('app.services.auth_service.user_repository')
+    @patch('app.repositories.user_repository.user_repository')
     @patch('app.services.auth_service.verify_password')
     @patch('app.services.auth_service.get_password_hash')
     async def test_change_password(self, mock_get_hash, mock_verify_password, mock_user_repo):
@@ -378,10 +384,11 @@ class TestAuthService:
         mock_user = Mock()
         mock_user.id = "U001"
         mock_user.hashed_password = "old_hashed_password"
-        mock_user_repo.get_by_id.return_value = mock_user
+        mock_user_repo.get_by_id = AsyncMock(return_value=mock_user)
         
         mock_verify_password.return_value = True
         mock_get_hash.return_value = "new_hashed_password"
+        mock_user_repo.update_password = AsyncMock(return_value=True)
         
         service = AuthService()
         success = await service.change_password("U001", "oldpassword", "newpassword")
@@ -389,13 +396,13 @@ class TestAuthService:
         assert success is True
         mock_user_repo.update_password.assert_called_once_with("U001", "new_hashed_password")
     
-    @patch('app.services.auth_service.user_repository')
+    @patch('app.repositories.user_repository.user_repository')
     @patch('app.services.auth_service.verify_password')
     async def test_change_password_wrong_current(self, mock_verify_password, mock_user_repo):
         """Test password change with wrong current password"""
         mock_user = Mock()
         mock_user.hashed_password = "hashed_password"
-        mock_user_repo.get_by_id.return_value = mock_user
+        mock_user_repo.get_by_id = AsyncMock(return_value=mock_user)
         
         mock_verify_password.return_value = False
         
@@ -441,8 +448,8 @@ class TestServiceIntegration:
         # Should have warnings or missing sections for incomplete encounter
         assert len(validation["missing_sections"]) > 0 or len(validation["warnings"]) > 0
     
-    @patch('app.services.encounter_service.fhir_sync')
-    async def test_encounter_signing_workflow(self, mock_fhir_sync, sample_data_set):
+    @patch('app.services.encounter_service.fhir_sync_service')
+    async def test_encounter_signing_workflow(self, mock_fhir_sync_service, sample_data_set):
         """Test complete encounter signing workflow"""
         encounter = sample_data_set["encounter"]
         user = sample_data_set["user"]
@@ -450,7 +457,7 @@ class TestServiceIntegration:
         # Mock FHIR sync
         mock_sync_response = Mock()
         mock_sync_response.success = True
-        mock_fhir_sync.auto_sync_on_encounter_sign.return_value = mock_sync_response
+        mock_fhir_sync_service.auto_sync_on_encounter_sign.return_value = mock_sync_response
         
         from app.services.encounter_service import encounter_service
         
@@ -475,4 +482,4 @@ class TestServiceIntegration:
         assert signed_encounter.signed_at is not None
         
         # Verify FHIR sync was triggered
-        mock_fhir_sync.auto_sync_on_encounter_sign.assert_called_once_with(encounter.id)
+        mock_fhir_sync_service.auto_sync_on_encounter_sign.assert_called_once_with(encounter.id)

@@ -2,6 +2,7 @@
 Test configuration and fixtures for DiagnoAssist Backend
 """
 import pytest
+import pytest_asyncio
 import asyncio
 import logging
 from typing import AsyncGenerator, Dict, Any
@@ -28,7 +29,7 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session")
 async def test_db() -> AsyncGenerator[AsyncIOMotorDatabase, None]:
     """Create a test database connection."""
     # Use a test-specific database
@@ -90,7 +91,7 @@ def sample_episode_data() -> Dict[str, Any]:
     return {
         "patient_id": "P001",
         "chief_complaint": "Annual physical examination",
-        "category": EpisodeCategoryEnum.ROUTINE_CARE,
+        "category": EpisodeCategoryEnum.ROUTINE,
         "tags": ["annual", "physical"],
         "notes": "Routine annual checkup"
     }
@@ -108,12 +109,12 @@ def sample_encounter_data() -> Dict[str, Any]:
     return {
         "patient_id": "P001",
         "episode_id": "E001",
-        "type": EncounterTypeEnum.ROUTINE_VISIT,
+        "type": EncounterTypeEnum.ROUTINE,
         "provider": ProviderInfo(
             id="U001",
             name="Dr. Test Doctor",
-            specialty="Internal Medicine",
-            department="Internal Medicine"
+            role="Doctor",
+            specialty="Internal Medicine"
         ),
         "soap": SOAPModel(
             subjective=SOAPSubjective(
@@ -154,51 +155,67 @@ def sample_user(sample_user_data: Dict[str, Any]) -> UserModel:
     return UserModel(**sample_user_data)
 
 
-@pytest.fixture
-def patient_repository(test_db: AsyncIOMotorDatabase):
+@pytest_asyncio.fixture
+async def patient_repository(test_db: AsyncIOMotorDatabase):
     """Patient repository with test database."""
     from app.repositories.patient_repository import PatientRepository
     
     # Create repository with test database
     repo = PatientRepository()
-    repo._db = test_db  # Override database connection
     
+    # Override get_collection to use test database
+    async def get_test_collection():
+        return test_db[repo.collection_name]
+    
+    repo.get_collection = get_test_collection
     return repo
 
 
-@pytest.fixture
-def episode_repository(test_db: AsyncIOMotorDatabase):
+@pytest_asyncio.fixture
+async def episode_repository(test_db: AsyncIOMotorDatabase):
     """Episode repository with test database."""
     from app.repositories.episode_repository import EpisodeRepository
     
     # Create repository with test database
     repo = EpisodeRepository()
-    repo._db = test_db  # Override database connection
     
+    # Override get_collection to use test database
+    async def get_test_collection():
+        return test_db[repo.collection_name]
+    
+    repo.get_collection = get_test_collection
     return repo
 
 
-@pytest.fixture
-def encounter_repository(test_db: AsyncIOMotorDatabase):
+@pytest_asyncio.fixture
+async def encounter_repository(test_db: AsyncIOMotorDatabase):
     """Encounter repository with test database."""
     from app.repositories.encounter_repository import EncounterRepository
     
     # Create repository with test database
     repo = EncounterRepository()
-    repo._db = test_db  # Override database connection
     
+    # Override get_collection to use test database
+    async def get_test_collection():
+        return test_db[repo.collection_name]
+    
+    repo.get_collection = get_test_collection
     return repo
 
 
-@pytest.fixture
-def user_repository(test_db: AsyncIOMotorDatabase):
+@pytest_asyncio.fixture
+async def user_repository(test_db: AsyncIOMotorDatabase):
     """User repository with test database."""
     from app.repositories.user_repository import UserRepository
     
     # Create repository with test database
     repo = UserRepository()
-    repo._db = test_db  # Override database connection
     
+    # Override get_collection to use test database
+    async def get_test_collection():
+        return test_db[repo.collection_name]
+    
+    repo.get_collection = get_test_collection
     return repo
 
 
@@ -218,7 +235,7 @@ def mock_fhir_client():
     return mock_client
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def sample_data_set(
     patient_repository,
     episode_repository,
