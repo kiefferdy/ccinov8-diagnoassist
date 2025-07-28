@@ -2,10 +2,39 @@ import React from 'react';
 import { 
   Calendar, Clock, User, FileText, Edit3, CheckCircle, 
   Activity, Plus, Sparkles, ChevronRight, AlertCircle,
-  Video, Phone, Stethoscope
+  Video, Phone, Stethoscope, Trash2
 } from 'lucide-react';
+import { useEncounter } from '../../contexts/EncounterContext';
 
-const EncounterList = ({ encounters, currentEncounter, onSelectEncounter }) => {
+const EncounterList = ({ encounters, currentEncounter, onSelectEncounter, onEncounterDeleted }) => {
+  const { deleteEncounter } = useEncounter();
+  
+  const handleDeleteEncounter = async (e, encounterId, encounterNumber) => {
+    e.stopPropagation(); // Prevent selecting the encounter when clicking delete
+    
+    const confirmed = window.confirm(
+      `Are you sure you want to delete Encounter #${encounterNumber}? This action cannot be undone.`
+    );
+    
+    if (confirmed) {
+      const success = await deleteEncounter(encounterId);
+      if (success) {
+        // Show success message if notification system exists
+        if (window.showNotification) {
+          window.showNotification('Encounter deleted successfully', 'success');
+        }
+        // Trigger refresh if callback provided
+        if (onEncounterDeleted) {
+          onEncounterDeleted();
+        }
+      } else {
+        // Show error message if notification system exists
+        if (window.showNotification) {
+          window.showNotification('Failed to delete encounter', 'error');
+        }
+      }
+    }
+  };
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { 
@@ -151,16 +180,25 @@ const EncounterList = ({ encounters, currentEncounter, onSelectEncounter }) => {
                     </p>
                   </div>
                 </div>
-                {isSigned && (
-                  <div className="flex items-center space-x-1 bg-green-100 px-2 py-1 rounded-full">
-                    <CheckCircle className="w-3 h-3 text-green-600" />
-                    <span className="text-xs font-medium text-green-700">
-                      Signed
-                      {encounter.signedBy && ` by ${encounter.signedBy}`}
-                      {encounter.signed_by && !encounter.signedBy && ` by ${encounter.signed_by}`}
-                    </span>
-                  </div>
-                )}
+                <div className="flex items-center space-x-2">
+                  {isSigned && (
+                    <div className="flex items-center space-x-1 bg-green-100 px-2 py-1 rounded-full">
+                      <CheckCircle className="w-3 h-3 text-green-600" />
+                      <span className="text-xs font-medium text-green-700">
+                        Signed
+                        {encounter.signedBy && ` by ${encounter.signedBy}`}
+                        {encounter.signed_by && !encounter.signedBy && ` by ${encounter.signed_by}`}
+                      </span>
+                    </div>
+                  )}
+                  <button
+                    onClick={(e) => handleDeleteEncounter(e, encounter.id, encounters.length - index)}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors duration-200 opacity-0 group-hover:opacity-100"
+                    title="Delete encounter"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
               
               {/* Date, Time and Provider */}

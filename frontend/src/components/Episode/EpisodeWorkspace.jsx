@@ -74,17 +74,48 @@ const EpisodeWorkspace = () => {
       }
       
       await setCurrentEncounterWithLoading(newEncounter);
-      // Don't manually add to encounters - createEncounter already updates the context state
-      // Don't navigate - we're already on episode-workspace
+      
+      // Refresh encounters list to show the new encounter
+      try {
+        const episodeEncounters = await getEpisodeEncounters(episodeId, false); // Force fresh data
+        setEncounters(episodeEncounters);
+        setCreatingEncounter(false);
+      } catch (refreshError) {
+        console.warn('Failed to refresh encounters after creation:', refreshError);
+        // Fallback: manually add to list if refresh fails
+        setEncounters(prev => [newEncounter, ...prev.filter(e => e.id !== newEncounter.id)]);
+        setCreatingEncounter(false);
+      }
     } catch (error) {
       console.error('Failed to create encounter:', error);
     }
-  }, [episode, patient, createEncounter, episodeId, patientId, setCurrentEncounterWithLoading]);
+  }, [episode, patient, createEncounter, episodeId, patientId, setCurrentEncounterWithLoading, getEpisodeEncounters]);
 
   const handleSelectEncounter = useCallback(async (encounter) => {
     await setCurrentEncounterWithLoading(encounter);
     // Don't navigate - we're already on episode-workspace
   }, [setCurrentEncounterWithLoading]);
+
+  const handleEncounterDeleted = useCallback(async () => {
+    // Refresh encounters after deletion
+    try {
+      setEncountersLoading(true);
+      const episodeEncounters = await getEpisodeEncounters(episodeId, false); // Force fresh data
+      setEncounters(episodeEncounters);
+      
+      // If current encounter was deleted, clear it or select the most recent one
+      if (episodeEncounters.length > 0) {
+        await setCurrentEncounterWithLoading(episodeEncounters[0]);
+      } else {
+        await setCurrentEncounterWithLoading(null);
+        setCreatingEncounter(true);
+      }
+    } catch (error) {
+      console.error('Error refreshing encounters after deletion:', error);
+    } finally {
+      setEncountersLoading(false);
+    }
+  }, [episodeId, getEpisodeEncounters, setCurrentEncounterWithLoading]);
 
   // Load data - wait for contexts to finish loading first
   useEffect(() => {
@@ -255,6 +286,7 @@ const EpisodeWorkspace = () => {
                 encounters={encounters || []}
                 currentEncounter={currentEncounter}
                 onSelectEncounter={handleSelectEncounter}
+                onEncounterDeleted={handleEncounterDeleted}
               />
             )}
           </div>

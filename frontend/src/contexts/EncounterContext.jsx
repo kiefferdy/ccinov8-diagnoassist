@@ -666,6 +666,37 @@ export const EncounterProvider = ({ children }) => {
     setSwitchingEncounter(false);
   }, []);
 
+  // Delete a specific encounter
+  const deleteEncounter = useCallback(async (encounterId) => {
+    try {
+      // Try to delete from API first if not a local encounter
+      if (!encounterId.startsWith('ENC')) {
+        try {
+          await apiService.deleteEncounter(encounterId);
+        } catch (apiError) {
+          console.warn('Failed to delete encounter from API:', apiError);
+          // Continue with local deletion anyway
+        }
+      }
+      
+      // Remove from local state
+      const updatedEncounters = encounters.filter(e => e.id !== encounterId);
+      setEncounters(updatedEncounters);
+      StorageManager.saveEncounters(updatedEncounters);
+      
+      // If it was the current encounter, clear it
+      if (currentEncounter?.id === encounterId) {
+        setCurrentEncounter(null);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting encounter:', error);
+      setError(error.message);
+      return false;
+    }
+  }, [encounters, currentEncounter]);
+
   // Delete all encounters for a patient
   const deletePatientEncounters = useCallback((patientId) => {
     const updatedEncounters = encounters.filter(e => e.patientId !== patientId);
@@ -693,6 +724,7 @@ export const EncounterProvider = ({ children }) => {
     signEncounter,
     copyForwardFromEncounter,
     getEncounterStats,
+    deleteEncounter,
     deletePatientEncounters
   };
 
