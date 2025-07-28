@@ -97,11 +97,12 @@ const UnifiedVoiceInput = ({
             }
 
             const res = await response.json();
-            //console.log('API response:', result);
+            console.log('API response:', res);
 
             if (res.success) {
               console.log(res)
               const result = res.result
+
               console.log(result)
               setProcessedData(result)
             }
@@ -156,9 +157,38 @@ const UnifiedVoiceInput = ({
       // Simulate AI processing - in a real app, this would call an AI API
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Extract and organize information for different SOAP sections
-      const processed = extractSOAPData(text);
-      console.log('Processed data:', processed); // Debug log
+       //Extract and organize information for different SOAP sections
+      //const processed = extractSOAPData(text);
+      //console.log('Processed data:', processed); // Debug log
+      
+      const processed = {
+        subjective: {
+          chiefComplaint: "Cough for 3 days.",
+          hpi: "Patient reports a cough for about 3 days, initially dry but now with some phlegm. Had a low-grade fever last night (around 37.9 degrees) and a scratchy throat. No trouble breathing. No chest pain. No recent travel or known contact with anyone sick.",
+          ros: {}
+        },
+        objective: {
+          vitals: {
+            bloodPressure: "118/76",
+            temperature: "37.8",
+            pulse: "84",
+            respiratoryRate: "18"
+          },
+          physicalExam: {
+            general: "Lungs are clear on auscultation with some mild scattered rhonchi. No wheezing. Throat is mildly erythematous but no pus or swelling."
+          },
+          labResults: []
+        },
+        assessment: {
+          clinicalImpression: "Upper respiratory tract infection, likely viral.",
+          differentialDiagnosis: []
+        },
+        plan: {
+          treatments: ["Paracetamol test"],
+          diagnostics: ["new diagnostic"],
+          followUp: ""
+        }
+      };
       
       setProcessedData(processed);
     } catch (err) {
@@ -291,21 +321,25 @@ const UnifiedVoiceInput = ({
     return sections;
   };
   const applyToSections = () => {
+    //console.log(processedData)
     if (processedData && onUpdateSections) {
+
+      processedData.plan.followUp = ""
+
       onUpdateSections(processedData);
-      
+
       // Clear the processed data after applying
       setProcessedData(null);
       setTranscript('');
       setInterimTranscript('');
-      
+
       // Show success message
       setShowSuccess(true);
       setTimeout(() => {
         setShowSuccess(false);
         setIsExpanded(false); // Collapse after showing success
       }, 2000);
-      
+
       setError(''); // Clear any errors
     }
   };
