@@ -163,7 +163,7 @@ class EncounterBase(BaseModel):
     """Base encounter fields"""
     episode_id: UUID
     patient_id: UUID
-    type: str = "follow-up"
+    type: str = "initial"
     provider: Optional[Provider] = None
     soap_subjective: Optional[SOAPSubjective] = SOAPSubjective()
     soap_objective: Optional[SOAPObjective] = SOAPObjective()
@@ -176,7 +176,7 @@ class EncounterBase(BaseModel):
     def validate_encounter_type(cls, v):
         valid_types = ['initial', 'follow-up', 'urgent', 'telemedicine', 'phone', 'lab-review']
         if v not in valid_types:
-            return 'follow-up'
+            return 'initial'
         return v
 
 class EncounterCreate(EncounterBase):

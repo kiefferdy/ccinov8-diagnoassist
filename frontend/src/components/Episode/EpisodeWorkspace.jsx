@@ -28,8 +28,16 @@ const EpisodeWorkspace = () => {
   const handleCreateEncounter = useCallback(async (type = 'follow-up') => {
     if (!episode || !patient) return;
     
+    console.log(`🏥 EpisodeWorkspace.handleCreateEncounter called for episode: ${episodeId}, type: ${type}, creatingEncounter: ${creatingEncounter}`);
+    
+    if (creatingEncounter) {
+      console.log('⚠️ Already creating encounter, ignoring click');
+      return;
+    }
+    
     try {
-      console.log(`🏥 EpisodeWorkspace.handleCreateEncounter called for episode: ${episodeId}, type: ${type}`);
+      setCreatingEncounter(true);
+      console.log('✅ Set creatingEncounter to true');
       const newEncounter = await createEncounter(episodeId, patientId, type);
       
       // Auto-populate chief complaint from episode
@@ -80,15 +88,16 @@ const EpisodeWorkspace = () => {
       try {
         const episodeEncounters = await getEpisodeEncounters(episodeId, false); // Force fresh data
         setEncounters(episodeEncounters);
-        setCreatingEncounter(false);
       } catch (refreshError) {
         console.warn('Failed to refresh encounters after creation:', refreshError);
         // Fallback: manually add to list if refresh fails
         setEncounters(prev => [newEncounter, ...prev.filter(e => e.id !== newEncounter.id)]);
-        setCreatingEncounter(false);
       }
     } catch (error) {
       console.error('Failed to create encounter:', error);
+    } finally {
+      console.log('✅ Set creatingEncounter to false');
+      setCreatingEncounter(false);
     }
   }, [episode, patient, createEncounter, episodeId, patientId, setCurrentEncounterWithLoading, getEpisodeEncounters]);
 
@@ -302,13 +311,29 @@ const EpisodeWorkspace = () => {
                 )}
               </span>
             </div>
-            <button
-              onClick={() => handleCreateEncounter('follow-up')}
-              className="w-full mt-3 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 group"
-            >
-              <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-              <span className="font-medium">New Encounter</span>
-            </button>
+            <div className="space-y-2 mt-3">
+              <button
+                onClick={() => handleCreateEncounter('initial')}
+                disabled={creatingEncounter}
+                className="w-full px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 backdrop-blur-sm rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 group disabled:opacity-50 disabled:cursor-not-allowed border border-blue-500/30"
+              >
+                <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
+                <span className="font-medium text-sm">
+                  {creatingEncounter ? 'Creating...' : 'Initial Visit'}
+                </span>
+              </button>
+              
+              <button
+                onClick={() => handleCreateEncounter('follow-up')}
+                disabled={creatingEncounter}
+                className="w-full px-4 py-2 bg-green-500/20 hover:bg-green-500/30 backdrop-blur-sm rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 group disabled:opacity-50 disabled:cursor-not-allowed border border-green-500/30"
+              >
+                <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
+                <span className="font-medium text-sm">
+                  {creatingEncounter ? 'Creating...' : 'Follow-up Visit'}
+                </span>
+              </button>
+            </div>
           </div>
           
           <div className="flex-1 overflow-y-auto bg-gray-50">

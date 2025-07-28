@@ -12,7 +12,7 @@ const transformBackendToFrontend = (backendEncounter) => {
     id: backendEncounter.id,
     episodeId: backendEncounter.episode_id || null,
     patientId: backendEncounter.patient_id || null,
-    type: backendEncounter.type || 'follow-up',
+    type: backendEncounter.type || 'initial',
     date: backendEncounter.date || new Date().toISOString(),
     status: backendEncounter.status || 'draft',
     provider: backendEncounter.provider || {
@@ -125,7 +125,7 @@ const transformFrontendToBackend = (frontendEncounter, isUpdate = false) => {
   return {
     episode_id: frontendEncounter.episodeId,
     patient_id: frontendEncounter.patientId,
-    type: frontendEncounter.type || 'follow-up',
+    type: frontendEncounter.type || 'initial',
     provider: frontendEncounter.provider,
     soap_subjective: frontendEncounter.soap?.subjective || {},
     soap_objective: frontendEncounter.soap?.objective || {},
@@ -258,11 +258,12 @@ export const EncounterProvider = ({ children }) => {
       console.log(`📊 Current encounters in context: ${encounters.length}`);
       encounters.forEach(e => console.log(`  - ${e.id}: episode=${e.episodeId}, type=${e.type}`));
       
-      // Check if we already have an encounter being created to avoid duplicates
+      // Check if we already have an encounter of the same type being created to avoid duplicates
       const existingDraftEncounter = encounters.find(e => 
         String(e.episodeId) === String(episodeId) && 
         String(e.patientId) === String(patientId) && 
-        e.status === 'draft'
+        e.status === 'draft' &&
+        e.type === type
       );
       
       if (existingDraftEncounter) {

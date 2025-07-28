@@ -29,7 +29,7 @@ class Encounter(Base):
     patient_id = Column(UUID(as_uuid=True), ForeignKey("patients.id"), nullable=False)
     
     # Encounter metadata
-    type = Column(String(50), default="follow-up", nullable=False)  # initial, follow-up, urgent, telemedicine, phone, lab-review
+    type = Column(String(50), default="initial", nullable=False)  # initial, follow-up, urgent, telemedicine, phone, lab-review
     date = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     status = Column(String(20), default="draft", nullable=False)  # draft, signed
     
