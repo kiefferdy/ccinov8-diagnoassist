@@ -23,6 +23,7 @@ class ICD10SearchResponse(BaseModel):
     total_results: int
     search_time_ms: float
 
+@router.get("", response_model=ICD10SearchResponse)
 @router.get("/", response_model=ICD10SearchResponse)
 async def search_icd10_codes(
     q: str = Query(..., min_length=2, description="Search query for ICD-10 codes"),

@@ -42,4 +42,5 @@ EXPOSE 8000
 
 # Command to run the application
 # Use Railway's PORT environment variable if available, otherwise default to 8000
-CMD ["sh", "-c", "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Configure for Railway proxy with forwarded headers
+CMD ["sh", "-c", "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --forwarded-allow-ips '*' --proxy-headers"]

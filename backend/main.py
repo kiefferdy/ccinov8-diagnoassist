@@ -7,6 +7,7 @@ import os
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 import uvicorn
 from sqlalchemy import text
 
@@ -25,7 +26,7 @@ class Settings:
     app_name = "DiagnoAssist API"
     app_version = "1.0.0"
     debug = True
-    cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")
+    cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173,https://diagnoassist-beta.up.railway.app").split(",")
 
 settings = Settings()
 
@@ -51,6 +52,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add trusted host middleware for Railway deployment
+app.add_middleware(
+    TrustedHostMiddleware, 
+    allowed_hosts=["*"]  # Railway handles host validation
+)
+
+# Configure for Railway proxy (trust forwarded headers)
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
+
+# Only force HTTPS in production (Railway)
+if os.getenv("RAILWAY_ENVIRONMENT_NAME"):
+    app.add_middleware(HTTPSRedirectMiddleware)
 
 # Track what's available
 components_status = {
@@ -282,5 +296,7 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         reload=False,
-        log_level="info"
+        log_level="info",
+        forwarded_allow_ips="*",  # Trust Railway proxy
+        proxy_headers=True  # Enable proxy header parsing
     )
