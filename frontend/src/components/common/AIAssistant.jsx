@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import '../SOAP/animations.css';
 
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 // Global chat history stored in memory (not localStorage for prototype)
 // Store history per encounter
 let globalChatHistories = {};
@@ -129,7 +131,7 @@ const AIAssistant = ({
     setRecommendationsError(null);
     
     try {
-      const response = await fetch('http://localhost:8000/recommendations', {
+      const response = await fetch(`${API_BASE_URL}/recommendations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -166,7 +168,7 @@ const AIAssistant = ({
     setIsLoadingInsights(true);
     
     try {
-      const response = await fetch('http://localhost:8000/insights', {
+      const response = await fetch(`${API_BASE_URL}/insights`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -322,7 +324,7 @@ const AIAssistant = ({
   const generateIntelligentResponse = async (message) => {
 
     try {
-      const response = await fetch('http://localhost:8000/chat', {
+      const response = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
