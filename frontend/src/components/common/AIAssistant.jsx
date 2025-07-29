@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useParams } from 'react-router-dom'
 import { 
   MessageSquare, Send, X, Sparkles, ChevronDown, ChevronUp, 
   HelpCircle, Brain, FileText, AlertCircle,
   Maximize2, Minimize2, Mic, MicOff, Lightbulb,
-  Paperclip, File, Image as ImageIcon, Copy, GripVertical
+  Paperclip, File, Image as ImageIcon, Copy, GripVertical,
+  Loader2
 } from 'lucide-react';
 import '../SOAP/animations.css';
 
@@ -19,6 +21,7 @@ const AIAssistant = ({
   className = "",
   encounterId // Add encounterId to track chat per encounter
 }) => {
+  const { patientId, episodeId } = useParams()
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -26,8 +29,15 @@ const AIAssistant = ({
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [activeTab, setActiveTab] = useState('chat');
+  // Recommendations state - now dynamic
   const [recommendations, setRecommendations] = useState([]);
-  const [clinicalInsights] = useState({ insights: [], redFlags: [] });
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+  const [recommendationsError, setRecommendationsError] = useState(null);
+  
+  // New insights state
+  const [insights, setInsights] = useState(null);
+  const [isLoadingInsights, setIsLoadingInsights] = useState(false);
+  const [insightsError, setInsightsError] = useState(null);
   
   // Resizing states
   const [customSize, setCustomSize] = useState({ width: 400, height: 600 }); 
@@ -75,6 +85,11 @@ const AIAssistant = ({
       setIsOpen(false);
       setIsMinimized(false);
       setIsExpanded(false);
+      // Reset insights and recommendations when switching encounters
+      setInsights(null);
+      setInsightsError(null);
+      setRecommendations([]);
+      setRecommendationsError(null);
     }
     
     previousEncounterIdRef.current = encounterId;
@@ -108,45 +123,94 @@ const AIAssistant = ({
     }
   }, [messages, encounterId]);
 
-  // Initialize speech recognition
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
-      const recognition = new window.webkitSpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-      
-      recognition.onresult = (event) => {
-        let finalTranscript = '';
-        let interimTranscript = '';
-        
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript + ' ';
-          } else {
-            interimTranscript += transcript;
-          }
-        }
-        
-        if (finalTranscript) {
-          setInputMessage(prev => prev + finalTranscript);
-        }
-        setTranscript(interimTranscript);
-      };
-      
-      recognition.onerror = (event) => {
-        console.error('Speech recognition error:', event.error);
-        setIsListening(false);
-      };
-      
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-      
-      recognitionRef.current = recognition;
+  // Function to fetch recommendations from LLM
+  const fetchRecommendations = async () => {
+    setIsLoadingRecommendations(true);
+    setRecommendationsError(null);
+    
+    try {
+      const response = await fetch('http://localhost:8000/recommendations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          patient_id: patientId,
+          episode_id: episodeId,
+          encounter_id: encounterId,
+          current_section: currentSection
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        setRecommendations(result.recommendations);
+      } else {
+        throw new Error(result.message || 'Failed to fetch recommendations');
+      }
+    } catch (error) {
+      console.error('Error fetching recommendations:', error);
+      setRecommendationsError(error.message || 'Failed to load recommendations. Please try again.');
+    } finally {
+      setIsLoadingRecommendations(false);
     }
-  }, []);
+  };
+
+  // Function to fetch insights from LLM
+  const fetchInsights = async () => {
+    setIsLoadingInsights(true);
+    
+    try {
+      const response = await fetch('http://localhost:8000/insights', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          patient_id: patientId,
+          episode_id: episodeId,
+          encounter_id: encounterId,
+          current_section: currentSection,
+          chief_complaint: episode?.chiefComplaint
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        setInsights(result.insights);
+      } else {
+        throw new Error(result.message || 'Failed to fetch insights');
+      }
+    } catch (error) {
+      console.error('Error fetching insights:', error);
+      setInsightsError(error.message || 'Failed to load clinical insights. Please try again.');
+    } finally {
+      setIsLoadingInsights(false);
+    }
+  };
+
+  // Handle tab changes - fetch data when tabs are clicked
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    if (tabId === 'insights' && !insights && !isLoadingInsights) {
+      fetchInsights();
+    } else if (tabId === 'recommendations' && !isLoadingRecommendations) {
+      // Always fetch fresh recommendations as they depend on current section
+      fetchRecommendations();
+    }
+
+  };
+
   const toggleVoiceInput = () => {
     if (!recognitionRef.current) {
       alert('Speech recognition is not supported in your browser.');
@@ -162,117 +226,12 @@ const AIAssistant = ({
     }
   };
 
-  const generateRecommendations = useCallback(() => {
-    if (!episode?.chiefComplaint) return [];
-    
-    const complaint = episode.chiefComplaint.toLowerCase();
-    const recommendations = [];
-    
-    // Generate context-specific recommendations based on chief complaint
-    if (currentSection === 'subjective') {
-      recommendations.push({
-        type: 'documentation',
-        title: 'Complete OPQRST Assessment',
-        description: 'Document Onset, Provocation/Palliation, Quality, Radiation, Severity (1-10), and Time course',
-        priority: 'high'
-      });
-      
-      if (complaint.includes('chest') || complaint.includes('pain')) {
-        recommendations.push({
-          type: 'assessment',
-          title: 'Cardiac Risk Stratification',
-          description: 'Calculate HEART score or TIMI risk score if chest pain. Document cardiac risk factors.',
-          priority: 'high'
-        });
-      }
-      
-      recommendations.push({
-        type: 'screening',
-        title: 'Review Red Flag Symptoms',
-        description: 'Screen for: sudden onset, neurological deficits, immunocompromised state, recent trauma',
-        priority: 'high'
-      });
-    } else if (currentSection === 'objective') {
-      recommendations.push({
-        type: 'examination',
-        title: 'Vital Signs Interpretation',
-        description: `Check for SIRS criteria: Temp >38°C or <36°C, HR >90, RR >20, WBC >12k or <4k`,
-        priority: 'high'
-      });
-      
-      if (complaint.includes('abdom')) {
-        recommendations.push({
-          type: 'examination',
-          title: 'Abdominal Exam Specifics',
-          description: 'Document: Murphy\'s sign, McBurney\'s point, rebound/guarding, bowel sounds',
-          priority: 'high'
-        });
-      }
-      
-      recommendations.push({
-        type: 'diagnostic',
-        title: 'Point-of-Care Testing',
-        description: 'Consider: ECG (if chest pain), urine dipstick (if GU symptoms), glucose (if altered mental status)',
-        priority: 'medium'
-      });
-    } else if (currentSection === 'assessment') {
-      recommendations.push({
-        type: 'diagnosis',
-        title: 'Structured Differential',
-        description: 'List 3-5 most likely diagnoses with supporting/refuting evidence for each',
-        priority: 'high'
-      });
-      
-      recommendations.push({
-        type: 'risk',
-        title: 'Risk Stratification',
-        description: 'Use validated tools: Wells criteria (DVT/PE), CURB-65 (pneumonia), Alvarado (appendicitis)',
-        priority: 'high'
-      });
-      
-      recommendations.push({
-        type: 'coding',
-        title: 'Accurate ICD-10 Coding',
-        description: 'Include laterality, acuity, and associated symptoms for specific coding',
-        priority: 'medium'
-      });
-    } else if (currentSection === 'plan') {
-      recommendations.push({
-        type: 'treatment',
-        title: 'Evidence-Based Treatment',
-        description: 'Reference current guidelines: UpToDate, specialty society recommendations',
-        priority: 'high'
-      });
-      
-      recommendations.push({
-        type: 'safety',
-        title: 'Medication Reconciliation',
-        description: 'Check for drug interactions, adjust for renal/hepatic function, verify allergies',
-        priority: 'high'
-      });
-      
-      recommendations.push({
-        type: 'followup',
-        title: 'Clear Return Precautions',
-        description: 'Document specific symptoms requiring immediate return: fever >39°C, worsening pain, etc.',
-        priority: 'high'
-      });
-      
-      recommendations.push({
-        type: 'education',
-        title: 'Patient Education',
-        description: 'Provide diagnosis explanation, expected course, self-care measures, medication instructions',
-        priority: 'medium'
-      });
-    }
-    
-    return recommendations;
-  }, [episode, currentSection]);
-  // Generate recommendations when section changes
+  // Fetch recommendations when current section changes
   useEffect(() => {
-    const recs = generateRecommendations();
-    setRecommendations(recs);
-  }, [generateRecommendations]);
+    if (activeTab === 'recommendations' && encounterId) {
+      fetchRecommendations();
+    }
+  }, [currentSection, encounterId]); // Refresh when section changes
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
@@ -315,84 +274,77 @@ const AIAssistant = ({
     }, 1000);
   };
   const processUserMessage = async (message, files) => {
+
     const lowerMessage = message.toLowerCase();
     
     // Check if files were uploaded
-    if (files && files.length > 0) {
-      const fileTypes = files.map(f => f.type);
-      if (fileTypes.some(t => t.startsWith('image/'))) {
-        return {
-          content: "I've received the image(s). Based on what I can see, here are my observations:\n\n• Consider documenting visible findings in the objective section\n• Compare with previous images if available\n• Note any changes in appearance or measurements",
-          actions: [
-            { label: "Add to Objective Findings", value: "add_image_findings" },
-            { label: "Request Specialist Opinion", value: "specialist_consult" }
-          ]
-        };
-      } else if (fileTypes.some(t => t.includes('pdf'))) {
-        return {
-          content: "I've received the document(s). These appear to be medical records or test results. Key points to consider:\n\n• Review for relevant past medical history\n• Note any abnormal findings\n• Compare with current presentation",
-          actions: [
-            { label: "Summarize Key Findings", value: "summarize_docs" },
-            { label: "Add to Medical History", value: "add_to_history" }
-          ]
-        };
-      }
-    }
-    
-    // Context-aware responses based on current section
-    if (currentSection === 'subjective') {
-      if (lowerMessage.includes('question') || lowerMessage.includes('ask')) {
-        return {
-          content: "Here are some relevant questions you might ask:",
-          actions: [
-            { label: "Review of Systems", value: "ros_template" },
-            { label: "Pain Assessment", value: "pain_opqrst" },
-            { label: "Social History", value: "social_history" }
-          ]
-        };
-      }
-    }
+    //if (files && files.length > 0) {
+    //  const fileTypes = files.map(f => f.type);
+    //  if (fileTypes.some(t => t.startsWith('image/'))) {
+    //    return {
+    //      content: "I've received the image(s). Based on what I can see, here are my observations:\n\n• Consider documenting visible findings in the objective section\n• Compare with previous images if available\n• Note any changes in appearance or measurements",
+    //      actions: [
+    //        { label: "Add to Objective Findings", value: "add_image_findings" },
+    //        { label: "Request Specialist Opinion", value: "specialist_consult" }
+    //      ]
+    //    };
+    //  } else if (fileTypes.some(t => t.includes('pdf'))) {
+    //    return {
+    //      content: "I've received the document(s). These appear to be medical records or test results. Key points to consider:\n\n• Review for relevant past medical history\n• Note any abnormal findings\n• Compare with current presentation",
+    //      actions: [
+    //        { label: "Summarize Key Findings", value: "summarize_docs" },
+    //        { label: "Add to Medical History", value: "add_to_history" }
+    //      ]
+    //    };
+    //  }
+    //}
+    //
+    //// Context-aware responses based on current section
+    //if (currentSection === 'subjective') {
+    //  if (lowerMessage.includes('question') || lowerMessage.includes('ask')) {
+    //    return {
+    //      content: "Here are some relevant questions you might ask:",
+    //      actions: [
+    //        { label: "Review of Systems", value: "ros_template" },
+    //        { label: "Pain Assessment", value: "pain_opqrst" },
+    //        { label: "Social History", value: "social_history" }
+    //      ]
+    //    };
+    //  }
+    //}
     
     // Default intelligent response
     return {
-      content: generateIntelligentResponse(),
+      content: await generateIntelligentResponse(message),
       actions: []
     };
   };
-  const generateIntelligentResponse = () => {
-    const responses = [
-      "Based on the clinical presentation, I suggest considering additional history about onset, duration, and associated symptoms.",
-      "The symptoms described align with several possible conditions. Would you like me to help generate a differential diagnosis?",
-      "For this presentation, evidence-based guidelines recommend the following diagnostic approach...",
-      "I can help you document this finding. Which section would you like to add it to?"
-    ];
-    
-    return responses[Math.floor(Math.random() * responses.length)];
-  };
+  const generateIntelligentResponse = async (message) => {
 
-  const handleQuickAction = (action) => {
-    switch (action) {
-      case 'ros_template':
-        if (onInsightApply) {
-          onInsightApply({
-            type: 'template',
-            section: 'subjective',
-            content: getROSTemplate()
-          });
-        }
-        break;
-      case 'add_image_findings':
-        if (onInsightApply) {
-          onInsightApply({
-            type: 'image_findings',
-            section: 'objective',
-            content: 'Physical examination findings from uploaded images: [To be documented]'
-          });
-        }
-        break;
-      default:
-        console.log('Action:', action);
-    }
+    try {
+      const response = await fetch('http://localhost:8000/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({patient_id: patientId, episode_id: episodeId, encounter_id: encounterId, message: message, message_history: messages})
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        return result.message.response;
+      }
+
+    } catch (e) {
+      console.error(e);
+    }     
+
+    return "An unexpected error occured! Please try again.";
   };
   const getROSTemplate = () => {
     return `Review of Systems:
@@ -535,6 +487,185 @@ Allergic/Immunologic: Denies seasonal allergies, frequent infections`;
       document.body.style.userSelect = 'auto';
     };
   }, [isResizing, resizeDirection, customSize]);
+
+  // Render insights content based on state
+  const renderInsightsContent = () => {
+    if (isLoadingInsights) {
+      return (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 mx-auto mb-3 text-blue-600 animate-spin" />
+            <p className="text-sm text-gray-600">Generating clinical insights...</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (insightsError) {
+      return (
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="text-center">
+            <AlertCircle className="w-12 h-12 mx-auto mb-3 text-red-400" />
+            <p className="text-sm text-red-600 mb-3">{insightsError}</p>
+            <button
+              onClick={fetchInsights}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (!insights) {
+      return (
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="text-center">
+            <Brain className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+            <p className="text-sm text-gray-500 mb-3">Clinical insights not loaded</p>
+            <button
+              onClick={fetchInsights}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+            >
+              Load Insights
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex-1 overflow-y-auto p-4 bg-gradient-to-b from-gray-50 to-white">
+        <div className="space-y-4">
+          <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
+            <Brain className="w-5 h-5 mr-2 text-purple-600" />
+            Clinical Decision Support
+          </h3>
+          
+          {/* Critical Considerations */}
+          {insights.criticalConsiderations && (
+            <div className="bg-red-50 border-l-4 border-red-500 rounded-lg p-4">
+              <h4 className="font-medium text-red-800 mb-2 flex items-center">
+                <AlertCircle className="w-4 h-4 mr-1" />
+                Critical Considerations
+              </h4>
+              <div className="text-sm text-red-700">
+                {Array.isArray(insights.criticalConsiderations) ? (
+                  <ul className="space-y-1">
+                    {insights.criticalConsiderations.map((item, idx) => (
+                      <li key={idx}>• {item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>{insights.criticalConsiderations}</p>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Differential Diagnosis Considerations */}
+          {insights.differentialDiagnosis && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <h4 className="font-medium text-purple-800 mb-2">Differential Diagnosis Considerations</h4>
+              <div className="text-sm text-purple-700 space-y-2">
+                {typeof insights.differentialDiagnosis === 'object' ? (
+                  Object.entries(insights.differentialDiagnosis).map(([key, value]) => (
+                    <p key={key}><strong>{key}:</strong> {value}</p>
+                  ))
+                ) : (
+                  <p>{insights.differentialDiagnosis}</p>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Evidence-Based Testing */}
+          {insights.diagnosticRecommendations && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="font-medium text-blue-800 mb-2">Diagnostic Recommendations</h4>
+              <div className="text-sm text-blue-700">
+                {typeof insights.diagnosticRecommendations === 'object' ? (
+                  Object.entries(insights.diagnosticRecommendations).map(([key, value]) => (
+                    <div key={key}>
+                      <p><strong>{key}:</strong></p>
+                      {Array.isArray(value) ? (
+                        <ul className="ml-4 space-y-1 mb-2">
+                          {value.map((item, idx) => (
+                            <li key={idx}>• {item}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="ml-4 mb-2">{value}</p>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p>{insights.diagnosticRecommendations}</p>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Treatment Considerations */}
+          {insights.treatmentConsiderations && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <h4 className="font-medium text-green-800 mb-2">Treatment Considerations</h4>
+              <div className="text-sm text-green-700">
+                {typeof insights.treatmentConsiderations === 'object' ? (
+                  Object.entries(insights.treatmentConsiderations).map(([key, value]) => (
+                    <p key={key} className="mb-2"><strong>{key}:</strong> {value}</p>
+                  ))
+                ) : (
+                  <p>{insights.treatmentConsiderations}</p>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Clinical Pearls */}
+          {insights.clinicalPearls && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <h4 className="font-medium text-amber-800 mb-2">Clinical Pearls</h4>
+              <div className="text-sm text-amber-700">
+                {Array.isArray(insights.clinicalPearls) ? (
+                  <ul className="space-y-1">
+                    {insights.clinicalPearls.map((pearl, idx) => (
+                      <li key={idx}>• {pearl}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>{insights.clinicalPearls}</p>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Refresh button */}
+          <div className="flex justify-center mt-6">
+            <button
+              onClick={fetchInsights}
+              disabled={isLoadingInsights}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+            >
+              {isLoadingInsights ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Refreshing...</span>
+                </>
+              ) : (
+                <>
+                  <Brain className="w-4 h-4" />
+                  <span>Refresh Insights</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       {/* Floating AI Assistant Button */}
@@ -641,7 +772,7 @@ Allergic/Immunologic: Denies seasonal allergies, frequent infections`;
                   ].map(tab => (
                     <button
                       key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
+                      onClick={() => handleTabChange(tab.id)}
                       className={`flex items-center space-x-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all duration-200 relative ${
                         activeTab === tab.id
                           ? 'bg-white text-blue-700 border-b-2 border-blue-600 shadow-sm'
@@ -650,8 +781,11 @@ Allergic/Immunologic: Denies seasonal allergies, frequent infections`;
                     >
                       <tab.icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-blue-600' : ''}`} />
                       <span>{tab.label}</span>
-                      {tab.id === 'insights' && episode?.chiefComplaint && (
-                        <span className="ml-1 px-1.5 py-0.5 text-xs bg-red-100 text-red-600 rounded-full">3</span>
+                      {tab.id === 'insights' && isLoadingInsights && (
+                        <Loader2 className="w-3 h-3 animate-spin text-blue-600" />
+                      )}
+                      {tab.id === 'recommendations' && isLoadingRecommendations && (
+                        <Loader2 className="w-3 h-3 animate-spin text-blue-600" />
                       )}
                     </button>
                   ))}
@@ -737,7 +871,7 @@ Allergic/Immunologic: Denies seasonal allergies, frequent infections`;
                                 {message.actions.map((action, idx) => (
                                   <button
                                     key={idx}
-                                    onClick={() => handleQuickAction(action.value)}
+                                    onClick={() => console.log('Action:', action.value)}
                                     className="block w-full text-left text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg px-3 py-2 transition-all duration-200 hover:shadow-sm"
                                   >
                                     <span className="font-medium">{action.label}</span>
@@ -872,134 +1006,103 @@ Allergic/Immunologic: Denies seasonal allergies, frequent infections`;
                 )}
                 {activeTab === 'recommendations' && (
                   <div className="flex-1 overflow-y-auto p-4">
-                    <div className="mb-3">
-                      <h3 className="font-medium text-gray-900">AI Recommendations</h3>
-                      <p className="text-xs text-gray-600 mt-1">
-                        Recommendations update based on your current documentation section
-                      </p>
-                    </div>
-                    <div className="space-y-3">
-                      {recommendations.length > 0 ? (
-                        recommendations.map((rec, idx) => (
-                          <div 
-                            key={idx} 
-                            className={`border rounded-lg p-3 ${
-                              rec.priority === 'high' 
-                                ? 'border-red-200 bg-red-50' 
-                                : rec.priority === 'medium'
-                                ? 'border-yellow-200 bg-yellow-50'
-                                : 'border-gray-200 bg-gray-50'
-                            }`}
+                    {isLoadingRecommendations ? (
+                      <div className="flex-1 flex items-center justify-center">
+                        <div className="text-center">
+                          <Loader2 className="w-8 h-8 mx-auto mb-3 text-blue-600 animate-spin" />
+                          <p className="text-sm text-gray-600">Generating recommendations...</p>
+                        </div>
+                      </div>
+                    ) : recommendationsError ? (
+                      <div className="flex-1 flex items-center justify-center">
+                        <div className="text-center">
+                          <AlertCircle className="w-12 h-12 mx-auto mb-3 text-red-400" />
+                          <p className="text-sm text-red-600 mb-3">{recommendationsError}</p>
+                          <button
+                            onClick={fetchRecommendations}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
                           >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <p className="font-medium text-gray-900 text-sm">{rec.title}</p>
-                                <p className="text-xs text-gray-600 mt-1">{rec.description}</p>
+                            Retry
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="mb-3">
+                          <h3 className="font-medium text-gray-900">AI Recommendations</h3>
+                          <p className="text-xs text-gray-600 mt-1">
+                            Section-specific recommendations for: <span className="font-medium capitalize">{currentSection || 'General'}</span>
+                          </p>
+                        </div>
+                        <div className="space-y-3">
+                          {recommendations.length > 0 ? (
+                            recommendations.map((rec, idx) => (
+                              <div 
+                                key={idx} 
+                                className={`border rounded-lg p-3 ${
+                                  rec.priority === 'high' 
+                                    ? 'border-red-200 bg-red-50' 
+                                    : rec.priority === 'medium'
+                                    ? 'border-yellow-200 bg-yellow-50'
+                                    : 'border-gray-200 bg-gray-50'
+                                }`}
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center space-x-2 mb-1">
+                                      <p className="font-medium text-gray-900 text-sm">{rec.title}</p>
+                                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                        rec.priority === 'high'
+                                          ? 'bg-red-200 text-red-700'
+                                          : rec.priority === 'medium'
+                                          ? 'bg-yellow-200 text-yellow-700'
+                                          : 'bg-gray-200 text-gray-700'
+                                      }`}>
+                                        {rec.priority}
+                                      </span>
+                                    </div>
+                                    <p className="text-xs text-gray-600 mb-1">
+                                      <span className="font-medium capitalize">{rec.type}</span>
+                                    </p>
+                                    <p className="text-sm text-gray-700">{rec.description}</p>
+                                  </div>
+                                </div>
                               </div>
-                              <span className={`text-xs px-2 py-1 rounded-full ml-2 flex-shrink-0 ${
-                                rec.priority === 'high'
-                                  ? 'bg-red-200 text-red-700'
-                                  : rec.priority === 'medium'
-                                  ? 'bg-yellow-200 text-yellow-700'
-                                  : 'bg-gray-200 text-gray-700'
-                              }`}>
-                                {rec.priority}
-                              </span>
+                            ))
+                          ) : (
+                            <div className="text-center py-8 text-gray-500">
+                              <Lightbulb className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                              <p className="text-sm">No recommendations available.</p>
+                              <p className="text-xs mt-1">Switch to a specific SOAP section to see targeted recommendations.</p>
                             </div>
-                            <button
-                              onClick={() => {
-                                if (onInsightApply) {
-                                  onInsightApply({
-                                    type: 'recommendation',
-                                    content: rec.title + ': ' + rec.description
-                                  });
-                                }
-                              }}
-                              className="mt-2 text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors"
-                            >
-                              Apply Recommendation
-                            </button>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-8 text-gray-500">
-                          <Lightbulb className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                          <p className="text-sm">No specific recommendations at this time.</p>
-                          <p className="text-xs mt-1">Continue documenting to receive AI suggestions.</p>
+                          )}
                         </div>
-                      )}
-                    </div>
+                        
+                        {/* Refresh button */}
+                        <div className="flex justify-center mt-6">
+                          <button
+                            onClick={fetchRecommendations}
+                            disabled={isLoadingRecommendations}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                          >
+                            {isLoadingRecommendations ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Refreshing...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Lightbulb className="w-4 h-4" />
+                                <span>Refresh Recommendations</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
-                {activeTab === 'insights' && (
-                  <div className="flex-1 overflow-y-auto p-4 bg-gradient-to-b from-gray-50 to-white">
-                    {/* Dynamic insights based on chief complaint */}
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-gray-900 mb-3 flex items-center">
-                        <Brain className="w-5 h-5 mr-2 text-purple-600" />
-                        Clinical Decision Support
-                      </h3>
-                      
-                      {/* Critical Values / Red Flags */}
-                      <div className="bg-red-50 border-l-4 border-red-500 rounded-lg p-4">
-                        <h4 className="font-medium text-red-800 mb-2 flex items-center">
-                          <AlertCircle className="w-4 h-4 mr-1" />
-                          Critical Considerations
-                        </h4>
-                        <ul className="text-sm text-red-700 space-y-1">
-                          <li>• Monitor for signs of sepsis if fever &gt;38.5°C with tachycardia</li>
-                          <li>• Consider PE if dyspnea with pleuritic chest pain and risk factors</li>
-                          <li>• Rule out meningitis if headache with neck stiffness and photophobia</li>
-                        </ul>
-                      </div>
-                      
-                      {/* Differential Diagnosis Insights */}
-                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                        <h4 className="font-medium text-purple-800 mb-2">Differential Diagnosis Considerations</h4>
-                        <div className="text-sm text-purple-700 space-y-2">
-                          <p><strong>Most Likely:</strong> Based on presentation, consider viral URI, bacterial pharyngitis, or allergic rhinitis</p>
-                          <p><strong>Can't Miss:</strong> Peritonsillar abscess, epiglottitis (if dysphagia), Ludwig's angina</p>
-                          <p><strong>Likelihood Ratios:</strong> Centor criteria 3-4: LR+ 5.2 for GAS pharyngitis</p>
-                        </div>
-                      </div>                      
-                      {/* Evidence-Based Testing */}
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <h4 className="font-medium text-blue-800 mb-2">Diagnostic Recommendations</h4>
-                        <div className="text-sm text-blue-700 space-y-2">
-                          <p><strong>Indicated Tests:</strong></p>
-                          <ul className="ml-4 space-y-1">
-                            <li>• Rapid strep test (if Centor ≥3)</li>
-                            <li>• CBC with diff if systemic symptoms</li>
-                            <li>• Mono spot if lymphadenopathy + pharyngitis</li>
-                          </ul>
-                          <p className="mt-2"><strong>Avoid:</strong> Routine chest X-ray without respiratory symptoms (Choosing Wisely)</p>
-                        </div>
-                      </div>
-                      
-                      {/* Treatment Insights */}
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <h4 className="font-medium text-green-800 mb-2">Treatment Considerations</h4>
-                        <div className="text-sm text-green-700 space-y-2">
-                          <p><strong>First-line:</strong> Amoxicillin 500mg TID x 10 days (if GAS confirmed)</p>
-                          <p><strong>Penicillin allergy:</strong> Azithromycin 500mg day 1, then 250mg daily x 4 days</p>
-                          <p><strong>Symptomatic:</strong> Acetaminophen/NSAIDs, throat lozenges, salt water gargles</p>
-                          <p className="text-xs mt-2 italic">NNT for antibiotics in pharyngitis: 14 to prevent 1 case of rheumatic fever</p>
-                        </div>
-                      </div>
-                      
-                      {/* Clinical Pearls */}
-                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                        <h4 className="font-medium text-amber-800 mb-2">Clinical Pearls</h4>
-                        <ul className="text-sm text-amber-700 space-y-1">
-                          <li>• Absence of cough increases likelihood of GAS pharyngitis (LR+ 1.5)</li>
-                          <li>• Palatal petechiae highly specific for GAS (specificity 95%)</li>
-                          <li>• Consider EBV in young adults with pharyngitis + posterior cervical LAD</li>
-                          <li>• Corticosteroids may reduce pain duration by 4.8 hours (NNT=4)</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {activeTab === 'insights' && renderInsightsContent()}
               </div>
             </div>
           )}

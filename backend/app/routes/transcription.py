@@ -12,7 +12,7 @@ load_dotenv()
 router = APIRouter()
 
 system_prompt = """
-You are a clinical documentation assistant. Given a short audio transcript from a physician, extract structured information to auto-fill a SOAP note. Include the following fields: the chief complaint, a summary of the history of present illness (HPI) including symptoms, duration, and relevant exam findings, vital signs such as blood pressure, temperature, pulse, and respiratory rate, the physician’s clinical impression or diagnosis, and the planned treatments, medications, or recommendations. Focus on accuracy and clarity, capturing all essential details mentioned in the transcript. For any unknown data, input 'Unknown'.
+You are a clinical documentation assistant. Given a short audio transcript from a physician, extract structured information to auto-fill a SOAP note. Include the following fields: the chief complaint, a summary of the history of present illness (HPI) including symptoms, duration, and relevant exam findings, vital signs such as blood pressure, temperature, pulse, and respiratory rate, the physician’s clinical impression or diagnosis, and the planned treatments, medications, or recommendations. Focus on accuracy and clarity, capturing all essential details mentioned in the transcript. For any unknown data, input ''.
 """
 
 class Vitals(TypedDict):
@@ -21,39 +21,34 @@ class Vitals(TypedDict):
     pulse: str
     respiratoryRate: str
 
-
 class PhysicalExam(TypedDict):
     general: str
-
 
 class Subjective(TypedDict):
     chiefComplaint: str
     hpi: str
     ros: Dict[str, str]
 
-
 class Objective(TypedDict):
     vitals: Vitals
     physicalExam: PhysicalExam
     labResults: List[str]
 
-
 class Assessment(TypedDict):
     clinicalImpression: str
     differentialDiagnosis: List[str]
-
 
 class Plan(TypedDict):
     treatments: List[str]
     diagnostics: List[str]
     followUp: str
 
-
 class Transcription(TypedDict):
     subjective: Subjective
     objective: Objective
     assessment: Assessment
     plan: Plan    
+
 class VoiceData(BaseModel):
     audio_data: str
 
