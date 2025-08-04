@@ -12,11 +12,12 @@ import asyncio
 from datetime import datetime
 from unittest.mock import Mock, AsyncMock, patch
 
-from app.models.auth import UserModel, UserRoleEnum
+from app.models.auth import UserModel, UserRoleEnum, UserProfile, UserStatusEnum
 from app.models.template import (
     TemplateModel, TemplateCreateRequest, TemplateUpdateRequest,
     TemplateSearchRequest, TemplateApplicationRequest, TemplateSection,
-    TemplateField, TemplateType, TemplateCategory, TemplateScope, FieldType
+    TemplateField, TemplateType, TemplateCategory, TemplateScope, FieldType,
+    TemplateMetadata
 )
 from app.models.encounter import EncounterModel
 from app.services.template_service import TemplateService
@@ -30,24 +31,32 @@ class TestTemplateService:
     @pytest.fixture
     def mock_user(self):
         """Create mock user"""
+        from app.models.auth import UserProfile
         return UserModel(
             id="user123",
             email="test@example.com",
-            name="Test User",
+            hashed_password="hashed_password_123",
             role=UserRoleEnum.DOCTOR,
-            is_active=True,
+            profile=UserProfile(
+                first_name="Test",
+                last_name="User"
+            ),
             is_verified=True
         )
     
     @pytest.fixture
     def admin_user(self):
         """Create mock admin user"""
+        from app.models.auth import UserProfile
         return UserModel(
             id="admin123",
             email="admin@example.com",
-            name="Admin User",
+            hashed_password="hashed_password_admin",
             role=UserRoleEnum.ADMIN,
-            is_active=True,
+            profile=UserProfile(
+                first_name="Admin",
+                last_name="User"
+            ),
             is_verified=True
         )
     
@@ -156,7 +165,7 @@ class TestTemplateService:
             id="template123",
             **sample_template_request.model_dump(),
             owner_id=mock_user.id,
-            metadata=Mock(created_by=mock_user.id)
+            metadata=TemplateMetadata(created_by=mock_user.id)
         )
         mock_template_repository.create_template.return_value = expected_template
         
@@ -193,9 +202,13 @@ class TestTemplateService:
         student_user = UserModel(
             id="student123",
             email="student@example.com",
-            name="Student User",
+            hashed_password="hashed_password_placeholder",
             role=UserRoleEnum.STUDENT,
-            is_active=True,
+            profile=UserProfile(
+                first_name="Student",
+                last_name="User"
+            ),
+            status=UserStatusEnum.ACTIVE,
             is_verified=True
         )
         
@@ -223,7 +236,7 @@ class TestTemplateService:
             scope=TemplateScope.PERSONAL,
             sections=[],
             owner_id=mock_user.id,
-            metadata=Mock()
+            metadata=TemplateMetadata(created_by=mock_user.id)
         )
         
         mock_template_repository.get_template_by_id.return_value = expected_template
@@ -273,7 +286,7 @@ class TestTemplateService:
             scope=TemplateScope.PERSONAL,
             sections=[],
             owner_id=mock_user.id,
-            metadata=Mock()
+            metadata=TemplateMetadata(created_by=mock_user.id)
         )
         
         mock_template_repository.update_template.return_value = expected_template
@@ -410,7 +423,7 @@ class TestTemplateService:
             scope=TemplateScope.PERSONAL,
             sections=sample_template_sections,
             owner_id=mock_user.id,
-            metadata=Mock()
+            metadata=TemplateMetadata(created_by=mock_user.id)
         )
         
         # Mock encounter

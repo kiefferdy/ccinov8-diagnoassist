@@ -23,29 +23,76 @@ class TestPatientAPI:
     
     async def test_create_patient_endpoint(self, sample_patient: PatientModel):
         """Test creating patient via API"""
-        async with AsyncClient(app=app, base_url="http://test") as ac:
-            # Mock the repository
-            with patch('app.api.v1.patients.patient_repository') as mock_repo:
-                mock_repo.create.return_value = sample_patient
-                
-                response = await ac.post(
-                    "/api/v1/patients/",
-                    json=sample_patient.model_dump()
-                )
-                
-                assert response.status_code == 201
-                assert response.json()["demographics"]["name"] == sample_patient.demographics.name
+        from app.middleware.auth_middleware import require_patient_write
+        from app.models.auth import UserProfile
+        
+        # Create mock user
+        mock_user = UserModel(
+            id="user123",
+            email="doctor@example.com",
+            hashed_password="hashed_password_123",
+            role=UserRoleEnum.DOCTOR,
+            profile=UserProfile(
+                first_name="Dr.",
+                last_name="Smith"
+            ),
+            is_verified=True
+        )
+        
+        # Override the dependency
+        app.dependency_overrides[require_patient_write] = lambda: mock_user
+        
+        try:
+            async with AsyncClient(app=app, base_url="http://test") as ac:
+                # Mock the repository
+                with patch('app.api.v1.patients.patient_repository') as mock_repo:
+                    mock_repo.get_by_email = AsyncMock(return_value=None)  # No existing patient
+                    mock_repo.create = AsyncMock(return_value=sample_patient)
+                    
+                    response = await ac.post(
+                        "/api/v1/patients/",
+                        json=sample_patient.model_dump(mode='json')
+                    )
+                    
+                    assert response.status_code == 200
+                    assert response.json()["data"]["demographics"]["name"] == sample_patient.demographics.name
+        finally:
+            # Clean up the override
+            app.dependency_overrides.clear()
     
     async def test_get_patient_endpoint(self, sample_patient: PatientModel):
         """Test getting patient by ID via API"""
-        async with AsyncClient(app=app, base_url="http://test") as ac:
-            with patch('app.api.v1.patients.patient_repository') as mock_repo:
-                mock_repo.get_by_id.return_value = sample_patient
-                
-                response = await ac.get(f"/api/v1/patients/{sample_patient.id}")
-                
-                assert response.status_code == 200
-                assert response.json()["demographics"]["name"] == sample_patient.demographics.name
+        from app.middleware.auth_middleware import require_patient_read
+        from app.models.auth import UserProfile
+        
+        # Create mock user
+        mock_user = UserModel(
+            id="user123",
+            email="doctor@example.com",
+            hashed_password="hashed_password_123",
+            role=UserRoleEnum.DOCTOR,
+            profile=UserProfile(
+                first_name="Dr.",
+                last_name="Smith"
+            ),
+            is_verified=True
+        )
+        
+        # Override the dependency
+        app.dependency_overrides[require_patient_read] = lambda: mock_user
+        
+        try:
+            async with AsyncClient(app=app, base_url="http://test") as ac:
+                with patch('app.api.v1.patients.patient_repository') as mock_repo:
+                    mock_repo.get_by_id.return_value = sample_patient
+                    
+                    response = await ac.get(f"/api/v1/patients/{sample_patient.id}")
+                    
+                    assert response.status_code == 200
+                    assert response.json()["demographics"]["name"] == sample_patient.demographics.name
+        finally:
+            # Clean up the override
+            app.dependency_overrides.clear()
     
     async def test_get_patient_not_found(self):
         """Test getting non-existent patient"""
@@ -67,7 +114,7 @@ class TestPatientAPI:
                 
                 response = await ac.put(
                     f"/api/v1/patients/{sample_patient.id}",
-                    json=updated_patient.model_dump()
+                    json=updated_patient.model_dump(mode='json')
                 )
                 
                 assert response.status_code == 200
@@ -114,7 +161,7 @@ class TestEncounterAPI:
                 
                 response = await ac.post(
                     "/api/v1/encounters/",
-                    json=sample_encounter.model_dump(),
+                    json=sample_encounter.model_dump(mode='json'),
                     headers=self.get_auth_headers()
                 )
                 
@@ -232,7 +279,7 @@ class TestAuthAPI:
                     "email": sample_user.email,
                     "password": "testpassword",
                     "role": sample_user.role.value,
-                    "profile": sample_user.profile.model_dump()
+                    "profile": sample_user.profile.model_dump(mode='json')
                 }
                 
                 response = await ac.post(

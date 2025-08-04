@@ -105,6 +105,12 @@ class PatientService:
             raise NotFoundError("Patient", patient_id)
         return patient
     
+    async def get_patient(self, patient_id: str, current_user: UserModel) -> PatientModel:
+        """Get a patient by ID with user context (alias for API compatibility)"""
+        # For now, we just use the validation method and ignore user context for simplicity
+        # In a future version, we could add user-specific access controls here
+        return await self.get_patient_with_validation(patient_id)
+    
     async def search_patients(
         self, 
         search_params: Dict[str, Any],

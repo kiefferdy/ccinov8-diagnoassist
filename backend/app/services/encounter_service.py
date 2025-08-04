@@ -401,6 +401,12 @@ class EncounterService:
             raise NotFoundError("Encounter", encounter_id)
         return encounter
     
+    async def get_encounter(self, encounter_id: str, current_user: UserModel) -> EncounterModel:
+        """Get an encounter by ID with user context (alias for API compatibility)"""
+        # For now, we just use the validation method and ignore user context for simplicity
+        # In a future version, we could add user-specific access controls here
+        return await self.get_encounter_with_validation(encounter_id)
+    
     async def get_patient_encounters(
         self, 
         patient_id: str,

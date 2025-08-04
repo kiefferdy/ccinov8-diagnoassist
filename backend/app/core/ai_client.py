@@ -87,7 +87,7 @@ class GeminiAIClient:
             logger.info("Gemini AI client configured successfully")
         except Exception as e:
             logger.error(f"Failed to configure Gemini client: {e}")
-            raise AIServiceException(f"AI client configuration failed: {str(e)}")
+            raise AIServiceException(f"AI client configuration failed: {str(e)}", "client_configuration")
     
     async def generate_response(self, request: AIRequest) -> AIResponse:
         """Generate AI response for given request"""
@@ -126,7 +126,7 @@ class GeminiAIClient:
             logger.error(f"AI request error: {request.task_type.value} - {type(e).__name__}: {e}")
             
             logger.error(f"AI request failed: {e}")
-            raise AIServiceException(f"AI generation failed: {str(e)}")
+            raise AIServiceException(f"AI generation failed: {str(e)}", "ai_generation")
     
     def _get_generation_config(self, request: AIRequest) -> Dict[str, Any]:
         """Get generation config for request"""
@@ -170,7 +170,7 @@ class GeminiAIClient:
             
         except Exception as e:
             logger.error(f"Model call failed: {e}")
-            raise AIServiceException(f"Model generation failed: {str(e)}")
+            raise AIServiceException(f"Model generation failed: {str(e)}", "model_generation")
     
     def _process_response(self, response: Any, task_type: AITaskType) -> AIResponse:
         """Process the model response"""
@@ -208,7 +208,7 @@ class GeminiAIClient:
             
         except Exception as e:
             logger.error(f"Response processing failed: {e}")
-            raise AIServiceException(f"Response processing failed: {str(e)}")
+            raise AIServiceException(f"Response processing failed: {str(e)}", "response_processing")
     
     def _format_context(self, context: Dict[str, Any]) -> str:
         """Format context information for the prompt"""
@@ -332,7 +332,7 @@ ai_client_manager: Optional[AIClientManager] = None
 def get_ai_client() -> AIClientManager:
     """Get the global AI client manager"""
     if ai_client_manager is None:
-        raise AIServiceException("AI client manager not initialized")
+        raise AIServiceException("AI client manager not initialized", "client_initialization")
     return ai_client_manager
 
 

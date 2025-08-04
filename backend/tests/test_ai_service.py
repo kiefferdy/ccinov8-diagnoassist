@@ -15,7 +15,7 @@ from app.models.ai_models import (
     DocumentationCompletionRequest, SOAPSection, ConfidenceLevel
 )
 from app.models.patient import PatientModel, PatientDemographics, MedicalBackground
-from app.models.encounter import EncounterModel, EncounterStatusEnum, EncounterTypeEnum
+from app.models.encounter import EncounterModel, EncounterStatusEnum, EncounterTypeEnum, ProviderInfo
 from app.models.soap import SOAPModel, SOAPSubjective
 from app.core.exceptions import AIServiceException
 
@@ -51,6 +51,13 @@ class TestAIService:
             episode_id="EP001",
             type=EncounterTypeEnum.INITIAL,
             status=EncounterStatusEnum.DRAFT,
+            provider=ProviderInfo(
+                id="provider123",
+                name="Dr. Test Provider",
+                role="Attending Physician",
+                specialty="Internal Medicine",
+                department="Internal Medicine"
+            ),
             soap=SOAPModel(
                 subjective=SOAPSubjective(
                     chief_complaint="Chest pain",
@@ -111,7 +118,11 @@ SOAP_EXTRACTION: {
         with patch('app.services.ai_service.get_ai_client') as mock_get_client:
             mock_client = AsyncMock()
             mock_client.generate_response.return_value = mock_ai_response
-            mock_get_client.return_value.get_client.return_value = mock_client
+            
+            # Set up the async mock chain properly
+            mock_ai_client_manager = AsyncMock()
+            mock_ai_client_manager.get_client = AsyncMock(return_value=mock_client)
+            mock_get_client.return_value = mock_ai_client_manager
             
             result = await ai_service.process_voice_to_soap(
                 voice_processing_request, sample_patient, sample_encounter
@@ -152,7 +163,11 @@ SOAP_EXTRACTION: {
         with patch('app.services.ai_service.get_ai_client') as mock_get_client:
             mock_client = AsyncMock()
             mock_client.generate_response.return_value = mock_ai_response
-            mock_get_client.return_value.get_client.return_value = mock_client
+            
+            # Set up the async mock chain properly
+            mock_ai_client_manager = AsyncMock()
+            mock_ai_client_manager.get_client = AsyncMock(return_value=mock_client)
+            mock_get_client.return_value = mock_ai_client_manager
             
             result = await ai_service.generate_clinical_insights(
                 sample_patient, sample_encounter
@@ -184,7 +199,11 @@ I recommend ordering an ECG and cardiac markers to evaluate for ACS.
         with patch('app.services.ai_service.get_ai_client') as mock_get_client:
             mock_client = AsyncMock()
             mock_client.generate_response.return_value = mock_ai_response
-            mock_get_client.return_value.get_client.return_value = mock_client
+            
+            # Set up the async mock chain properly
+            mock_ai_client_manager = AsyncMock()
+            mock_ai_client_manager.get_client = AsyncMock(return_value=mock_client)
+            mock_get_client.return_value = mock_ai_client_manager
             
             result = await ai_service.chat_with_ai(
                 chat_request, sample_patient, sample_encounter
@@ -221,7 +240,11 @@ I recommend ordering an ECG and cardiac markers to evaluate for ACS.
         with patch('app.services.ai_service.get_ai_client') as mock_get_client:
             mock_client = AsyncMock()
             mock_client.generate_response.return_value = mock_ai_response
-            mock_get_client.return_value.get_client.return_value = mock_client
+            
+            # Set up the async mock chain properly
+            mock_ai_client_manager = AsyncMock()
+            mock_ai_client_manager.get_client = AsyncMock(return_value=mock_client)
+            mock_get_client.return_value = mock_ai_client_manager
             
             result = await ai_service.complete_documentation(
                 documentation_request, sample_patient
@@ -265,7 +288,11 @@ I recommend ordering an ECG and cardiac markers to evaluate for ACS.
         with patch('app.services.ai_service.get_ai_client') as mock_get_client:
             mock_client = AsyncMock()
             mock_client.generate_response.return_value = mock_ai_response
-            mock_get_client.return_value.get_client.return_value = mock_client
+            
+            # Set up the async mock chain properly
+            mock_ai_client_manager = AsyncMock()
+            mock_ai_client_manager.get_client = AsyncMock(return_value=mock_client)
+            mock_get_client.return_value = mock_ai_client_manager
             
             # First chat message
             result1 = await ai_service.chat_with_ai(chat_request)

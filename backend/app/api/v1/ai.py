@@ -26,7 +26,7 @@ from app.core.ai_client import get_ai_client
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/ai", tags=["AI"])
+router = APIRouter(tags=["AI"])
 
 
 @router.post("/voice/process", response_model=VoiceProcessingResult)

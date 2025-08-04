@@ -108,7 +108,7 @@ class AIService:
             logger.error(f"Voice processing error: {type(e).__name__}")
             
             logger.error(f"Voice processing failed for encounter {request.encounter_id}: {e}")
-            raise AIServiceException(f"Voice processing failed: {str(e)}")
+            raise AIServiceException(f"Voice processing failed: {str(e)}", "voice_processing")
     
     async def generate_clinical_insights(
         self,
@@ -165,7 +165,7 @@ class AIService:
             logger.error(f"Clinical insights error: {type(e).__name__}")
             
             logger.error(f"Clinical insights generation failed: {e}")
-            raise AIServiceException(f"Clinical insights generation failed: {str(e)}")
+            raise AIServiceException(f"Clinical insights generation failed: {str(e)}", "clinical_insights")
     
     async def chat_with_ai(
         self,
@@ -258,7 +258,7 @@ class AIService:
             logger.error(f"AI chat error: {type(e).__name__}")
             
             logger.error(f"AI chat failed: {e}")
-            raise AIServiceException(f"AI chat failed: {str(e)}")
+            raise AIServiceException(f"AI chat failed: {str(e)}", "ai_chat")
     
     async def complete_documentation(
         self,
@@ -328,7 +328,7 @@ class AIService:
             logger.error(f"Documentation completion error: {type(e).__name__}")
             
             logger.error(f"Documentation completion failed: {e}")
-            raise AIServiceException(f"Documentation completion failed: {str(e)}")
+            raise AIServiceException(f"Documentation completion failed: {str(e)}", "documentation_completion")
     
     # Helper Methods
     
